@@ -88,15 +88,20 @@ repo. **Root Directory: la raíz del repo** (no `server/`) — es un monorepo
 con npm workspaces, así que `npm install` necesita correr desde la raíz para
 que los paquetes se enlacen entre sí.
 
-Configura en Settings → Build/Deploy:
+**No escribas el Build/Start Command a mano en los campos de texto** — el
+auto-detect de Railway para monorepos adivina mal (corre
+`npm run build --workspace=@desmoche/server` sin construir `shared` antes, y
+el build truena buscando `@desmoche/shared`). En vez de eso, este repo trae
+`railway.server.json` y `railway.client.json` con los comandos correctos ya
+versionados. Para que Railway los use:
 
-| Campo | Valor |
-|---|---|
-| Build Command | `npm install && npm run build:server` |
-| Start Command | `npm run start:server` |
-| Healthcheck Path | `/health` |
+Settings → General → **Config-as-code file** → pon `railway.server.json`
+para este servicio (y `railway.client.json` para el de frontend, en el
+paso 6). Railway relee el archivo del repo en cada deploy, así que el build
+nunca vuelve a desincronizarse del código.
 
-Variables de entorno (Settings → Variables):
+Eso ya trae `Healthcheck Path: /health` incluido. Solo faltan las variables
+de entorno (Settings → Variables):
 
 | Variable | Valor |
 |---|---|
@@ -108,11 +113,7 @@ Variables de entorno (Settings → Variables):
 ## 6. Servicio de frontend
 
 Otro servicio "GitHub Repo" del mismo repo, mismo Root Directory (la raíz).
-
-| Campo | Valor |
-|---|---|
-| Build Command | `npm install && npm run build:client` |
-| Start Command | `npm run start:client` |
+Igual que arriba: Settings → General → Config-as-code file → `railway.client.json`.
 
 Variables de entorno:
 

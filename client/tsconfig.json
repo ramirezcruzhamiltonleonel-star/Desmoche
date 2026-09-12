@@ -1,0 +1,21 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    // React/JSX idiomatically passes `prop={condition ? value : undefined}` for
+    // optional handlers — too common to fight, so relax this strictness here
+    // even though the server keeps it on for data correctness.
+    "exactOptionalPropertyTypes": false,
+    "declaration": false,
+    "sourceMap": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

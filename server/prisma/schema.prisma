@@ -1,0 +1,67 @@
+// Dev uses SQLite for a zero-install local setup. Production points DATABASE_URL
+// at the Railway-managed Postgres instance instead — see server/README notes
+// before deploying: switching the `provider` below to "postgresql" is a
+// deliberate one-time migration step, not automatic.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  displayName String
+  chipBalance Int      @default(1000)
+  createdAt   DateTime @default(now())
+
+  handAppearances HandHistoryPlayer[]
+}
+
+// Deliberately has no relation to User: a code can be requested for an email
+// that doesn't have an account yet (first-time sign-up creates it on verify).
+model OneTimeCode {
+  id         String    @id @default(uuid())
+  email      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
+model TableRecord {
+  id        String   @id @default(uuid())
+  code      String
+  stakeType String
+  ante      Int
+  createdAt DateTime @default(now())
+
+  hands HandHistoryRecord[]
+}
+
+model HandHistoryRecord {
+  id           String   @id @default(uuid())
+  table        TableRecord @relation(fields: [tableId], references: [id])
+  tableId      String
+  reason       String
+  winnerUserId String
+  playedAt     DateTime @default(now())
+
+  players HandHistoryPlayer[]
+}
+
+model HandHistoryPlayer {
+  id         String  @id @default(uuid())
+  hand       HandHistoryRecord @relation(fields: [handId], references: [id])
+  handId     String
+  user       User    @relation(fields: [userId], references: [id])
+  userId     String
+  seatIndex  Int
+  isWinner   Boolean
+  chipsDelta Int     @default(0)
+}

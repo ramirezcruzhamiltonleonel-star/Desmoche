@@ -61,6 +61,14 @@ export interface GameState {
    * be placed into a meld before they may discard to end their turn.
    */
   mustPlaceCard: Card | null;
+  /**
+   * The single card just drawn from the STOCK (normal draw, or the kept half
+   * of a first-turn double draw) — it never joins the "original 9" for a
+   * free discard choice. The player must either place it into a meld right
+   * away or discard exactly this card; no other action is legal until it's
+   * resolved one way or the other.
+   */
+  pendingDrawnCard: Card | null;
   /** Present only while resolving a first-turn double stock draw. */
   firstTurnChoice: [Card, Card] | null;
   /** Present only during the 'cambio' phase, right after dealing and before the initial claim window. */

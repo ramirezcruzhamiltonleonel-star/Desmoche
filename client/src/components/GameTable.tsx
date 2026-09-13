@@ -4,6 +4,7 @@ import { useGame } from "../context/GameContext";
 import { useSound } from "../hooks/useSound";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
+import { sortHandForDisplay } from "../lib/sortHand";
 import ActionBar from "./ActionBar";
 import CambioModal from "./CambioModal";
 import Card from "./Card";
@@ -55,6 +56,16 @@ export default function GameTable() {
     setDesmocheSource(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.turnSeatIndex, state?.phase]);
+
+  useEffect(() => {
+    // A stock draw is never a free choice among the original 9 — pre-select
+    // it so "Descartar" targets it by default, and any meld the player
+    // builds naturally has to include it.
+    if (state?.pendingDrawnCard) {
+      setSelectedCards([state.pendingDrawnCard]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.pendingDrawnCard && cardKey(state.pendingDrawnCard)]);
 
   if (!state) return null;
 
@@ -203,7 +214,7 @@ export default function GameTable() {
 
       <div className="border-t border-wood/60 bg-black/20 px-3 py-3">
         <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
-          {state.yourHand.map((card) => (
+          {sortHandForDisplay(state.yourHand).map((card) => (
             <Card
               key={cardKey(card)}
               card={card}
@@ -224,6 +235,7 @@ export default function GameTable() {
           onExtend={handleExtend}
           onDiscard={handleDiscard}
           mustPlaceCard={state.mustPlaceCard}
+          pendingDrawnCard={state.pendingDrawnCard}
           desmocheMode={desmocheMode}
           onToggleDesmoche={() => {
             setDesmocheMode((prev) => !prev);

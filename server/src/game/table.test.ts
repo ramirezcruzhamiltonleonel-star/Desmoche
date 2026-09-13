@@ -172,7 +172,9 @@ describe("Table — first-turn double draw", () => {
     const drawn = table.drawFromStock("p1");
     expect(drawn).toHaveLength(2);
     table.chooseFirstTurnCard("p1", drawn[0]!);
-    table.discard("p1", table.state.hands["p1"]![0]!);
+    // The kept stock card must be discarded directly — it never joins the
+    // original 9 for a free discard choice (Corrección 1).
+    table.discard("p1", drawn[0]!);
     table.forceResolveClaimWindow();
 
     const secondDraw = table.drawFromStock("p0");
@@ -227,6 +229,9 @@ describe("Table — claiming a discard out of turn", () => {
     table.forceResolveClaimWindow();
     table.drawFromStock("p1"); // seat1 is dealer(0)+1 => first player
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
+    // Not testing the stock-draw-resolution rule here — pretend it's already
+    // resolved so we can set up the specific out-of-turn-claim scenario below.
+    table.state.pendingDrawnCard = null;
     // seat1 discards an 8 of clubs, which seat2 (not seat0 the dealer) can claim.
     table.state.hands["p1"] = [...table.state.hands["p1"]!, c("8", "clubs")];
     table.discard("p1", c("8", "clubs"));
@@ -259,6 +264,7 @@ describe("Table — desmoche", () => {
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
+    table.state.pendingDrawnCard = null; // not testing the stock-draw rule here
 
     table.state.melds.push(
       { id: "m1", type: "set", ownerId: "p1", cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")] },
@@ -275,6 +281,7 @@ describe("Table — desmoche", () => {
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
+    table.state.pendingDrawnCard = null; // not testing the stock-draw rule here
 
     table.state.melds.push(
       {
@@ -303,6 +310,7 @@ describe("Table — meld-out win and settlement", () => {
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
+    table.state.pendingDrawnCard = null; // hand gets fully overwritten below anyway
 
     // Force a hand p1 can fully meld: 3 runs of 3.
     table.state.hands["p1"] = [
@@ -471,5 +479,105 @@ describe("Table — Patona", () => {
     const outcome = table.settleHand();
     if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
     expect(outcome.extraPerLoser).toEqual({ p1: 0 });
+  });
+});
+
+describe("Table — a stock draw is resolved immediately, never joining the original 9 (Corrección 1)", () => {
+  /** Gets p0 to a normal (non-first-turn) single stock draw, with a known, untouched 9-card hand. */
+  function reachP0NormalDraw(): Table {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.forceResolveClaimWindow(); // turn -> p1 (first turn, double draw)
+    const firstTurnDrawn = table.drawFromStock("p1");
+    table.chooseFirstTurnCard("p1", firstTurnDrawn[0]!);
+    table.discard("p1", firstTurnDrawn[0]!); // resolves p1's pending card immediately
+    table.forceResolveClaimWindow(); // turn -> p0, a normal single draw
+    return table;
+  }
+
+  it("a drawn card that doesn't fit anywhere goes straight to discard — the original 9 never change", () => {
+    const table = reachP0NormalDraw();
+    const handBeforeDraw = [...table.state.hands["p0"]!];
+    expect(handBeforeDraw).toHaveLength(9);
+
+    const drawn = table.drawFromStock("p0");
+    expect(drawn).toHaveLength(1);
+    expect(table.state.pendingDrawnCard).toEqual(drawn[0]);
+
+    table.discard("p0", drawn[0]!);
+
+    expect(table.state.hands["p0"]).toEqual(handBeforeDraw);
+    expect(table.state.discard[table.state.discard.length - 1]).toEqual(drawn[0]);
+    expect(table.state.pendingDrawnCard).toBeNull();
+  });
+
+  it("refuses to discard any of the original 9 while the drawn card is still unresolved", () => {
+    const table = reachP0NormalDraw();
+    const handBeforeDraw = [...table.state.hands["p0"]!];
+    table.drawFromStock("p0");
+
+    expect(() => table.discard("p0", handBeforeDraw[0]!)).toThrow(GameError);
+  });
+
+  it("refuses to desmochar while the drawn card is still unresolved", () => {
+    const table = reachP0NormalDraw();
+    table.state.melds.push(
+      { id: "m1", type: "set", ownerId: "p0", cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")] },
+      { id: "m2", type: "run", ownerId: "p0", cards: [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds")] },
+    );
+    table.drawFromStock("p0");
+
+    expect(() => table.desmochar("p0", "m1", "m2", c("8", "spades"))).toThrow(GameError);
+  });
+
+  it("lets the drawn card be used directly in a new meld instead of being discarded", () => {
+    const table = reachP0NormalDraw();
+    // Give p0 a hand that's one card short of a set, so the draw can complete it.
+    table.state.hands["p0"] = [c("8", "spades"), c("8", "hearts"), c("2", "clubs")];
+    // Force the next stock draw to be the missing 8 of clubs.
+    table.state.stock.push(c("8", "clubs"));
+
+    const drawn = table.drawFromStock("p0");
+    expect(drawn).toEqual([c("8", "clubs")]);
+
+    table.placeMeld("p0", [c("8", "spades"), c("8", "hearts"), c("8", "clubs")]);
+
+    expect(table.state.pendingDrawnCard).toBeNull();
+    expect(table.state.hands["p0"]).toEqual([c("2", "clubs")]);
+  });
+
+  it("refuses to place a meld that omits the pending drawn card in favor of hand cards", () => {
+    const table = reachP0NormalDraw();
+    table.state.hands["p0"] = [
+      c("9", "spades"),
+      c("9", "hearts"),
+      c("9", "clubs"),
+      c("2", "diamonds"),
+    ];
+    table.state.stock.push(c("K", "diamonds"));
+    table.drawFromStock("p0");
+
+    expect(() =>
+      table.placeMeld("p0", [c("9", "spades"), c("9", "hearts"), c("9", "clubs")]),
+    ).toThrow(GameError);
+  });
+
+  it("applies the same immediate-resolution rule to the card kept from a first-turn double draw", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.forceResolveClaimWindow();
+    const handBeforeDraw = [...table.state.hands["p1"]!];
+
+    const drawn = table.drawFromStock("p1");
+    table.chooseFirstTurnCard("p1", drawn[0]!);
+    expect(table.state.pendingDrawnCard).toEqual(drawn[0]);
+
+    // Can't discard an original card while the kept stock card is unresolved.
+    expect(() => table.discard("p1", handBeforeDraw[0]!)).toThrow(GameError);
+
+    table.discard("p1", drawn[0]!);
+    expect(table.state.hands["p1"]).toEqual(handBeforeDraw);
   });
 });

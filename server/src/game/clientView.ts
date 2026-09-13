@@ -43,6 +43,8 @@ export function toClientView(
     turnSeatIndex: state.turnSeatIndex,
     hasDrawnThisTurn: state.hasDrawnThisTurn,
     mustPlaceCard: state.mustPlaceCard,
+    pendingDrawnCard:
+      viewerSeat?.seatIndex === state.turnSeatIndex ? state.pendingDrawnCard : null,
     yourFirstTurnChoice:
       viewerSeat?.seatIndex === state.turnSeatIndex ? state.firstTurnChoice : null,
     cambio: state.cambio

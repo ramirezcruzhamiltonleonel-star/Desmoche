@@ -16,6 +16,7 @@ interface ActionBarProps {
   onExtend: (meldId: string) => void;
   onDiscard: () => void;
   mustPlaceCard: CardModel | null;
+  pendingDrawnCard: CardModel | null;
   desmocheMode: boolean;
   onToggleDesmoche: () => void;
   desmocheSource: DesmocheSource | null;
@@ -33,6 +34,7 @@ export default function ActionBar({
   onExtend,
   onDiscard,
   mustPlaceCard,
+  pendingDrawnCard,
   desmocheMode,
   onToggleDesmoche,
   desmocheSource,
@@ -47,6 +49,13 @@ export default function ActionBar({
       {mustPlaceCard && (
         <p className="text-center text-xs text-gold">
           Debes usar la carta que tomaste del descarte en un grupo antes de descartar.
+        </p>
+      )}
+
+      {pendingDrawnCard && (
+        <p className="text-center text-xs text-gold">
+          Robaste esta carta del mazo — úsala en un grupo o descártala ahora mismo. No puedes
+          descartar ninguna otra en su lugar.
         </p>
       )}
 
@@ -97,7 +106,11 @@ export default function ActionBar({
             </div>
           )}
 
-          {myMelds.length >= 2 ? (
+          {pendingDrawnCard ? (
+            <p className="text-center text-xs text-stone-500">
+              Resuelve primero la carta que robaste para poder desmochar.
+            </p>
+          ) : myMelds.length >= 2 ? (
             <button
               onClick={onToggleDesmoche}
               className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition ${

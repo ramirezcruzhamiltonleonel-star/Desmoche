@@ -31,6 +31,13 @@ actualiza en el mismo commit que el código y sus tests.
 
 1. Robar: del mazo (libre) o del descarte (solo si la carta se puede usar de inmediato
    en un grupo — ver "Reclamo de descarte" abajo).
+   - **La carta robada del mazo nunca se mezcla con las 9 originales para elegir
+     libremente qué descartar.** Se resuelve de inmediato, en el mismo momento en
+     que se roba: o se usa ahí mismo en un grupo (nuevo o propio ya existente), o
+     se descarta directamente — sin pasar por una elección entre las 9 cartas
+     originales. Mientras esa carta no se resuelva, no se puede desmochar ni
+     descartar ninguna otra carta. Aplica igual a la carta que se conserva del
+     robo doble del primer turno (ver más abajo).
 2. Colocar grupos nuevos y/o agregar cartas a grupos propios ya en mesa — **siempre
    opcional**, nunca automático. El sistema únicamente ofrece el botón; el jugador
    decide cuándo y qué bajar, incluyendo guardarse grupos completos en la mano para

@@ -65,6 +65,7 @@ export class Table {
       turnSeatIndex: nextSeat(0, seats.length),
       hasDrawnThisTurn: false,
       mustPlaceCard: null,
+      pendingDrawnCard: null,
       firstTurnChoice: null,
       cambio: null,
       claim: null,
@@ -121,6 +122,7 @@ export class Table {
     this.state.isFirstTurn = true;
     this.state.hasDrawnThisTurn = false;
     this.state.mustPlaceCard = null;
+    this.state.pendingDrawnCard = null;
     this.state.firstTurnChoice = null;
     this.state.cambio = null;
     this.state.handOutcome = null;
@@ -297,6 +299,9 @@ export class Table {
 
     this.state.hasDrawnThisTurn = true;
     this.state.mustPlaceCard = null;
+    // The stock draw never joins the "original 9" for a free discard choice —
+    // it must be used in a meld or discarded outright before anything else.
+    this.state.pendingDrawnCard = drawn[0]!;
     this.state.isFirstTurn = false;
     return drawn;
   }
@@ -318,6 +323,9 @@ export class Table {
     this.state.firstTurnChoice = null;
     this.state.hasDrawnThisTurn = true;
     this.state.mustPlaceCard = null;
+    // The card kept from the special double draw is still a stock draw at
+    // heart — same immediate-resolution rule applies to it.
+    this.state.pendingDrawnCard = keep;
     this.state.isFirstTurn = false;
     this.state.phase = "turn-active";
   }
@@ -329,6 +337,23 @@ export class Table {
     }
     if (this.state.firstTurnChoice) {
       throw new GameError("Primero elige cuál de las dos cartas robadas conservas");
+    }
+  }
+
+  /** Throws unless the pending stock-drawn card (if any) is among the cards being placed. */
+  private assertPendingDrawnCardIncluded(cards: Card[]): void {
+    const pending = this.state.pendingDrawnCard;
+    if (pending && !cards.some((c) => cardId(c) === cardId(pending))) {
+      throw new GameError(
+        "Debes usar la carta que acabas de robar del mazo en este grupo, o descartarla, antes de cualquier otra cosa",
+      );
+    }
+  }
+
+  private clearPendingDrawnCardIfSatisfied(cards: Card[]): void {
+    const pending = this.state.pendingDrawnCard;
+    if (pending && cards.some((c) => cardId(c) === cardId(pending))) {
+      this.state.pendingDrawnCard = null;
     }
   }
 
@@ -355,6 +380,7 @@ export class Table {
   /** Places a brand-new meld built entirely from the player's hand. */
   placeMeld(playerId: string, cards: Card[]): void {
     this.assertCanAct(playerId);
+    this.assertPendingDrawnCardIncluded(cards);
     if (!isValidMeld(cards)) {
       throw new GameError("Ese grupo no es válido");
     }
@@ -365,6 +391,7 @@ export class Table {
     const meldType = isValidSet(cards) ? "set" : "run";
     this.state.melds.push({ id: newMeldId(), type: meldType, ownerId: playerId, cards });
 
+    this.clearPendingDrawnCardIfSatisfied(cards);
     this.clearMustPlaceIfSatisfied(playerId, cards);
     this.checkMeldOutWin(playerId);
   }
@@ -372,6 +399,7 @@ export class Table {
   /** Adds hand cards onto one of the player's own existing melds. */
   extendMeld(playerId: string, meldId: string, cards: Card[]): void {
     this.assertCanAct(playerId);
+    this.assertPendingDrawnCardIncluded(cards);
     const meld = meldById(this.state, meldId);
     if (meld.ownerId !== playerId) {
       throw new GameError("Solo puedes agregar cartas a tus propios grupos");
@@ -385,6 +413,7 @@ export class Table {
     this.state.hands[playerId] = hand;
     meld.cards = combined;
 
+    this.clearPendingDrawnCardIfSatisfied(cards);
     this.clearMustPlaceIfSatisfied(playerId, cards);
     this.checkMeldOutWin(playerId);
   }
@@ -392,6 +421,11 @@ export class Table {
   /** Desmoche: move a card between two of the player's own table melds. */
   desmochar(playerId: string, fromMeldId: string, toMeldId: string, card: Card): void {
     this.assertCanAct(playerId);
+    if (this.state.pendingDrawnCard) {
+      throw new GameError(
+        "Debes usar o descartar la carta que acabas de robar del mazo antes de desmochar",
+      );
+    }
     if (fromMeldId === toMeldId) throw new GameError("Elige dos grupos distintos");
     const fromMeld = meldById(this.state, fromMeldId);
     const toMeld = meldById(this.state, toMeldId);
@@ -418,9 +452,15 @@ export class Table {
         "Debes usar la carta que tomaste del descarte en un grupo antes de descartar",
       );
     }
+    if (this.state.pendingDrawnCard && cardId(card) !== cardId(this.state.pendingDrawnCard)) {
+      throw new GameError(
+        "Debes descartar la carta que acabas de robar del mazo, o usarla en un grupo — no puedes descartar otra en su lugar",
+      );
+    }
     const seat = seatOf(this.state, playerId);
     this.state.hands[playerId] = removeCard(handOf(this.state, playerId), card);
     this.state.discard.push(card);
+    this.state.pendingDrawnCard = null;
 
     this.state.hasDrawnThisTurn = false;
     this.state.phase = "claim-window";

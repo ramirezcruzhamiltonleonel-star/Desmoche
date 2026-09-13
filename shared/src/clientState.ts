@@ -63,6 +63,13 @@ export interface ClientGameState {
   turnSeatIndex: number;
   hasDrawnThisTurn: boolean;
   mustPlaceCard: Card | null;
+  /**
+   * A card just drawn from the stock (or kept from the first-turn double
+   * draw) that must be used in a meld or discarded outright right away — it
+   * never becomes a free choice among the original 9. Only ever populated
+   * for the player who drew it.
+   */
+  pendingDrawnCard: Card | null;
   yourFirstTurnChoice: [Card, Card] | null;
   cambio: ClientCambioView | null;
   yourCambioSubmitted: boolean;

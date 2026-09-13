@@ -177,6 +177,7 @@ export class Room {
       turnSeatIndex: -1,
       hasDrawnThisTurn: false,
       mustPlaceCard: null,
+      pendingDrawnCard: null,
       yourFirstTurnChoice: null,
       cambio: null,
       yourCambioSubmitted: false,

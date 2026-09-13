@@ -25,6 +25,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     turnSeatIndex: 1,
     hasDrawnThisTurn: true,
     mustPlaceCard: null,
+    pendingDrawnCard: null,
     firstTurnChoice: null,
     cambio: null,
     claim: null,

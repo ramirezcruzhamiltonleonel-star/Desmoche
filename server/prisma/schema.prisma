@@ -1,9 +1,10 @@
-// Dev uses SQLite for a zero-install local setup. Production points DATABASE_URL
-// at the Railway-managed Postgres instance instead — see server/README notes
-// before deploying: switching the `provider` below to "postgresql" is a
-// deliberate one-time migration step, not automatic.
+// PostgreSQL everywhere — Railway-managed in production, and (per
+// server/DEPLOY notes) a real Postgres for local dev/tests too, now that
+// the schema has committed to this provider. See prisma/migrations/ for
+// history; `prisma migrate deploy` applies it on every boot (server start
+// script), so this is safe to redeploy repeatedly.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

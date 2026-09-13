@@ -60,7 +60,12 @@ export default function GameTable() {
   const yourSeat = state.seats.find((s) => s.seatIndex === state.yourSeatIndex);
   const yourPlayerId = yourSeat?.playerId ?? null;
   const isYourTurn = state.yourSeatIndex !== null && state.yourSeatIndex === state.turnSeatIndex;
-  const canAct = isYourTurn && state.phase === "turn-active" && state.hasDrawnThisTurn && !state.mustPlaceCard;
+  // Placing melds and desmoche stay available even while a claimed discard is
+  // still pending — only the discard button itself is gated on mustPlaceCard
+  // (ActionBar already disables it independently), since the player needs to
+  // be able to use that exact card in a meld before they're allowed to end
+  // their turn.
+  const canAct = isYourTurn && state.phase === "turn-active" && state.hasDrawnThisTurn;
   const canDraw = isYourTurn && state.phase === "turn-active" && !state.hasDrawnThisTurn;
   const myMelds = state.melds.filter((m) => m.ownerId === yourPlayerId);
   const nameByPlayerId = Object.fromEntries(state.seats.map((s) => [s.playerId, s.displayName]));

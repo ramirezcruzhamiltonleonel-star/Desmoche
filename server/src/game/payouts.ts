@@ -7,6 +7,12 @@ export interface HandOutcomeInput {
   winnerId: string;
   loserIds: string[];
   bonuses: BonusResult;
+  /**
+   * Patona: losers who placed zero melds during the whole hand owe the
+   * winner one extra ante, same amount as a Mico, stacking with it.
+   * Chips/money only — ignored entirely in dare mode.
+   */
+  patonaLoserIds?: string[];
 }
 
 export interface ChipsOrMoneyPayout {
@@ -28,7 +34,7 @@ export interface DarePayout {
 export type HandOutcome = ChipsOrMoneyPayout | DarePayout;
 
 export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
-  const { stakeType, ante, winnerId, loserIds, bonuses } = input;
+  const { stakeType, ante, winnerId, loserIds, bonuses, patonaLoserIds = [] } = input;
 
   if (stakeType === "dare") {
     return {
@@ -41,7 +47,8 @@ export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
   const totalPlayers = loserIds.length + 1;
   const extraPerLoser: Record<string, number> = {};
   for (const loserId of loserIds) {
-    extraPerLoser[loserId] = bonuses.extraPerLoser;
+    const patona = patonaLoserIds.includes(loserId) ? ante : 0;
+    extraPerLoser[loserId] = bonuses.extraPerLoser + patona;
   }
 
   return {

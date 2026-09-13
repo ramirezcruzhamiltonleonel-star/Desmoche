@@ -50,4 +50,37 @@ describe("calculateHandOutcome", () => {
       extraPerLoser: { p2: 0 },
     });
   });
+
+  it("charges Patona (one extra ante) only to the losers who never melded, stacking with Mico", () => {
+    const outcome = calculateHandOutcome({
+      stakeType: "chips",
+      ante: 100,
+      winnerId: "p1",
+      loserIds: ["p2", "p3"],
+      bonuses: withBonus, // +50 Mico to every loser
+      patonaLoserIds: ["p2"], // only p2 never placed a meld
+    });
+    expect(outcome).toEqual({
+      kind: "chips",
+      winnerId: "p1",
+      potWon: 300,
+      extraPerLoser: { p2: 150, p3: 50 }, // p2: Mico + Patona, p3: Mico only
+    });
+  });
+
+  it("ignores Patona entirely in dare mode", () => {
+    const outcome = calculateHandOutcome({
+      stakeType: "dare",
+      ante: 0,
+      winnerId: "p1",
+      loserIds: ["p2"],
+      bonuses: noBonus,
+      patonaLoserIds: ["p2"],
+    });
+    expect(outcome).toEqual({
+      kind: "dare",
+      winnerId: "p1",
+      playersWhoOweADare: ["p2"],
+    });
+  });
 });

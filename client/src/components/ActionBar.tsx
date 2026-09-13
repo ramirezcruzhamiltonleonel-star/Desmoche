@@ -97,14 +97,20 @@ export default function ActionBar({
             </div>
           )}
 
-          <button
-            onClick={onToggleDesmoche}
-            className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-              desmocheMode ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-200"
-            }`}
-          >
-            {desmocheMode ? "Cancelar desmoche" : "Te toca desmochar"}
-          </button>
+          {myMelds.length >= 2 ? (
+            <button
+              onClick={onToggleDesmoche}
+              className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                desmocheMode ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-200"
+              }`}
+            >
+              {desmocheMode ? "Cancelar desmoche" : "Te toca desmochar"}
+            </button>
+          ) : (
+            <p className="text-center text-xs text-stone-500">
+              Necesitas al menos 2 grupos propios en la mesa para desmochar (tienes {myMelds.length}).
+            </p>
+          )}
 
           {desmocheMode && !desmocheSource && (
             <p className="text-center text-xs text-stone-400">

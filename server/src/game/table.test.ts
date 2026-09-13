@@ -330,7 +330,8 @@ describe("Table — meld-out win and settlement", () => {
       kind: "chips",
       winnerId: "p1",
       potWon: 200,
-      extraPerLoser: { p0: 100 }, // Mico abajo (A-2-3 clubs) charges each loser one ante extra
+      // p0 never placed a single meld this hand: Mico abajo (100) + Patona (100).
+      extraPerLoser: { p0: 200 },
     });
   });
 });
@@ -414,5 +415,61 @@ describe("Table — Cambio", () => {
     expect(hasCard("p0", aGives)).toBe(false);
     expect(hasCard("p1", bGives)).toBe(false);
     expect(hasCard("p2", cGives)).toBe(false);
+  });
+});
+
+describe("Table — Patona", () => {
+  function forceHandOver(
+    table: Table,
+    reason: "meld-out" | "discard-out" | "peladia" | "cuatro-cuerpos",
+    winnerSeatIndex: number,
+  ) {
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason, winnerSeatIndex, winningMelds: [] };
+  }
+
+  it("charges Patona to every loser who placed zero melds", () => {
+    const table = new Table(config({ ante: 100 }), seats(3));
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    // Only p1 has a meld down; p0 and p2 never placed anything.
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")],
+    });
+    forceHandOver(table, "meld-out", 1);
+
+    const outcome = table.settleHand();
+    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    expect(outcome.extraPerLoser).toEqual({ p0: 100, p2: 100 });
+  });
+
+  it("does not charge Patona to a loser who placed at least one meld", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p0",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")],
+    });
+    forceHandOver(table, "meld-out", 1);
+
+    const outcome = table.settleHand();
+    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    expect(outcome.extraPerLoser).toEqual({ p0: 0 });
+  });
+
+  it("never applies to a Peladía/Cuatro Cuerpos auto-win — nobody had a turn to meld", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds")));
+
+    const outcome = table.settleHand();
+    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    expect(outcome.extraPerLoser).toEqual({ p1: 0 });
   });
 });

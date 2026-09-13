@@ -445,12 +445,23 @@ export class Table {
       .filter((s) => s.seatIndex !== outcome.winnerSeatIndex)
       .map((s) => s.playerId);
     const bonuses = calculateBonuses(outcome.winningMelds, this.config.ante);
+
+    // Patona: only meaningful when the hand was actually played out — an
+    // auto-win (Peladía/Cuatro Cuerpos) ends before anyone gets a turn, so
+    // "placed zero melds" would trivially include everyone and isn't the
+    // rule's intent.
+    const patonaApplies = outcome.reason === "meld-out" || outcome.reason === "discard-out";
+    const patonaLoserIds = patonaApplies
+      ? loserIds.filter((loserId) => !this.state.melds.some((m) => m.ownerId === loserId))
+      : [];
+
     return calculateHandOutcome({
       stakeType: this.config.stakeType,
       ante: this.config.ante,
       winnerId,
       loserIds,
       bonuses,
+      patonaLoserIds,
     });
   }
 }

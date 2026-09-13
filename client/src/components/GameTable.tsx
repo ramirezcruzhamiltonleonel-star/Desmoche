@@ -226,6 +226,7 @@ export default function GameTable() {
 
         <ActionBar
           isYourTurn={isYourTurn}
+          isTurnActivePhase={state.phase === "turn-active"}
           canDraw={canDraw}
           onDraw={handleDraw}
           canAct={canAct}

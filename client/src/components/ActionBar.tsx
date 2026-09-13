@@ -7,6 +7,8 @@ interface DesmocheSource {
 
 interface ActionBarProps {
   isYourTurn: boolean;
+  /** Cambio/claim-window/first-turn-choice/hand-over all have their own overlay UI — this bar has nothing useful to add there. */
+  isTurnActivePhase: boolean;
   canDraw: boolean;
   onDraw: () => void;
   canAct: boolean;
@@ -25,6 +27,7 @@ interface ActionBarProps {
 
 export default function ActionBar({
   isYourTurn,
+  isTurnActivePhase,
   canDraw,
   onDraw,
   canAct,
@@ -40,6 +43,11 @@ export default function ActionBar({
   desmocheSource,
   onPickDestination,
 }: ActionBarProps) {
+  if (!isTurnActivePhase) {
+    // Cambio, the claim window, the first-turn choice, and the hand-over
+    // summary all show their own overlay — nothing useful to add here.
+    return null;
+  }
   if (!isYourTurn) {
     return <p className="px-3 pb-2 text-center text-xs text-stone-400">Esperando el turno de otro jugador...</p>;
   }

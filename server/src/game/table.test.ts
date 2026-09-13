@@ -580,4 +580,29 @@ describe("Table — a stock draw is resolved immediately, never joining the orig
     table.discard("p1", drawn[0]!);
     expect(table.state.hands["p1"]).toEqual(handBeforeDraw);
   });
+
+  it("clears pendingDrawnCard and ends the hand in the same action when the drawn card completes a meld-out win", () => {
+    const table = reachP0NormalDraw();
+    // Simulate p0 already having an 8s set down from an earlier turn, with
+    // just 2 cards left in hand — the draw supplies the 3rd to run out.
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p0",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")],
+    });
+    table.state.hands["p0"] = [c("5", "diamonds"), c("6", "diamonds")];
+    table.state.stock.push(c("7", "diamonds"));
+
+    const drawn = table.drawFromStock("p0");
+    expect(drawn).toEqual([c("7", "diamonds")]);
+    expect(table.state.pendingDrawnCard).toEqual(c("7", "diamonds"));
+
+    table.placeMeld("p0", [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds")]);
+
+    expect(table.state.pendingDrawnCard).toBeNull();
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome?.reason).toBe("meld-out");
+    expect(table.state.handOutcome?.winnerSeatIndex).toBe(0);
+  });
 });

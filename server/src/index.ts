@@ -122,6 +122,9 @@ function currentRoomAndPlayer(socket: AppSocket): { room: Room; playerId: string
 
 function applyAction(table: Table, playerId: string, action: GameAction): void {
   switch (action.type) {
+    case "submit-cambio-card":
+      table.submitCambioCard(playerId, action.card);
+      return;
     case "draw-stock":
       table.drawFromStock(playerId);
       return;

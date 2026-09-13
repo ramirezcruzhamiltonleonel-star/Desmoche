@@ -66,6 +66,7 @@ export class Table {
       hasDrawnThisTurn: false,
       mustPlaceCard: null,
       firstTurnChoice: null,
+      cambio: null,
       claim: null,
       isFirstTurn: true,
       handOutcome: null,
@@ -121,6 +122,7 @@ export class Table {
     this.state.hasDrawnThisTurn = false;
     this.state.mustPlaceCard = null;
     this.state.firstTurnChoice = null;
+    this.state.cambio = null;
     this.state.handOutcome = null;
 
     const autoWins = checkAutoWins(hands);
@@ -143,12 +145,58 @@ export class Table {
       return;
     }
 
-    const firstTurnSeatIndex = nextSeat(dealerSeatIndex, n);
-    const initialCard = discard[discard.length - 1]!;
+    // Peladía/Cuatro Cuerpos are checked on the as-dealt hand — Cambio only
+    // happens once neither auto-win applies (see startHand's early returns
+    // above), matching the brief's "se declaran apenas se reparte".
+    this.state.phase = "cambio";
+    this.state.cambio = { submitted: {} };
+  }
+
+  /**
+   * Cambio: right after dealing (and only if nobody auto-won), each player
+   * blindly hands one hand card to the next seat in rotation. Nothing is
+   * exchanged until everyone has submitted — this resolves simultaneously,
+   * so no player's choice can be informed by another's.
+   */
+  submitCambioCard(playerId: string, card: Card): void {
+    const cambio = this.state.cambio;
+    if (this.state.phase !== "cambio" || !cambio) {
+      throw new GameError("No es momento de Cambio");
+    }
+    if (cambio.submitted[playerId]) {
+      throw new GameError("Ya entregaste tu carta de Cambio");
+    }
+    this.state.hands[playerId] = removeCard(handOf(this.state, playerId), card);
+    cambio.submitted[playerId] = card;
+
+    const allSubmitted = this.state.seats.every((s) => cambio.submitted[s.playerId]);
+    if (allSubmitted) {
+      this.resolveCambio();
+    }
+  }
+
+  private resolveCambio(): void {
+    const cambio = this.state.cambio;
+    if (!cambio) return;
+    const n = this.playerCount;
+
+    for (const seat of this.state.seats) {
+      const givenCard = cambio.submitted[seat.playerId]!;
+      const recipientId = this.seatPlayerId(nextSeat(seat.seatIndex, n));
+      this.state.hands[recipientId] = [...handOf(this.state, recipientId), givenCard];
+    }
+    this.state.cambio = null;
+    this.openInitialClaimWindow();
+  }
+
+  private openInitialClaimWindow(): void {
+    const n = this.playerCount;
+    const firstTurnSeatIndex = nextSeat(this.state.dealerSeatIndex, n);
+    const initialCard = this.state.discard[this.state.discard.length - 1]!;
     this.state.phase = "claim-window";
     this.state.claim = {
       card: initialCard,
-      referenceSeatIndex: dealerSeatIndex,
+      referenceSeatIndex: this.state.dealerSeatIndex,
       pendingSeatIndices: this.state.seats.map((s) => s.seatIndex),
       claimedBy: [],
       fallbackSeatIndex: firstTurnSeatIndex,

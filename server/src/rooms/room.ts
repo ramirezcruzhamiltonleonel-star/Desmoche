@@ -178,6 +178,8 @@ export class Room {
       hasDrawnThisTurn: false,
       mustPlaceCard: null,
       yourFirstTurnChoice: null,
+      cambio: null,
+      yourCambioSubmitted: false,
       claim: null,
       isFirstTurn: true,
       handOutcome: null,

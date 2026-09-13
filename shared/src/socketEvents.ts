@@ -16,6 +16,7 @@ export interface JoinAck {
 }
 
 export type GameAction =
+  | { type: "submit-cambio-card"; card: Card }
   | { type: "draw-stock" }
   | { type: "respond-claim"; response: "claim" | "pass" }
   | { type: "choose-first-turn-card"; card: Card }

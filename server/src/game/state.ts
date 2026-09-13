@@ -34,6 +34,11 @@ export interface ClaimWindowState {
   isInitialFlip: boolean;
 }
 
+export interface CambioState {
+  /** playerId -> the card they've handed over. Not resolved until everyone has submitted one. */
+  submitted: Record<string, Card>;
+}
+
 export interface HandOutcomeSummary {
   reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out";
   winnerSeatIndex: number;
@@ -58,6 +63,8 @@ export interface GameState {
   mustPlaceCard: Card | null;
   /** Present only while resolving a first-turn double stock draw. */
   firstTurnChoice: [Card, Card] | null;
+  /** Present only during the 'cambio' phase, right after dealing and before the initial claim window. */
+  cambio: CambioState | null;
   claim: ClaimWindowState | null;
   isFirstTurn: boolean;
   handOutcome: HandOutcomeSummary | null;

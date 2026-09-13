@@ -45,6 +45,14 @@ export function toClientView(
     mustPlaceCard: state.mustPlaceCard,
     yourFirstTurnChoice:
       viewerSeat?.seatIndex === state.turnSeatIndex ? state.firstTurnChoice : null,
+    cambio: state.cambio
+      ? {
+          submittedSeatIndices: state.seats
+            .filter((s) => state.cambio!.submitted[s.playerId])
+            .map((s) => s.seatIndex),
+        }
+      : null,
+    yourCambioSubmitted: Boolean(state.cambio && state.cambio.submitted[viewerPlayerId]),
     claim: state.claim
       ? {
           card: state.claim.card,

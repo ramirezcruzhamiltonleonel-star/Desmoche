@@ -22,6 +22,20 @@ function config(overrides: Partial<TableConfig> = {}): TableConfig {
 }
 
 /**
+ * Cambio is now mandatory right after every deal (unless someone auto-won).
+ * Tests that don't care about Cambio itself just need to get past it — each
+ * seat hands over its LAST dealt card, which every test below constructs to
+ * be a throwaway so the specific cards those tests actually assert on are
+ * left untouched.
+ */
+function resolveCambio(table: Table, playerIds: string[]): void {
+  for (const id of playerIds) {
+    const hand = table.state.hands[id]!;
+    table.submitCambioCard(id, hand[hand.length - 1]!);
+  }
+}
+
+/**
  * Interleaves per-seat hands round-robin the way `deal()` expects, appends
  * the up-card, then tops up with the rest of the 52-card deck as stock so
  * there are always real cards left to draw.
@@ -114,6 +128,7 @@ describe("Table — dealing and auto-wins", () => {
     const table = new Table(config(), seats(2));
     const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
     table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
 
     expect(table.state.phase).toBe("claim-window");
     expect(table.state.claim).toMatchObject({
@@ -130,6 +145,7 @@ describe("Table — first-turn double draw", () => {
     const table = new Table(config(), seats(2));
     const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
     table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
 
     table.respondToClaim("p0", "pass");
     table.respondToClaim("p1", "pass");
@@ -151,6 +167,7 @@ describe("Table — first-turn double draw", () => {
     const table = new Table(config(), seats(2));
     const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
     table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
     table.forceResolveClaimWindow();
     const drawn = table.drawFromStock("p1");
     expect(drawn).toHaveLength(2);
@@ -203,6 +220,9 @@ describe("Table — claiming a discard out of turn", () => {
     const table = new Table(config(), seats(3));
     const deck = buildDeck([hand0, hand1, hand2], c("4", "diamonds"));
     table.startHand(0, deck);
+    // Cambio: each seat gives away its last card (index 8) — hand2 keeps its
+    // 8♥/8♦ pair (indices 0-1) intact for the claim later in this test.
+    resolveCambio(table, ["p0", "p1", "p2"]);
     // Nobody wants the initial flip — send everyone through the first turn normally.
     table.forceResolveClaimWindow();
     table.drawFromStock("p1"); // seat1 is dealer(0)+1 => first player
@@ -235,6 +255,7 @@ describe("Table — desmoche", () => {
   it("refuses to shrink a source meld below 3 cards", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
@@ -250,6 +271,7 @@ describe("Table — desmoche", () => {
   it("allows moving a card out of a 4-card meld into another valid meld", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
@@ -277,6 +299,7 @@ describe("Table — meld-out win and settlement", () => {
   it("ends the hand the instant the hand is emptied, without a discard", () => {
     const table = new Table(config({ ante: 100 }), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
     table.forceResolveClaimWindow();
     table.drawFromStock("p1");
     table.chooseFirstTurnCard("p1", table.state.hands["p1"]![9]!);
@@ -309,5 +332,87 @@ describe("Table — meld-out win and settlement", () => {
       potWon: 200,
       extraPerLoser: { p0: 100 }, // Mico abajo (A-2-3 clubs) charges each loser one ante extra
     });
+  });
+});
+
+describe("Table — Cambio", () => {
+  it("stays in the cambio phase, hand short by one, until every seat has submitted", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    expect(table.state.phase).toBe("cambio");
+    table.submitCambioCard("p0", NORMAL_HAND[8]!);
+    expect(table.state.phase).toBe("cambio");
+    expect(table.state.hands["p0"]).toHaveLength(8);
+    expect(table.state.hands["p1"]).toHaveLength(9);
+  });
+
+  it("rejects submitting a second card", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    table.submitCambioCard("p0", NORMAL_HAND[8]!);
+    expect(() => table.submitCambioCard("p0", NORMAL_HAND[7]!)).toThrow(GameError);
+  });
+
+  it("rejects handing over a card not in hand", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    expect(() => table.submitCambioCard("p0", c("K", "clubs"))).toThrow(GameError);
+  });
+
+  it("swaps one card each between 2 players once both submit", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    const p0Gives = NORMAL_HAND[8]!; // A♣
+    const p1Gives = NORMAL_HAND[0]!; // 5♠ (first card of p1's reversed hand)
+    table.submitCambioCard("p0", p0Gives);
+    table.submitCambioCard("p1", p1Gives);
+
+    expect(table.state.phase).toBe("claim-window"); // resolved straight into the initial claim window
+    expect(table.state.hands["p0"]).toHaveLength(9);
+    expect(table.state.hands["p1"]).toHaveLength(9);
+    expect(table.state.hands["p0"]!.some((card) => cardId(card) === cardId(p1Gives))).toBe(true);
+    expect(table.state.hands["p0"]!.some((card) => cardId(card) === cardId(p0Gives))).toBe(false);
+    expect(table.state.hands["p1"]!.some((card) => cardId(card) === cardId(p0Gives))).toBe(true);
+    expect(table.state.hands["p1"]!.some((card) => cardId(card) === cardId(p1Gives))).toBe(false);
+  });
+
+  it("rotates one card per seat forward (A→B→C→A) with 3 players", () => {
+    const handA: Card[] = [
+      c("2", "spades"), c("3", "spades"), c("4", "spades"),
+      c("9", "clubs"), c("K", "diamonds"), c("6", "hearts"),
+      c("J", "clubs"), c("3", "diamonds"), c("A", "hearts"),
+    ];
+    const handB: Card[] = [
+      c("5", "spades"), c("6", "spades"), c("9", "hearts"),
+      c("K", "clubs"), c("2", "hearts"), c("7", "hearts"),
+      c("J", "hearts"), c("3", "hearts"), c("A", "clubs"),
+    ];
+    const handC: Card[] = [
+      c("8", "hearts"), c("8", "diamonds"), c("9", "diamonds"),
+      c("Q", "clubs"), c("2", "clubs"), c("7", "clubs"),
+      c("J", "diamonds"), c("4", "hearts"), c("5", "hearts"),
+    ];
+    const table = new Table(config(), seats(3));
+    table.startHand(0, buildDeck([handA, handB, handC], c("4", "diamonds")));
+
+    const aGives = handA[8]!; // A♥ -> seat1 (B)
+    const bGives = handB[8]!; // A♣ -> seat2 (C)
+    const cGives = handC[8]!; // 5♥ -> seat0 (A)
+    table.submitCambioCard("p0", aGives);
+    table.submitCambioCard("p1", bGives);
+    table.submitCambioCard("p2", cGives);
+
+    expect(table.state.phase).toBe("claim-window");
+    const hasCard = (playerId: string, card: Card) =>
+      table.state.hands[playerId]!.some((c2) => cardId(c2) === cardId(card));
+
+    expect(hasCard("p1", aGives)).toBe(true); // A (seat0) -> B (seat1)
+    expect(hasCard("p2", bGives)).toBe(true); // B (seat1) -> C (seat2)
+    expect(hasCard("p0", cGives)).toBe(true); // C (seat2) -> A (seat0)
+    expect(hasCard("p0", aGives)).toBe(false);
+    expect(hasCard("p1", bGives)).toBe(false);
+    expect(hasCard("p2", cGives)).toBe(false);
   });
 });

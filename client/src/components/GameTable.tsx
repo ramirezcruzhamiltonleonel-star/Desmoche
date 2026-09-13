@@ -5,6 +5,7 @@ import { useSound } from "../hooks/useSound";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
 import ActionBar from "./ActionBar";
+import CambioModal from "./CambioModal";
 import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
@@ -232,6 +233,16 @@ export default function GameTable() {
           onPickDestination={handlePickDesmocheDestination}
         />
       </div>
+
+      {state.phase === "cambio" && (
+        <CambioModal
+          hand={state.yourHand}
+          submitted={state.yourCambioSubmitted}
+          seats={state.seats}
+          submittedSeatIndices={state.cambio?.submittedSeatIndices ?? []}
+          onSubmit={(card) => sendAction({ type: "submit-cambio-card", card })}
+        />
+      )}
 
       {state.phase === "first-turn-choice" && state.yourFirstTurnChoice && (
         <FirstTurnChoiceModal

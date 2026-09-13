@@ -3,6 +3,7 @@ import type { Meld, StakeType } from "./melds";
 
 export type Phase =
   | "lobby"
+  | "cambio"
   | "claim-window"
   | "first-turn-choice"
   | "turn-active"
@@ -15,6 +16,11 @@ export interface ClientSeatView {
   connected: boolean;
   ready: boolean;
   cardCount: number;
+}
+
+/** Who has already handed over their Cambio card — never which card, since it's blind/simultaneous. */
+export interface ClientCambioView {
+  submittedSeatIndices: number[];
 }
 
 export interface ClientClaimView {
@@ -58,6 +64,8 @@ export interface ClientGameState {
   hasDrawnThisTurn: boolean;
   mustPlaceCard: Card | null;
   yourFirstTurnChoice: [Card, Card] | null;
+  cambio: ClientCambioView | null;
+  yourCambioSubmitted: boolean;
   claim: ClientClaimView | null;
   isFirstTurn: boolean;
   handOutcome: ClientHandOutcome | null;

@@ -26,6 +26,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     hasDrawnThisTurn: true,
     mustPlaceCard: null,
     firstTurnChoice: null,
+    cambio: null,
     claim: null,
     isFirstTurn: false,
     handOutcome: null,

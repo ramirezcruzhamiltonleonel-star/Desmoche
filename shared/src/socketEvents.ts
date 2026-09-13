@@ -30,6 +30,47 @@ export interface ErrorPayload {
 }
 
 /**
+ * Voice chat signaling (P2P WebRTC mesh, up to 4 players per table). The
+ * server only ever relays these — it never touches media, and these types
+ * deliberately avoid the DOM lib's RTCSessionDescriptionInit/RTCIceCandidateInit
+ * (the server package has no DOM lib) in favor of the same JSON-serializable
+ * shape, which the client reconstructs into real WebRTC objects.
+ */
+export interface VoiceSdp {
+  type: "offer" | "answer";
+  sdp: string;
+}
+
+export interface VoiceIceCandidate {
+  candidate: string;
+  sdpMid: string | null;
+  sdpMLineIndex: number | null;
+}
+
+export type VoiceSignalData =
+  | { kind: "sdp"; sdp: VoiceSdp }
+  | { kind: "ice-candidate"; candidate: VoiceIceCandidate };
+
+export interface VoicePeerEvent {
+  playerId: string;
+}
+
+export interface VoiceSignalPayload {
+  toPlayerId: string;
+  data: VoiceSignalData;
+}
+
+export interface VoiceSignalReceived {
+  fromPlayerId: string;
+  data: VoiceSignalData;
+}
+
+export interface VoiceJoinAck {
+  /** Everyone already in voice for this table when you joined — you wait for THEM to send offers, never initiate yourself, so two sides never race to send simultaneous offers. */
+  peerIds: string[];
+}
+
+/**
  * Client -> server event names and their payload/ack shapes. The socket
  * connection itself must carry a valid auth JWT (in the Socket.io `auth`
  * handshake field) — there is no anonymous session or reconnect token here;
@@ -42,10 +83,16 @@ export interface ClientToServerEvents {
   "table:ready": (payload: { ready: boolean }) => void;
   "table:next-hand": () => void;
   "game:action": (action: GameAction) => void;
+  "voice:join": (ack: (result: VoiceJoinAck) => void) => void;
+  "voice:leave": () => void;
+  "voice:signal": (payload: VoiceSignalPayload) => void;
 }
 
 /** Server -> client event names. */
 export interface ServerToClientEvents {
   "table:state": (state: ClientGameState) => void;
   "table:error": (error: ErrorPayload) => void;
+  "voice:peer-joined": (event: VoicePeerEvent) => void;
+  "voice:peer-left": (event: VoicePeerEvent) => void;
+  "voice:signal": (event: VoiceSignalReceived) => void;
 }

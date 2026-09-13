@@ -69,6 +69,11 @@ io.use((socket, next) => {
 
 const roomManager = new RoomManager();
 const socketIdByUserId = new Map<string, string>();
+// Voice chat is a pure signaling relay — the server never touches media, only
+// tracks who's opted in per table so a newcomer can be told the existing
+// roster (and existing members told about the newcomer) to drive the P2P
+// mesh. Ephemeral, in-memory, keyed by table code.
+const voiceParticipants = new Map<string, Set<string>>();
 
 function errorMessage(err: unknown): string {
   return err instanceof GameError || err instanceof Error ? err.message : "Error desconocido";
@@ -118,6 +123,17 @@ function currentRoomAndPlayer(socket: AppSocket): { room: Room; playerId: string
   const { userId, code } = socket.data;
   if (!userId || !code) throw new GameError("No estás conectado a ninguna mesa");
   return { room: roomManager.getRoom(code), playerId: userId };
+}
+
+/** Removes a player from a table's voice roster and tells whoever's left, so they can tear down that peer connection. */
+function leaveVoice(code: string, playerId: string): void {
+  const set = voiceParticipants.get(code);
+  if (!set || !set.delete(playerId)) return;
+  for (const peerId of set) {
+    const socketId = socketIdByUserId.get(peerId);
+    if (!socketId) continue;
+    io.sockets.sockets.get(socketId)?.emit("voice:peer-left", { playerId });
+  }
 }
 
 function applyAction(table: Table, playerId: string, action: GameAction): void {
@@ -209,12 +225,51 @@ io.on("connection", (socket: AppSocket) => {
     }
   });
 
+  socket.on("voice:join", (ack) => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      const set = voiceParticipants.get(room.code) ?? new Set<string>();
+      const existingPeers = [...set];
+      set.add(playerId);
+      voiceParticipants.set(room.code, set);
+      ack({ peerIds: existingPeers });
+      for (const peerId of existingPeers) {
+        const socketId = socketIdByUserId.get(peerId);
+        if (!socketId) continue;
+        io.sockets.sockets.get(socketId)?.emit("voice:peer-joined", { playerId });
+      }
+    } catch {
+      ack({ peerIds: [] });
+    }
+  });
+
+  socket.on("voice:leave", () => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      leaveVoice(room.code, playerId);
+    } catch {
+      // Not at a table — nothing to leave.
+    }
+  });
+
+  socket.on("voice:signal", ({ toPlayerId, data }) => {
+    try {
+      const { playerId } = currentRoomAndPlayer(socket);
+      const socketId = socketIdByUserId.get(toPlayerId);
+      if (!socketId) return;
+      io.sockets.sockets.get(socketId)?.emit("voice:signal", { fromPlayerId: playerId, data });
+    } catch {
+      // Not at a table — drop the signal silently, it's not gameplay-critical.
+    }
+  });
+
   socket.on("disconnect", () => {
     const { userId, code } = socket.data;
     if (!userId || !code) return;
     try {
       const room = roomManager.getRoom(code);
       room.setConnected(userId, false);
+      leaveVoice(code, userId);
       if (socketIdByUserId.get(userId) === socket.id) {
         socketIdByUserId.delete(userId);
       }

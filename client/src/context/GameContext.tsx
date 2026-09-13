@@ -14,6 +14,8 @@ import { useAuth } from "./AuthContext";
 
 interface GameContextValue {
   connected: boolean;
+  /** The live socket, for features (voice chat signaling) that need to emit/listen for events GameContext doesn't otherwise model. Null until connected. */
+  socket: AppSocket | null;
   state: ClientGameState | null;
   lastError: string | null;
   dismissError: () => void;
@@ -31,6 +33,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
   const socketRef = useRef<AppSocket | null>(null);
   const [connected, setConnected] = useState(false);
+  const [socket, setSocket] = useState<AppSocket | null>(null);
   const [state, setState] = useState<ClientGameState | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -39,12 +42,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       disconnectSocket();
       socketRef.current = null;
       setConnected(false);
+      setSocket(null);
       setState(null);
       return;
     }
 
     const socket = connectSocket(token);
     socketRef.current = socket;
+    setSocket(socket);
 
     socket.on("connect", () => {
       setConnected(true);
@@ -67,12 +72,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off();
       disconnectSocket();
       socketRef.current = null;
+      setSocket(null);
     };
   }, [token]);
 
   const value = useMemo<GameContextValue>(
     () => ({
       connected,
+      socket,
       state,
       lastError,
       dismissError: () => setLastError(null),
@@ -98,7 +105,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       nextHand: () => socketRef.current?.emit("table:next-hand"),
       sendAction: (action) => socketRef.current?.emit("game:action", action),
     }),
-    [connected, state, lastError],
+    [connected, socket, state, lastError],
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

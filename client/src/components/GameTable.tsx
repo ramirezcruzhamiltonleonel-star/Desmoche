@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Card as CardModel, ClientSeatView } from "@desmoche/shared";
 import { useGame } from "../context/GameContext";
 import { useSound } from "../hooks/useSound";
+import { useVoiceChat } from "../hooks/useVoiceChat";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
@@ -14,6 +15,7 @@ import FirstTurnChoiceModal from "./FirstTurnChoiceModal";
 import HandOverModal from "./HandOverModal";
 import MeldsBoard from "./MeldsBoard";
 import PlayerSeat from "./PlayerSeat";
+import VoiceChatPanel from "./VoiceChatPanel";
 
 type Slot = "top" | "left" | "right";
 
@@ -37,6 +39,7 @@ interface DesmocheSource {
 export default function GameTable() {
   const { state, sendAction, nextHand, leaveTable } = useGame();
   const sound = useSound();
+  const voice = useVoiceChat();
   const [selectedCards, setSelectedCards] = useState<CardModel[]>([]);
   const [desmocheMode, setDesmocheMode] = useState(false);
   const [desmocheSource, setDesmocheSource] = useState<DesmocheSource | null>(null);
@@ -163,6 +166,14 @@ export default function GameTable() {
         </div>
       </header>
 
+      <div className="flex justify-end px-3 pb-2">
+        <VoiceChatPanel
+          voice={voice}
+          isSelfSpeaking={Boolean(yourPlayerId && voice.speakingPlayerIds.has(yourPlayerId))}
+          nameByPlayerId={nameByPlayerId}
+        />
+      </div>
+
       <div
         className="relative mx-3 mb-3 flex-1 rounded-[2.5rem] border-8 border-wood bg-felt shadow-inner"
         style={{ minHeight: "50vh" }}
@@ -173,6 +184,7 @@ export default function GameTable() {
               seat={seat}
               isTurn={seat.seatIndex === state.turnSeatIndex}
               isDealer={seat.seatIndex === state.dealerSeatIndex}
+              isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
             />
           </div>
         ))}

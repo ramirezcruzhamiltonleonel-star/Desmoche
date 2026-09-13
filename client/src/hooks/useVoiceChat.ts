@@ -297,5 +297,17 @@ export function useVoiceChat(): VoiceChatApi {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cheap diagnostic surface — nothing sensitive, just connection state, so a
+  // player who reports "no me anda el audio" can open devtools and read
+  // window.__desmocheVoice instead of it being a total black box.
+  useEffect(() => {
+    (window as unknown as { __desmocheVoice?: unknown }).__desmocheVoice = {
+      active,
+      selfMuted,
+      peerStatus,
+      speakingPlayerIds: [...speakingPlayerIds],
+    };
+  }, [active, selfMuted, peerStatus, speakingPlayerIds]);
+
   return { active, selfMuted, error, speakingPlayerIds, peerStatus, toggleActive, toggleSelfMute };
 }

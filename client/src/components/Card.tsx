@@ -36,7 +36,7 @@ export default function Card({ card, selected = false, onClick, size = "md" }: C
       className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 px-1 py-1 font-semibold shadow-md transition
         ${isRed ? "text-red-600" : "text-stone-900"}
         ${selected ? "-translate-y-2 border-gold ring-2 ring-gold" : "border-stone-300"}
-        ${onClick ? "cursor-pointer hover:-translate-y-1" : "cursor-default"}
+        ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}
     >
       <span className="self-start leading-none">{card.rank}</span>

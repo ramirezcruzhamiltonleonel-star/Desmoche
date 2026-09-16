@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchMyStats, type UserStats } from "../lib/api";
+import Spinner from "./Spinner";
 
 interface ProfilePanelProps {
   token: string;
@@ -37,7 +38,12 @@ export default function ProfilePanel({ token, displayName, onClose }: ProfilePan
 
         {error && <p className="rounded-lg bg-red-900/50 px-3 py-2 text-sm text-red-200">{error}</p>}
 
-        {!stats && !error && <p className="text-center text-sm text-stone-400">Cargando estadísticas...</p>}
+        {!stats && !error && (
+          <div className="flex items-center justify-center gap-2 py-4 text-sm text-stone-400">
+            <Spinner size="sm" />
+            <span>Cargando estadísticas...</span>
+          </div>
+        )}
 
         {stats && (
           <dl className="space-y-3">

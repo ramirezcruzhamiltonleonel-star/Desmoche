@@ -9,3 +9,33 @@
 body {
   @apply bg-felt-dark text-stone-100;
 }
+
+@layer base {
+  /* Tactile press feedback on every button, app-wide, without touching each component. */
+  button:not(:disabled) {
+    transition:
+      transform 0.1s ease,
+      filter 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      opacity 0.15s ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+
+@keyframes screen-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.screen-fade {
+  animation: screen-fade-in 0.25s ease-out;
+}

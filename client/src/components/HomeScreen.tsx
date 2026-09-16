@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import { STAKE_LABELS } from "../lib/labels";
 import ProfilePanel from "./ProfilePanel";
+import Spinner from "./Spinner";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
@@ -42,7 +43,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-felt-dark px-4 py-8">
+    <div className="screen-fade min-h-screen bg-felt-dark px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -116,8 +117,9 @@ export default function HomeScreen() {
               <button
                 onClick={handleCreate}
                 disabled={busy}
-                className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
               >
+                {busy && <Spinner size="sm" tone="dark" />}
                 {busy ? "Creando..." : "Crear mesa"}
               </button>
             </div>
@@ -136,8 +138,9 @@ export default function HomeScreen() {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
               >
+                {busy && <Spinner size="sm" tone="dark" />}
                 {busy ? "Uniendo..." : "Unirse"}
               </button>
             </form>

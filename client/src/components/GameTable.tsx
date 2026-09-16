@@ -46,6 +46,8 @@ export default function GameTable() {
   const [desmocheSource, setDesmocheSource] = useState<DesmocheSource | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const wonAlreadyRef = useRef(false);
+  const prevPhaseRef = useRef<string | undefined>(undefined);
+  const prevIsYourTurnRef = useRef(false);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -55,12 +57,27 @@ export default function GameTable() {
     if (state?.phase !== "hand-over") {
       wonAlreadyRef.current = false;
     }
+    // A fresh hand always opens on "cambio" — that's the deal.
+    if (state?.phase === "cambio" && prevPhaseRef.current !== "cambio") {
+      sound.playDeal();
+    }
+    prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.
     setSelectedCards([]);
     setDesmocheMode(false);
     setDesmocheSource(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.turnSeatIndex, state?.phase]);
+
+  useEffect(() => {
+    const isYourTurnNow =
+      state?.phase === "turn-active" && state.yourSeatIndex !== null && state.yourSeatIndex === state.turnSeatIndex;
+    if (isYourTurnNow && !prevIsYourTurnRef.current) {
+      sound.playTurn();
+    }
+    prevIsYourTurnRef.current = Boolean(isYourTurnNow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase, state?.turnSeatIndex, state?.yourSeatIndex]);
 
   useEffect(() => {
     // A stock draw is never a free choice among the original 9 — pre-select
@@ -117,11 +134,13 @@ export default function GameTable() {
   function handlePlaceMeld() {
     sendAction({ type: "place-meld", cards: selectedCards });
     setSelectedCards([]);
+    sound.playMeld();
   }
 
   function handleExtend(meldId: string) {
     sendAction({ type: "extend-meld", meldId, cards: selectedCards });
     setSelectedCards([]);
+    sound.playMeld();
   }
 
   function handleDiscard() {
@@ -145,6 +164,7 @@ export default function GameTable() {
     });
     setDesmocheSource(null);
     setDesmocheMode(false);
+    sound.playDesmochar();
   }
 
   const winnerName = state.handOutcome
@@ -152,7 +172,7 @@ export default function GameTable() {
     : "";
 
   return (
-    <div className="flex min-h-screen flex-col bg-felt-dark">
+    <div className="screen-fade flex min-h-screen flex-col bg-felt-dark">
       <header className="flex items-center justify-between px-3 py-2 text-xs text-stone-300">
         <span>
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
@@ -229,7 +249,18 @@ export default function GameTable() {
         />
       )}
 
-      <div className="border-t border-wood/60 bg-black/20 px-3 py-3">
+      <div
+        className={`border-t bg-black/20 px-3 py-3 transition-colors ${
+          isYourTurn && state.phase === "turn-active"
+            ? "border-gold shadow-[0_-2px_16px_-2px_rgba(212,175,55,0.5)]"
+            : "border-wood/60"
+        }`}
+      >
+        {isYourTurn && state.phase === "turn-active" && (
+          <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
+            ★ Tu turno ★
+          </p>
+        )}
         <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
           {sortHandForDisplay(state.yourHand).map((card) => (
             <Card

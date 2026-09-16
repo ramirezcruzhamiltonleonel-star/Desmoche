@@ -50,6 +50,13 @@ export function useSound() {
     [enabled],
   );
 
+  const playSequence = useCallback(
+    (frequencies: number[], durationMs: number, gapMs: number) => {
+      frequencies.forEach((f, i) => setTimeout(() => play(f, durationMs), i * gapMs));
+    },
+    [play],
+  );
+
   return {
     enabled,
     toggle,
@@ -57,5 +64,8 @@ export function useSound() {
     playDiscard: () => play(280, 90),
     playWin: () => play(660, 320),
     playTurn: () => play(520, 140),
+    playMeld: () => play(600, 140),
+    playDesmochar: () => playSequence([420, 560], 90, 70),
+    playDeal: () => playSequence([380, 440, 500, 560], 60, 50),
   };
 }

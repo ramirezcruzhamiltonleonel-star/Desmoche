@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import Spinner from "./Spinner";
 
 export default function LoginScreen() {
   const { requestCode, verifyCode } = useAuth();
@@ -40,7 +41,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-felt-dark px-4 py-8">
+    <div className="screen-fade flex min-h-screen items-center justify-center bg-felt-dark px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
         <h1 className="mb-1 text-center font-display text-3xl text-gold">Desmoche</h1>
         <p className="mb-6 text-center text-sm text-stone-300">Mesa de cartas nicaragüense</p>
@@ -62,8 +63,9 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
             >
+              {busy && <Spinner size="sm" tone="dark" />}
               {busy ? "Enviando..." : "Enviar código"}
             </button>
           </form>
@@ -103,8 +105,9 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-50"
             >
+              {busy && <Spinner size="sm" tone="dark" />}
               {busy ? "Verificando..." : "Entrar"}
             </button>
             <button

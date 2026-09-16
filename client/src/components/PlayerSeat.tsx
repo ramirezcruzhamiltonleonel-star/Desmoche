@@ -12,7 +12,7 @@ export default function PlayerSeat({ seat, isTurn, isDealer, isSpeaking }: Playe
   return (
     <div
       className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1 transition ${
-        isTurn ? "bg-gold/20 ring-2 ring-gold" : ""
+        isTurn ? "bg-gold/20 ring-2 ring-gold shadow-[0_0_14px_-2px_rgba(212,175,55,0.7)]" : ""
       } ${isSpeaking ? "ring-2 ring-green-400" : ""}`}
     >
       <div className="flex items-center gap-1 whitespace-nowrap">

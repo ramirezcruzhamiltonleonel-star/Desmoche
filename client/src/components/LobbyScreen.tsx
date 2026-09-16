@@ -7,7 +7,7 @@ export default function LobbyScreen() {
   const me = state.seats.find((s) => s.seatIndex === state.yourSeatIndex);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-felt-dark px-4 py-8">
+    <div className="screen-fade flex min-h-screen flex-col items-center justify-center bg-felt-dark px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
         <h2 className="mb-1 text-center font-display text-2xl text-gold">Sala de espera</h2>
         <p className="mb-1 text-center text-xs text-stone-400">

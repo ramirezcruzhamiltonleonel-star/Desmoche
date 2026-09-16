@@ -131,3 +131,51 @@ describe("Room — hand progression", () => {
     expect(room.maybeSettle()).toBeNull();
   });
 });
+
+describe("Room — hand history", () => {
+  function forceHandOver(
+    room: Room,
+    winnerSeatIndex: number,
+    reason: "meld-out" | "discard-out" | "peladia" | "cuatro-cuerpos" = "meld-out",
+  ) {
+    const table = room.requireTable();
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason, winnerSeatIndex, winningMelds: [] };
+  }
+
+  it("accumulates one entry per finished hand, oldest first, across the whole session", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    forceHandOver(room, 0, "meld-out");
+    const afterFirst = room.viewFor("user-a");
+    expect(afterFirst.handHistory).toHaveLength(1);
+    expect(afterFirst.handHistory[0]).toMatchObject({ reason: "meld-out", winnerSeatIndex: 0 });
+    expect(afterFirst.handHistory[0]!.settlement.winnerId).toBe("user-a");
+
+    room.nextHand();
+    forceHandOver(room, 1, "discard-out");
+    const afterSecond = room.viewFor("user-a");
+    expect(afterSecond.handHistory).toHaveLength(2);
+    // The first hand's entry is still there — accumulated, not reset.
+    expect(afterSecond.handHistory[0]).toMatchObject({ reason: "meld-out", winnerSeatIndex: 0 });
+    expect(afterSecond.handHistory[1]).toMatchObject({ reason: "discard-out", winnerSeatIndex: 1 });
+  });
+
+  it("does not duplicate an entry across repeated viewFor calls for the same hand", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    forceHandOver(room, 0);
+
+    room.viewFor("user-a");
+    room.viewFor("user-b");
+
+    expect(room.viewFor("user-a").handHistory).toHaveLength(1);
+  });
+});

@@ -3,9 +3,10 @@ import type { StakeType } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import { STAKE_LABELS } from "../lib/labels";
+import ProfilePanel from "./ProfilePanel";
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const { createTable, joinTable } = useGame();
   const [mode, setMode] = useState<"create" | "join">("create");
   const [stakeType, setStakeType] = useState<StakeType>("chips");
@@ -13,6 +14,7 @@ export default function HomeScreen() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   async function handleCreate() {
     setError(null);
@@ -49,10 +51,19 @@ export default function HomeScreen() {
               Hola, {user?.displayName} · {user?.chipBalance} fichas
             </p>
           </div>
-          <button onClick={logout} className="text-xs text-stone-400 underline">
-            Salir
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            <button onClick={() => setShowProfile(true)} className="text-xs text-stone-400 underline">
+              Perfil
+            </button>
+            <button onClick={logout} className="text-xs text-stone-400 underline">
+              Salir
+            </button>
+          </div>
         </div>
+
+        {showProfile && token && (
+          <ProfilePanel token={token} displayName={user?.displayName ?? ""} onClose={() => setShowProfile(false)} />
+        )}
 
         <div className="mb-4 flex rounded-lg border border-wood bg-felt p-1">
           <button

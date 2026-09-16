@@ -1,4 +1,4 @@
-import type { ClientGameState, StakeType } from "@desmoche/shared";
+import type { ClientGameState, ClientHandHistoryEntry, StakeType } from "@desmoche/shared";
 import { toClientView } from "../game/clientView";
 import { GameError } from "../game/errors";
 import { Table } from "../game/table";
@@ -36,6 +36,8 @@ export class Room {
   private dealerSeatIndex = 0;
   private handSettled = false;
   private settlementCache: HandOutcome | null = null;
+  /** Every hand settled so far this session — never reset across hands, only starts empty for a brand-new Room. */
+  private history: ClientHandHistoryEntry[] = [];
 
   constructor(code: string, stakeType: StakeType, ante: number) {
     this.code = code;
@@ -121,6 +123,15 @@ export class Room {
   private ensureSettlementComputed(): void {
     if (this.settlementCache || !this.table || this.table.state.phase !== "hand-over") return;
     this.settlementCache = this.table.settleHand();
+    const outcome = this.table.state.handOutcome;
+    if (outcome) {
+      this.history.push({
+        reason: outcome.reason,
+        winnerSeatIndex: outcome.winnerSeatIndex,
+        settlement: this.settlementCache,
+        playedAt: Date.now(),
+      });
+    }
   }
 
   /**
@@ -150,6 +161,7 @@ export class Room {
           playerId,
         ),
         handSettlement: this.settlementCache,
+        handHistory: this.history,
       };
     }
 
@@ -185,6 +197,7 @@ export class Room {
       isFirstTurn: true,
       handOutcome: null,
       handSettlement: null,
+      handHistory: this.history,
     };
   }
 }

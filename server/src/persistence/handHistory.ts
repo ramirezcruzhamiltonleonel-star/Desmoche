@@ -19,14 +19,14 @@ export async function persistHandOutcome(
   const reason = table.state.handOutcome?.reason ?? "meld-out";
 
   const deltas = new Map<string, number>(seats.map((seat) => [seat.playerId, 0]));
+  let bonusChipsCollected = 0; // Mico/Patona extras only, not the base ante pot
 
   if (outcome.kind === "chips" || outcome.kind === "money") {
-    let extrasToWinner = 0;
     for (const [loserId, extra] of Object.entries(outcome.extraPerLoser)) {
       deltas.set(loserId, -room.ante - extra);
-      extrasToWinner += extra;
+      bonusChipsCollected += extra;
     }
-    deltas.set(outcome.winnerId, outcome.potWon - room.ante + extrasToWinner);
+    deltas.set(outcome.winnerId, outcome.potWon - room.ante + bonusChipsCollected);
   }
 
   const tableRecord = await prisma.tableRecord.create({
@@ -44,6 +44,7 @@ export async function persistHandOutcome(
           seatIndex: seat.seatIndex,
           isWinner: seat.playerId === outcome.winnerId,
           chipsDelta: deltas.get(seat.playerId) ?? 0,
+          bonusChipsCollected: seat.playerId === outcome.winnerId ? bonusChipsCollected : 0,
         })),
       },
     },

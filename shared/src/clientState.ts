@@ -43,6 +43,14 @@ export type ClientHandSettlement =
   | { kind: "chips" | "money"; winnerId: string; potWon: number; extraPerLoser: Record<string, number> }
   | { kind: "dare"; winnerId: string; playersWhoOweADare: string[] };
 
+/** One completed hand's outcome, kept for the lifetime of the current table session (not persisted history — just this sitting). */
+export interface ClientHandHistoryEntry {
+  reason: ClientHandOutcome["reason"];
+  winnerSeatIndex: number;
+  settlement: ClientHandSettlement;
+  playedAt: number;
+}
+
 /**
  * Everything a single connected player is allowed to see. Other players'
  * hands are reduced to a card count; a pending first-turn double-draw choice
@@ -77,4 +85,6 @@ export interface ClientGameState {
   isFirstTurn: boolean;
   handOutcome: ClientHandOutcome | null;
   handSettlement: ClientHandSettlement | null;
+  /** Every hand settled so far in this table session, oldest first. */
+  handHistory: ClientHandHistoryEntry[];
 }

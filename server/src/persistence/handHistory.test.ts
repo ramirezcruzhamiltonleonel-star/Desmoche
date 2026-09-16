@@ -1,7 +1,12 @@
+import type { Card, Meld } from "@desmoche/shared";
 import type { PrismaClient } from "@prisma/client";
 import { createTestDb } from "../testUtils/testDb";
 import { Room } from "../rooms/room";
 import { persistHandOutcome } from "./handHistory";
+
+function c(rank: Card["rank"], suit: Card["suit"]): Card {
+  return { rank, suit };
+}
 
 jest.setTimeout(30_000);
 
@@ -22,13 +27,13 @@ async function makeUser(id: string, displayName: string, chipBalance = 1000) {
   return prisma.user.create({ data: { id, email: `${id}@example.com`, displayName, chipBalance } });
 }
 
-function forceHandOver(room: Room, winnerSeatIndex: number) {
+function forceHandOver(room: Room, winnerSeatIndex: number, winningMelds: Meld[] = []) {
   const table = room.requireTable();
   (table.state as { phase: string }).phase = "hand-over";
   table.state.handOutcome = {
     reason: "meld-out",
     winnerSeatIndex,
-    winningMelds: [],
+    winningMelds,
   };
 }
 
@@ -81,5 +86,33 @@ describe("persistHandOutcome", () => {
     const loser = await prisma.user.findUniqueOrThrow({ where: { id: "loser-2" } });
     expect(winner.chipBalance).toBe(1000);
     expect(loser.chipBalance).toBe(1000);
+  });
+
+  it("records bonusChipsCollected on the winner's row only, separate from the base pot", async () => {
+    await makeUser("winner-3", "Elena", 1000);
+    await makeUser("loser-3", "Pedro", 1000);
+
+    const room = new Room("CHIPS2", "chips", 100);
+    room.join("winner-3", "Elena");
+    room.join("loser-3", "Pedro");
+    room.setReady("winner-3", true);
+    room.setReady("loser-3", true);
+    // Mico abajo (A-2-3 clubs) — one extra ante on top of the pot.
+    forceHandOver(room, 0, [
+      { id: "m1", type: "run", ownerId: "winner-3", cards: [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")] },
+    ]);
+
+    const outcome = room.maybeSettle();
+    await persistHandOutcome(prisma, room, outcome!);
+
+    const hand = await prisma.handHistoryRecord.findFirstOrThrow({
+      where: { winnerUserId: "winner-3" },
+      include: { players: true },
+    });
+    const winnerRow = hand.players.find((p) => p.userId === "winner-3")!;
+    const loserRow = hand.players.find((p) => p.userId === "loser-3")!;
+    expect(winnerRow.bonusChipsCollected).toBe(100); // the Mico extra, not the 200 total pot
+    expect(winnerRow.chipsDelta).toBe(200); // (potWon 200 - own ante 100) + 100 bonus
+    expect(loserRow.bonusChipsCollected).toBe(0);
   });
 });

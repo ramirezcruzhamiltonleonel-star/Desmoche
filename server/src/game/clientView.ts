@@ -67,8 +67,10 @@ export function toClientView(
       : null,
     isFirstTurn: state.isFirstTurn,
     handOutcome: state.handOutcome,
-    // Populated by Room.viewFor(), which knows the table's stake config —
-    // this projector only has the rules-engine state, not the settlement.
+    // Populated by Room.viewFor(), which knows the table's stake config and
+    // the running session history — this projector only has the rules-engine
+    // state for the CURRENT hand, not settlements or cross-hand history.
     handSettlement: null,
+    handHistory: [],
   };
 }

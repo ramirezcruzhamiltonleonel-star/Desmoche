@@ -15,6 +15,7 @@ import { prisma } from "./db/prisma";
 import { GameError } from "./game/errors";
 import type { Table } from "./game/table";
 import { createAuthRouter } from "./http/authRoutes";
+import { createStatsRouter } from "./http/statsRoutes";
 import { persistHandOutcome } from "./persistence/handHistory";
 import { Room } from "./rooms/room";
 import { RoomManager } from "./rooms/roomManager";
@@ -43,6 +44,7 @@ app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/auth", createAuthRouter(prisma));
+app.use("/users", createStatsRouter(prisma));
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(

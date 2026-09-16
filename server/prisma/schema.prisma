@@ -65,4 +65,6 @@ model HandHistoryPlayer {
   seatIndex  Int
   isWinner   Boolean
   chipsDelta Int     @default(0)
+  /// Only nonzero on the winner's row: how much of chipsDelta came from Mico/Patona bonuses (vs. just the ante pot).
+  bonusChipsCollected Int @default(0)
 }

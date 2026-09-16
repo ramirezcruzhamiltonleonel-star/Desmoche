@@ -41,3 +41,22 @@ export function requestOtp(email: string): Promise<RequestOtpResponse> {
 export function verifyOtp(email: string, code: string, displayName?: string): Promise<VerifyOtpResponse> {
   return postJson<VerifyOtpResponse>("/auth/verify-code", { email, code, displayName });
 }
+
+export interface UserStats {
+  handsPlayed: number;
+  handsWon: number;
+  netChipsAllTime: number;
+  handsWithBonus: number;
+}
+
+export async function fetchMyStats(token: string): Promise<UserStats> {
+  const res = await fetch(`${SERVER_URL}/users/me/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data: unknown = await res.json();
+  if (!res.ok) {
+    const message = (data as Partial<ErrorBody>).message ?? "Error de red";
+    throw new Error(message);
+  }
+  return data as UserStats;
+}

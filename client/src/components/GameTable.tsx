@@ -12,6 +12,7 @@ import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
 import FirstTurnChoiceModal from "./FirstTurnChoiceModal";
+import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
 import MeldsBoard from "./MeldsBoard";
 import PlayerSeat from "./PlayerSeat";
@@ -43,6 +44,7 @@ export default function GameTable() {
   const [selectedCards, setSelectedCards] = useState<CardModel[]>([]);
   const [desmocheMode, setDesmocheMode] = useState(false);
   const [desmocheSource, setDesmocheSource] = useState<DesmocheSource | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const wonAlreadyRef = useRef(false);
 
   useEffect(() => {
@@ -157,6 +159,9 @@ export default function GameTable() {
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
         </span>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="text-base">
+            📜
+          </button>
           <button onClick={sound.toggle} aria-label="Sonido" className="text-base">
             {sound.enabled ? "🔊" : "🔇"}
           </button>
@@ -284,6 +289,10 @@ export default function GameTable() {
           winnerName={winnerName}
           onNextHand={nextHand}
         />
+      )}
+
+      {showHistory && (
+        <HandHistoryPanel state={state} nameByPlayerId={nameByPlayerId} onClose={() => setShowHistory(false)} />
       )}
     </div>
   );

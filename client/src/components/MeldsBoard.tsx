@@ -1,6 +1,7 @@
 import type { Card as CardModel, Meld } from "@desmoche/shared";
 import Card from "./Card";
 import { cardKey } from "../lib/cardKey";
+import { sortMeldCardsForDisplay } from "../lib/sortMeld";
 
 interface MeldsBoardProps {
   melds: Meld[];
@@ -35,7 +36,7 @@ export default function MeldsBoard({
               {seatNameByPlayerId[meld.ownerId] ?? "?"}
             </span>
             <div className="flex gap-1">
-              {meld.cards.map((card) => (
+              {sortMeldCardsForDisplay(meld).map((card) => (
                 <div key={cardKey(card)} data-card-key={cardKey(card)}>
                   <Card
                     card={card}

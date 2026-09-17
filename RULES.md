@@ -36,8 +36,7 @@ actualiza en el mismo commit que el código y sus tests.
      que se roba: o se usa ahí mismo en un grupo (nuevo o propio ya existente), o
      se descarta directamente — sin pasar por una elección entre las 9 cartas
      originales. Mientras esa carta no se resuelva, no se puede desmochar ni
-     descartar ninguna otra carta. Aplica igual a la carta que se conserva del
-     robo doble del primer turno (ver más abajo).
+     descartar ninguna otra carta.
 2. Colocar grupos nuevos y/o agregar cartas a grupos propios ya en mesa — **siempre
    opcional**, nunca automático. El sistema únicamente ofrece el botón; el jugador
    decide cuándo y qué bajar, incluyendo guardarse grupos completos en la mano para
@@ -58,9 +57,12 @@ actualiza en el mismo commit que el código y sus tests.
 - Si varios reclaman la misma carta, tiene prioridad el más cercano en la rotación
   (hacia adelante, mismo sentido que el orden de turno) al jugador de referencia
   (quien descartó, o el repartidor para la carta inicial).
-- Si nadie reclama la carta inicial, el primer jugador (siguiente al repartidor)
-  roba **2 cartas del mazo** en vez de 1 — se queda con la que le sirva y la otra se
-  descarta.
+- **Si nadie reclama la carta inicial**, el mismo jugador designado (el siguiente al
+  repartidor) revela **una carta del mazo a la vez** — nunca dos para elegir. Esa
+  carta se ofrece a todos de la misma forma (ventana de reclamo); si tampoco la
+  reclama nadie, se entierra en el descarte y se revela la siguiente, una por una,
+  hasta que alguien reclame una o el mazo (y el descarte reciclado) se agoten por
+  completo — en cuyo caso la mano termina sin ganador (ver "Pozo acumulado" abajo).
 - Cuando alguien reclama fuera de turno, el turno salta a esa persona; al terminar su
   turno, la rotación normal continúa desde el jugador siguiente a ella (se saltan los
   que quedaron en medio).
@@ -78,10 +80,25 @@ actualiza en el mismo commit que el código y sus tests.
   no aplica sobre una Peladía/Cuatro Cuerpos, porque ahí nadie llegó a tener turno.
   **No aplica en Modo Retos.**
 
-## Pendiente de definir (no implementado todavía)
+## Mano sin ganador y pozo acumulado ("se va doble")
 
-- **Robo del mazo ofrecido a todos + re-robo por la misma persona hasta que a alguien
-  le sirva**: mecánica nueva en discusión, todavía sin implementar. Ver conversación
-  para el detalle exacto antes de construirla.
-- **Carta del mazo revelada con pantalla de confirmación** (privada vs. pública para
-  toda la mesa): decisión de diseño pendiente de confirmar.
+- **Único caso de "mano sin ganador"**: el mazo (y el descarte reciclado) se agotan
+  por completo sin que ningún jugador complete su mano ni gane por otra vía. Esto
+  puede pasar durante el ritual de apertura (revelado uno a uno sin que nadie
+  reclame) o en cualquier turno normal al intentar robar del mazo. No hay otro
+  camino posible bajo las reglas actuales — Peladía, Cuatro Cuerpos y "se fue con
+  toda la mano" siempre tienen un ganador.
+- **Modo Fichas/Dinero real**: el pozo de esa mano (ante × cantidad de jugadores) no
+  se reparte — se acumula (`accumulatedPot`) para la mano siguiente. Cada jugador
+  vuelve a poner su ante completo en la mano nueva, que se suma al acumulado. Esto
+  se repite sin límite mientras sigan pasando manos sin ganador — no hay tope de
+  manos consecutivas.
+- Cuando finalmente alguien gana una mano (con pozo acumulado de una o más manos
+  previas), se paga todo normal: el ganador se lleva el pozo completo de esa mano
+  **más** todo lo acumulado, y los bonos de Mico/Patona se calculan exactamente
+  igual que siempre sobre esa mano específica. El acumulado vuelve a 0 en cuanto se
+  paga.
+- **Modo Retos**: no hay pozo que acumular (no existe una apuesta en fichas). Si el
+  mazo se agota, esa mano simplemente termina sin que nadie deba cumplir un reto.
+- Estas manos sí quedan registradas en el historial persistente (`winnerUserId` nulo
+  para esa mano), y cuentan como "mano jugada" en las estadísticas del jugador.

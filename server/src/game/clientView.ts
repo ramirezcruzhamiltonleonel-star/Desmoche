@@ -62,6 +62,7 @@ export function toClientView(
           isInitialFlip: state.claim.isInitialFlip,
         }
       : null,
+    accumulatedPot: state.accumulatedPot,
     handOutcome: state.handOutcome,
     // Populated by Room.viewFor(), which knows the table's stake config and
     // the running session history — this projector only has the rules-engine

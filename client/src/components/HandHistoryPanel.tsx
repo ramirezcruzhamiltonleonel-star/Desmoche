@@ -56,13 +56,13 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
           {[...state.handHistory].reverse().map((entry, i) => {
             const handNumber = state.handHistory.length - i;
             const winnerSeat = state.seats.find((s) => s.seatIndex === entry.winnerSeatIndex);
-            const winnerName = winnerSeat ? nameByPlayerId[winnerSeat.playerId] ?? "?" : "?";
+            const winnerName = winnerSeat ? nameByPlayerId[winnerSeat.playerId] ?? "?" : null;
             return (
               <div key={entry.playedAt} className="rounded-lg bg-stone-900/40 p-2 text-xs text-stone-300">
                 <p className="font-semibold text-stone-100">
                   Mano {handNumber}: {REASON_LABELS[entry.reason] ?? entry.reason}
                 </p>
-                <p>Ganó {winnerName}</p>
+                {winnerName ? <p>Ganó {winnerName}</p> : <p>Nadie ganó — el pozo se acumula</p>}
                 {entry.settlement.kind === "dare" && entry.settlement.playersWhoOweADare.length > 0 && (
                   <p className="text-stone-400">
                     Deben reto:{" "}
@@ -71,6 +71,11 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
                 )}
                 {(entry.settlement.kind === "chips" || entry.settlement.kind === "money") && (
                   <p className="text-stone-400">Pozo: {entry.settlement.potWon}</p>
+                )}
+                {entry.settlement.kind === "carry-over" && entry.settlement.addedToPot > 0 && (
+                  <p className="text-stone-400">
+                    Pozo acumulado tras esta mano: {entry.settlement.totalAccumulatedPot}
+                  </p>
                 )}
               </div>
             );

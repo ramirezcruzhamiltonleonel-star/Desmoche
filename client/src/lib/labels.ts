@@ -11,4 +11,5 @@ export const REASON_LABELS: Record<string, string> = {
   "cuatro-cuerpos": "¡Cuatro Cuerpos!",
   "meld-out": "Ganó bajando toda la mano",
   "discard-out": "Ganó por descarte",
+  "stock-exhausted": "Se acabó el mazo — nadie ganó",
 };

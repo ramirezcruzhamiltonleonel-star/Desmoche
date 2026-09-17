@@ -44,8 +44,9 @@ export interface CambioState {
 }
 
 export interface HandOutcomeSummary {
-  reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out";
-  winnerSeatIndex: number;
+  reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out" | "stock-exhausted";
+  /** Null only for "stock-exhausted" — the deck ran out with nobody completing their hand. */
+  winnerSeatIndex: number | null;
   winningMelds: Meld[];
 }
 
@@ -75,6 +76,13 @@ export interface GameState {
   /** Present only during the 'cambio' phase, right after dealing and before the initial claim window. */
   cambio: CambioState | null;
   claim: ClaimWindowState | null;
+  /**
+   * Chips/money only: pot carried over from hand(s) that ended in
+   * "stock-exhausted" ("se va doble"), added on top of the next hand's own
+   * ante pot once someone actually wins. Reset to 0 the moment it's paid
+   * out. Never reset by startHand() — it must survive across hands.
+   */
+  accumulatedPot: number;
   handOutcome: HandOutcomeSummary | null;
 }
 

@@ -184,7 +184,9 @@ describe("Room — hand history", () => {
     const afterFirst = room.viewFor("user-a");
     expect(afterFirst.handHistory).toHaveLength(1);
     expect(afterFirst.handHistory[0]).toMatchObject({ reason: "meld-out", winnerSeatIndex: 0 });
-    expect(afterFirst.handHistory[0]!.settlement.winnerId).toBe("user-a");
+    const firstSettlement = afterFirst.handHistory[0]!.settlement;
+    if (firstSettlement.kind === "carry-over") throw new Error("expected a real winner, not a carry-over");
+    expect(firstSettlement.winnerId).toBe("user-a");
 
     room.nextHand();
     forceHandOver(room, 1, "discard-out");

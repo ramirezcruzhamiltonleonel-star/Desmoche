@@ -37,6 +37,12 @@ function forceHandOver(room: Room, winnerSeatIndex: number, winningMelds: Meld[]
   };
 }
 
+function forceStockExhausted(room: Room) {
+  const table = room.requireTable();
+  (table.state as { phase: string }).phase = "hand-over";
+  table.state.handOutcome = { reason: "stock-exhausted", winnerSeatIndex: null, winningMelds: [] };
+}
+
 describe("persistHandOutcome", () => {
   it("moves chips from losers to the winner and logs a hand history row", async () => {
     await makeUser("winner-1", "Ana", 1000);
@@ -114,5 +120,38 @@ describe("persistHandOutcome", () => {
     expect(winnerRow.bonusChipsCollected).toBe(100); // the Mico extra, not the 200 total pot
     expect(winnerRow.chipsDelta).toBe(200); // (potWon 200 - own ante 100) + 100 bonus
     expect(loserRow.bonusChipsCollected).toBe(0);
+  });
+
+  it("logs a stock-exhausted ('se va doble') hand with no winner and moves no chips", async () => {
+    await makeUser("carry-a", "Nora", 1000);
+    await makeUser("carry-b", "Oscar", 1000);
+
+    const room = new Room("CHIPS3", "chips", 100);
+    room.join("carry-a", "Nora");
+    room.join("carry-b", "Oscar");
+    room.setReady("carry-a", true);
+    room.setReady("carry-b", true);
+    forceStockExhausted(room);
+
+    const outcome = room.maybeSettle();
+    expect(outcome).toEqual({ kind: "carry-over", addedToPot: 200, totalAccumulatedPot: 200 });
+    await persistHandOutcome(prisma, room, outcome!);
+
+    const nora = await prisma.user.findUniqueOrThrow({ where: { id: "carry-a" } });
+    const oscar = await prisma.user.findUniqueOrThrow({ where: { id: "carry-b" } });
+    expect(nora.chipBalance).toBe(1000);
+    expect(oscar.chipBalance).toBe(1000);
+
+    const hand = await prisma.handHistoryRecord.findFirstOrThrow({
+      where: { reason: "stock-exhausted" },
+      include: { players: true },
+    });
+    expect(hand.winnerUserId).toBeNull();
+    expect(hand.players).toHaveLength(2);
+    expect(hand.players.every((p) => !p.isWinner)).toBe(true);
+    expect(hand.players.every((p) => p.chipsDelta === 0)).toBe(true);
+
+    // The pot really did accumulate on the live table, ready for the next hand.
+    expect(room.requireTable().state.accumulatedPot).toBe(200);
   });
 });

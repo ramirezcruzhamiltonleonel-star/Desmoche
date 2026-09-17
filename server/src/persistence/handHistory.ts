@@ -8,6 +8,11 @@ import type { Room } from "../rooms/room";
  * chip balance movement. Dare tables have no money to move; real-money
  * tables are schema-only for now (see plan) — the hand is still logged, but
  * no balance changes hands.
+ *
+ * "carry-over" ("se va doble" — the stock ran out with nobody winning) is
+ * still logged, with no winner and every delta at 0: the ante each player
+ * "put in" for that hand only ever shows up in the eventual winning hand's
+ * bigger potWon, never as its own balance movement.
  */
 export async function persistHandOutcome(
   prisma: PrismaClient,
@@ -17,6 +22,7 @@ export async function persistHandOutcome(
   const table = room.requireTable();
   const seats = table.state.seats;
   const reason = table.state.handOutcome?.reason ?? "meld-out";
+  const winnerId = outcome.kind === "carry-over" ? null : outcome.winnerId;
 
   const deltas = new Map<string, number>(seats.map((seat) => [seat.playerId, 0]));
   let bonusChipsCollected = 0; // Mico/Patona extras only, not the base ante pot
@@ -37,14 +43,14 @@ export async function persistHandOutcome(
     data: {
       tableId: tableRecord.id,
       reason,
-      winnerUserId: outcome.winnerId,
+      winnerUserId: winnerId,
       players: {
         create: seats.map((seat) => ({
           userId: seat.playerId,
           seatIndex: seat.seatIndex,
-          isWinner: seat.playerId === outcome.winnerId,
+          isWinner: seat.playerId === winnerId,
           chipsDelta: deltas.get(seat.playerId) ?? 0,
-          bonusChipsCollected: seat.playerId === outcome.winnerId ? bonusChipsCollected : 0,
+          bonusChipsCollected: seat.playerId === winnerId ? bonusChipsCollected : 0,
         })),
       },
     },

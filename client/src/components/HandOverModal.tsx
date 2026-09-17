@@ -22,9 +22,32 @@ export default function HandOverModal({
         <h3 className="mb-2 font-display text-2xl text-gold">
           {REASON_LABELS[outcome.reason] ?? "Mano terminada"}
         </h3>
-        <p className="mb-4 text-sm text-stone-200">
-          Gana <span className="font-semibold text-gold">{winnerName}</span>
-        </p>
+        {outcome.winnerSeatIndex !== null ? (
+          <p className="mb-4 text-sm text-stone-200">
+            Gana <span className="font-semibold text-gold">{winnerName}</span>
+          </p>
+        ) : (
+          <p className="mb-4 text-sm text-stone-300">Nadie completó su mano — se reparte otra vez.</p>
+        )}
+
+        {settlement && settlement.kind === "carry-over" && (
+          <div className="mb-4 space-y-1 text-sm text-stone-300">
+            {settlement.addedToPot > 0 ? (
+              <p>
+                Este pozo se acumula ("se va doble"): cada quien vuelve a poner su ante en la próxima
+                mano, sumado a lo ya acumulado.
+              </p>
+            ) : (
+              <p>No hay pozo que acumular en modo Retos — la próxima mano empieza de cero.</p>
+            )}
+            {settlement.totalAccumulatedPot > 0 && (
+              <p className="text-xs">
+                Pozo acumulado hasta ahora:{" "}
+                <span className="font-semibold text-gold">{settlement.totalAccumulatedPot}</span>
+              </p>
+            )}
+          </div>
+        )}
 
         {settlement && settlement.kind === "dare" && settlement.playersWhoOweADare.length > 0 && (
           <div className="mb-4 space-y-1 text-sm text-stone-300">

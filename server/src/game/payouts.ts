@@ -13,6 +13,11 @@ export interface HandOutcomeInput {
    * Chips/money only — ignored entirely in dare mode.
    */
   patonaLoserIds?: string[];
+  /**
+   * Chips/money only: pot carried over from previous "stock-exhausted"
+   * hands ("se va doble"), added on top of this hand's own ante pot.
+   */
+  carriedOverPot?: number;
 }
 
 export interface ChipsOrMoneyPayout {
@@ -31,10 +36,22 @@ export interface DarePayout {
   playersWhoOweADare: string[];
 }
 
-export type HandOutcome = ChipsOrMoneyPayout | DarePayout;
+/**
+ * The mazo agotado ("se va doble") case: nobody won, so nothing is paid out
+ * this hand — the pot just grows for whenever someone finally wins.
+ */
+export interface CarryOverPot {
+  kind: "carry-over";
+  /** How much this specific hand added to the pot (0 in dare mode — there's nothing to carry). */
+  addedToPot: number;
+  /** The full accumulated pot after adding this hand's share. */
+  totalAccumulatedPot: number;
+}
+
+export type HandOutcome = ChipsOrMoneyPayout | DarePayout | CarryOverPot;
 
 export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
-  const { stakeType, ante, winnerId, loserIds, bonuses, patonaLoserIds = [] } = input;
+  const { stakeType, ante, winnerId, loserIds, bonuses, patonaLoserIds = [], carriedOverPot = 0 } = input;
 
   if (stakeType === "dare") {
     return {
@@ -54,7 +71,7 @@ export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
   return {
     kind: stakeType,
     winnerId,
-    potWon: ante * totalPlayers,
+    potWon: ante * totalPlayers + carriedOverPot,
     extraPerLoser,
   };
 }

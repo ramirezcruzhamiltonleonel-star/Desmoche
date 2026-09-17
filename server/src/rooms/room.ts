@@ -193,6 +193,7 @@ export class Room {
       cambio: null,
       yourCambioSubmitted: false,
       claim: null,
+      accumulatedPot: 0,
       handOutcome: null,
       handSettlement: null,
       handHistory: this.history,

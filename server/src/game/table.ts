@@ -67,6 +67,7 @@ export class Table {
       pendingDrawnCard: null,
       cambio: null,
       claim: null,
+      accumulatedPot: 0,
       handOutcome: null,
     };
   }
@@ -90,12 +91,24 @@ export class Table {
   }
 
   private finishHand(
-    reason: HandOutcomeSummary["reason"],
+    reason: Exclude<HandOutcomeSummary["reason"], "stock-exhausted">,
     winnerSeatIndex: number,
     winningMelds: Meld[],
   ): void {
     this.state.phase = "hand-over";
     this.state.handOutcome = { reason, winnerSeatIndex, winningMelds };
+  }
+
+  /**
+   * "Se va doble": the stock (and the recycled discard pile) ran out with
+   * nobody completing their hand. Nobody wins — settleHand() grows
+   * accumulatedPot instead of paying anyone, and the next hand's own ante
+   * pot stacks on top of it.
+   */
+  private endHandWithNoWinner(): void {
+    this.state.phase = "hand-over";
+    this.state.handOutcome = { reason: "stock-exhausted", winnerSeatIndex: null, winningMelds: [] };
+    this.state.claim = null;
   }
 
   /**
@@ -261,11 +274,9 @@ export class Table {
       // is fully exhausted.
       this.reshuffleStockIfNeeded(1);
       if (this.state.stock.length === 0) {
-        this.state.turnSeatIndex = claim.fallbackSeatIndex;
-        this.state.hasDrawnThisTurn = false;
-        this.state.mustPlaceCard = null;
-        this.state.phase = "turn-active";
-        this.state.claim = null;
+        // Nothing left to reveal, and nobody ever claimed anything — the
+        // hand can't proceed at all. "Se va doble."
+        this.endHandWithNoWinner();
         return;
       }
       const revealedCard = this.state.stock[this.state.stock.length - 1]!;
@@ -306,6 +317,11 @@ export class Table {
     }
 
     this.reshuffleStockIfNeeded(1);
+    if (this.state.stock.length === 0) {
+      // "Se va doble": nothing left anywhere to draw, nobody completed their hand.
+      this.endHandWithNoWinner();
+      return [];
+    }
     const drawn = this.state.stock.slice(-1);
     this.state.stock = this.state.stock.slice(0, -1);
     this.state.hands[playerId] = [...handOf(this.state, playerId), ...drawn];
@@ -461,11 +477,18 @@ export class Table {
     };
   }
 
-  /** Combines the auto-win/meld-out outcome with Mico bonuses into a payout. */
+  /** Combines the auto-win/meld-out outcome with Mico bonuses into a payout — or, for "se va doble", grows the carried-over pot instead. */
   settleHand(): HandOutcome {
     const outcome = this.state.handOutcome;
     if (!outcome) throw new GameError("La mano todavía no ha terminado");
-    const winnerId = this.seatPlayerId(outcome.winnerSeatIndex);
+
+    if (outcome.reason === "stock-exhausted") {
+      const addedToPot = this.config.stakeType === "dare" ? 0 : this.config.ante * this.playerCount;
+      this.state.accumulatedPot += addedToPot;
+      return { kind: "carry-over", addedToPot, totalAccumulatedPot: this.state.accumulatedPot };
+    }
+
+    const winnerId = this.seatPlayerId(outcome.winnerSeatIndex!);
     const loserIds = this.state.seats
       .filter((s) => s.seatIndex !== outcome.winnerSeatIndex)
       .map((s) => s.playerId);
@@ -480,6 +503,11 @@ export class Table {
       ? loserIds.filter((loserId) => !this.state.melds.some((m) => m.ownerId === loserId))
       : [];
 
+    // Whatever accumulated from previous "se va doble" hands rides on top of
+    // this hand's own ante pot, then resets — it's been paid out now.
+    const carriedOverPot = this.state.accumulatedPot;
+    this.state.accumulatedPot = 0;
+
     return calculateHandOutcome({
       stakeType: this.config.stakeType,
       ante: this.config.ante,
@@ -487,6 +515,7 @@ export class Table {
       loserIds,
       bonuses,
       patonaLoserIds,
+      carriedOverPot,
     });
   }
 }

@@ -209,9 +209,10 @@ export default function GameTable() {
     sound.playDesmochar();
   }
 
-  const winnerName = state.handOutcome
-    ? (state.seats.find((s) => s.seatIndex === state.handOutcome!.winnerSeatIndex)?.displayName ?? "?")
-    : "";
+  const winnerName =
+    state.handOutcome && state.handOutcome.winnerSeatIndex !== null
+      ? (state.seats.find((s) => s.seatIndex === state.handOutcome!.winnerSeatIndex)?.displayName ?? "?")
+      : "";
 
   return (
     <div className="screen-fade flex min-h-screen flex-col bg-felt-dark">
@@ -219,6 +220,7 @@ export default function GameTable() {
         <span>
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
+          {state.accumulatedPot > 0 ? ` · pozo acumulado ${state.accumulatedPot}` : ""}
         </span>
         <div className="flex items-center gap-3">
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">

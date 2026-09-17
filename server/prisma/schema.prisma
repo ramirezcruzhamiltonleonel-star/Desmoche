@@ -50,7 +50,8 @@ model HandHistoryRecord {
   table        TableRecord @relation(fields: [tableId], references: [id])
   tableId      String
   reason       String
-  winnerUserId String
+  /// Null only for "stock-exhausted" ("se va doble") — the deck ran out with nobody winning that hand.
+  winnerUserId String?
   playedAt     DateTime @default(now())
 
   players HandHistoryPlayer[]

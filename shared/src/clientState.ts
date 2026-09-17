@@ -37,20 +37,31 @@ export interface ClientClaimView {
 }
 
 export interface ClientHandOutcome {
-  reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out";
-  winnerSeatIndex: number;
+  reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out" | "stock-exhausted";
+  /** Null only for "stock-exhausted" — nobody won that hand, so there's no winning seat. */
+  winnerSeatIndex: number | null;
   winningMelds: Meld[];
 }
 
 /** The actual payout once a hand ends — null until settlement is computed (immediately after hand-over). */
 export type ClientHandSettlement =
   | { kind: "chips" | "money"; winnerId: string; potWon: number; extraPerLoser: Record<string, number> }
-  | { kind: "dare"; winnerId: string; playersWhoOweADare: string[] };
+  | { kind: "dare"; winnerId: string; playersWhoOweADare: string[] }
+  | {
+      /**
+       * The mazo agotado ("se va doble") case: nobody won, so nothing is
+       * paid out this hand. Chips/money only — dare mode has no pot to
+       * carry, so this always carries addedToPot 0 there.
+       */
+      kind: "carry-over";
+      addedToPot: number;
+      totalAccumulatedPot: number;
+    };
 
 /** One completed hand's outcome, kept for the lifetime of the current table session (not persisted history — just this sitting). */
 export interface ClientHandHistoryEntry {
   reason: ClientHandOutcome["reason"];
-  winnerSeatIndex: number;
+  winnerSeatIndex: number | null;
   settlement: ClientHandSettlement;
   playedAt: number;
 }
@@ -83,6 +94,8 @@ export interface ClientGameState {
   cambio: ClientCambioView | null;
   yourCambioSubmitted: boolean;
   claim: ClientClaimView | null;
+  /** Chips/money only: pot carried over from hand(s) that ended with no winner ("se va doble"), not yet paid out. 0 otherwise. */
+  accumulatedPot: number;
   handOutcome: ClientHandOutcome | null;
   handSettlement: ClientHandSettlement | null;
   /** Every hand settled so far in this table session, oldest first. */

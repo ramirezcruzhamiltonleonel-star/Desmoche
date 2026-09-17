@@ -219,7 +219,7 @@ describe("Table — the opening ritual reveals one stock card at a time (never t
     expect(table.state.hands["p0"]).toContainEqual(c("8", "clubs"));
   });
 
-  it("falls through to a normal turn for the designated first player if the stock is ever fully exhausted", () => {
+  it("ends the hand with no winner ('se va doble') if the stock is ever fully exhausted during the opening ritual", () => {
     const table = new Table(config(), seats(2));
     const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
     table.startHand(0, deck);
@@ -228,9 +228,12 @@ describe("Table — the opening ritual reveals one stock card at a time (never t
     table.state.stock = []; // nothing left to reveal
     table.forceResolveClaimWindow();
 
-    expect(table.state.phase).toBe("turn-active");
-    expect(table.state.turnSeatIndex).toBe(1);
-    expect(table.state.hasDrawnThisTurn).toBe(false);
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
   });
 
   it("draws exactly 1 card on a normal turn, same as always", () => {
@@ -502,7 +505,7 @@ describe("Table — Patona", () => {
     forceHandOver(table, "meld-out", 1);
 
     const outcome = table.settleHand();
-    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
     expect(outcome.extraPerLoser).toEqual({ p0: 100, p2: 100 });
   });
 
@@ -518,7 +521,7 @@ describe("Table — Patona", () => {
     forceHandOver(table, "meld-out", 1);
 
     const outcome = table.settleHand();
-    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
     expect(outcome.extraPerLoser).toEqual({ p0: 0 });
   });
 
@@ -527,8 +530,119 @@ describe("Table — Patona", () => {
     table.startHand(0, buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds")));
 
     const outcome = table.settleHand();
-    if (outcome.kind === "dare") throw new Error("unexpected dare outcome");
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
     expect(outcome.extraPerLoser).toEqual({ p1: 0 });
+  });
+});
+
+describe('Table — "se va doble": the pot carries over when a hand ends with no winner', () => {
+  function forceStockExhausted(table: Table): void {
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "stock-exhausted", winnerSeatIndex: null, winningMelds: [] };
+  }
+
+  it("ends a mid-game turn with no winner when the stock (and recycled discard) are both fully depleted", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0);
+    // Nothing left in stock, and the only discard is the single top card —
+    // reshuffling it can't produce anything either.
+    table.state.stock = [];
+    table.state.discard = [c("2", "diamonds")];
+
+    const drawn = table.drawFromStock("p0");
+
+    expect(drawn).toEqual([]);
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+  });
+
+  it("adds the full ante pot (not a per-player share) to accumulatedPot, and pays nobody", () => {
+    const table = new Table(config({ ante: 100 }), seats(3));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND, NORMAL_HAND], c("4", "diamonds")));
+    forceStockExhausted(table);
+
+    const outcome = table.settleHand();
+
+    expect(outcome).toEqual({ kind: "carry-over", addedToPot: 300, totalAccumulatedPot: 300 });
+    expect(table.state.accumulatedPot).toBe(300);
+  });
+
+  it("stacks across consecutive no-winner hands instead of resetting", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    forceStockExhausted(table);
+    table.settleHand();
+    expect(table.state.accumulatedPot).toBe(200);
+
+    // A second hand in a row also ends with no winner.
+    forceStockExhausted(table);
+    const secondOutcome = table.settleHand();
+
+    expect(secondOutcome).toEqual({ kind: "carry-over", addedToPot: 200, totalAccumulatedPot: 400 });
+    expect(table.state.accumulatedPot).toBe(400);
+  });
+
+  it("has nothing to carry in dare mode — there's no pot to accumulate", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    forceStockExhausted(table);
+
+    const outcome = table.settleHand();
+
+    expect(outcome).toEqual({ kind: "carry-over", addedToPot: 0, totalAccumulatedPot: 0 });
+    expect(table.state.accumulatedPot).toBe(0);
+  });
+
+  it("pays the eventual winner the full pot including everything accumulated, then resets it to 0", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    // Two hands in a row went "se va doble" before this one: 200 + 200 = 400 accumulated.
+    forceStockExhausted(table);
+    table.settleHand();
+    forceStockExhausted(table);
+    table.settleHand();
+    expect(table.state.accumulatedPot).toBe(400);
+
+    // This hand actually gets won.
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+
+    const outcome = table.settleHand();
+
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+    // This hand's own ante pot (200) plus the 400 already accumulated.
+    expect(outcome.potWon).toBe(600);
+    expect(table.state.accumulatedPot).toBe(0);
+  });
+
+  it("does not accumulate anything for a hand that ends normally with a winner", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+
+    table.settleHand();
+
+    expect(table.state.accumulatedPot).toBe(0);
+  });
+
+  it("survives startHand() dealing the next hand — the accumulated pot is never reset by a fresh deal", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    forceStockExhausted(table);
+    table.settleHand();
+    expect(table.state.accumulatedPot).toBe(200);
+
+    // Deal the next hand, same as Room.nextHand() would.
+    table.startHand(1, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    expect(table.state.accumulatedPot).toBe(200);
   });
 });
 

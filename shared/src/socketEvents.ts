@@ -19,7 +19,6 @@ export type GameAction =
   | { type: "submit-cambio-card"; card: Card }
   | { type: "draw-stock" }
   | { type: "respond-claim"; response: "claim" | "pass" }
-  | { type: "choose-first-turn-card"; card: Card }
   | { type: "place-meld"; cards: Card[] }
   | { type: "extend-meld"; meldId: string; cards: Card[] }
   | { type: "desmochar"; fromMeldId: string; toMeldId: string; card: Card }

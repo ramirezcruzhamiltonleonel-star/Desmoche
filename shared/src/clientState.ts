@@ -5,7 +5,6 @@ export type Phase =
   | "lobby"
   | "cambio"
   | "claim-window"
-  | "first-turn-choice"
   | "turn-active"
   | "hand-over";
 
@@ -29,6 +28,11 @@ export interface ClientClaimView {
   pendingSeatIndices: number[];
   claimedBy: number[];
   fallbackSeatIndex: number;
+  /**
+   * True for the hand-opening ritual: the initial flip and, if it goes
+   * unclaimed, every subsequent single card revealed from the stock by the
+   * same designated first-turn player (never for a normal in-hand discard).
+   */
   isInitialFlip: boolean;
 }
 
@@ -53,8 +57,7 @@ export interface ClientHandHistoryEntry {
 
 /**
  * Everything a single connected player is allowed to see. Other players'
- * hands are reduced to a card count; a pending first-turn double-draw choice
- * is only ever populated for the player making that choice.
+ * hands are reduced to a card count.
  */
 export interface ClientGameState {
   code: string;
@@ -72,17 +75,14 @@ export interface ClientGameState {
   hasDrawnThisTurn: boolean;
   mustPlaceCard: Card | null;
   /**
-   * A card just drawn from the stock (or kept from the first-turn double
-   * draw) that must be used in a meld or discarded outright right away — it
-   * never becomes a free choice among the original 9. Only ever populated
-   * for the player who drew it.
+   * A card just drawn from the stock that must be used in a meld or
+   * discarded outright right away — it never becomes a free choice among
+   * the original 9. Only ever populated for the player who drew it.
    */
   pendingDrawnCard: Card | null;
-  yourFirstTurnChoice: [Card, Card] | null;
   cambio: ClientCambioView | null;
   yourCambioSubmitted: boolean;
   claim: ClientClaimView | null;
-  isFirstTurn: boolean;
   handOutcome: ClientHandOutcome | null;
   handSettlement: ClientHandSettlement | null;
   /** Every hand settled so far in this table session, oldest first. */

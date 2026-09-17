@@ -111,6 +111,36 @@ describe("Room — hand progression", () => {
     }
   });
 
+  it("rotates the dealer role one seat per hand, counter-clockwise, starting from whoever created the table", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana"); // seat 0 — created the table, deals hand 1
+    room.join("user-b", "Beto"); // seat 1
+    room.join("user-c", "Caro"); // seat 2
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    room.setReady("user-c", true);
+
+    expect(room.requireTable().state.dealerSeatIndex).toBe(0);
+
+    function forceHandOver(): void {
+      const table = room.requireTable();
+      (table.state as { phase: string }).phase = "hand-over";
+      table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+    }
+
+    forceHandOver();
+    room.nextHand();
+    expect(room.requireTable().state.dealerSeatIndex).toBe(1); // seat 1 deals hand 2
+
+    forceHandOver();
+    room.nextHand();
+    expect(room.requireTable().state.dealerSeatIndex).toBe(2); // seat 2 deals hand 3
+
+    forceHandOver();
+    room.nextHand();
+    expect(room.requireTable().state.dealerSeatIndex).toBe(0); // wraps back to seat 0, not stuck on seat 2
+  });
+
   it("settles a finished hand exactly once", () => {
     const room = makeRoom();
     room.join("user-a", "Ana");

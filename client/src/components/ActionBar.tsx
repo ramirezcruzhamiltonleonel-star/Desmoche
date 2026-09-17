@@ -7,7 +7,7 @@ interface DesmocheSource {
 
 interface ActionBarProps {
   isYourTurn: boolean;
-  /** Cambio/claim-window/first-turn-choice/hand-over all have their own overlay UI — this bar has nothing useful to add there. */
+  /** Cambio/claim-window/hand-over all have their own overlay UI — this bar has nothing useful to add there. */
   isTurnActivePhase: boolean;
   canDraw: boolean;
   onDraw: () => void;

@@ -13,7 +13,6 @@ import CambioModal from "./CambioModal";
 import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
-import FirstTurnChoiceModal from "./FirstTurnChoiceModal";
 import FlyingCard, { type Point } from "./FlyingCard";
 import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
@@ -350,12 +349,6 @@ export default function GameTable() {
         />
       )}
 
-      {state.phase === "first-turn-choice" && state.yourFirstTurnChoice && (
-        <FirstTurnChoiceModal
-          cards={state.yourFirstTurnChoice}
-          onChoose={(card) => sendAction({ type: "choose-first-turn-card", card })}
-        />
-      )}
 
       {state.phase === "hand-over" && state.handOutcome && (
         <HandOverModal

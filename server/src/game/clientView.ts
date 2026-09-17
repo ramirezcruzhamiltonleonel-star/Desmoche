@@ -10,8 +10,7 @@ export interface TableIdentity {
 /**
  * Projects the full (secret-holding) GameState down to what a single player
  * is allowed to see: their own hand in full, everyone else reduced to a card
- * count, and a pending first-turn double-draw choice hidden from anyone but
- * the player making it.
+ * count.
  */
 export function toClientView(
   state: GameState,
@@ -45,8 +44,6 @@ export function toClientView(
     mustPlaceCard: state.mustPlaceCard,
     pendingDrawnCard:
       viewerSeat?.seatIndex === state.turnSeatIndex ? state.pendingDrawnCard : null,
-    yourFirstTurnChoice:
-      viewerSeat?.seatIndex === state.turnSeatIndex ? state.firstTurnChoice : null,
     cambio: state.cambio
       ? {
           submittedSeatIndices: state.seats
@@ -65,7 +62,6 @@ export function toClientView(
           isInitialFlip: state.claim.isInitialFlip,
         }
       : null,
-    isFirstTurn: state.isFirstTurn,
     handOutcome: state.handOutcome,
     // Populated by Room.viewFor(), which knows the table's stake config and
     // the running session history — this projector only has the rules-engine

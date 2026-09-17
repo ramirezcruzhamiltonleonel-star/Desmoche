@@ -5,7 +5,6 @@ import { buildShuffledDeck, deal, shuffle, type Rng } from "./deck";
 import { canDesmocharFrom, canUseDiscardImmediately, isHandEmptied } from "./meldActions";
 import { isValidMeld, isValidSet } from "./melds";
 import { GameError } from "./errors";
-import { firstTurnStockDrawCount } from "./firstTurn";
 import { resolveDiscardClaimPriority } from "./discardClaim";
 import { calculateHandOutcome, type HandOutcome } from "./payouts";
 import { nextSeat } from "./turnOrder";
@@ -66,10 +65,8 @@ export class Table {
       hasDrawnThisTurn: false,
       mustPlaceCard: null,
       pendingDrawnCard: null,
-      firstTurnChoice: null,
       cambio: null,
       claim: null,
-      isFirstTurn: true,
       handOutcome: null,
     };
   }
@@ -119,11 +116,9 @@ export class Table {
     this.state.stock = stock;
     this.state.discard = discard;
     this.state.melds = [];
-    this.state.isFirstTurn = true;
     this.state.hasDrawnThisTurn = false;
     this.state.mustPlaceCard = null;
     this.state.pendingDrawnCard = null;
-    this.state.firstTurnChoice = null;
     this.state.cambio = null;
     this.state.handOutcome = null;
 
@@ -253,22 +248,47 @@ export class Table {
       this.state.turnSeatIndex = winnerSeat;
       this.state.hasDrawnThisTurn = true;
       this.state.mustPlaceCard = claim.card;
-      this.state.isFirstTurn = false;
       this.state.phase = "turn-active";
       this.state.claim = null;
       return;
     }
 
+    if (claim.isInitialFlip) {
+      // Nobody wanted this card — it's buried on the discard pile, and the
+      // same designated first-turn player reveals ONE fresh card from the
+      // stock (never two at once) for everyone to consider next. This
+      // repeats, one card at a time, until someone claims one or the stock
+      // is fully exhausted.
+      this.reshuffleStockIfNeeded(1);
+      if (this.state.stock.length === 0) {
+        this.state.turnSeatIndex = claim.fallbackSeatIndex;
+        this.state.hasDrawnThisTurn = false;
+        this.state.mustPlaceCard = null;
+        this.state.phase = "turn-active";
+        this.state.claim = null;
+        return;
+      }
+      const revealedCard = this.state.stock[this.state.stock.length - 1]!;
+      this.state.stock = this.state.stock.slice(0, -1);
+      this.state.discard.push(revealedCard);
+      this.state.claim = {
+        card: revealedCard,
+        referenceSeatIndex: claim.referenceSeatIndex,
+        pendingSeatIndices: this.state.seats.map((s) => s.seatIndex),
+        claimedBy: [],
+        fallbackSeatIndex: claim.fallbackSeatIndex,
+        isInitialFlip: true,
+      };
+      this.state.phase = "claim-window";
+      return;
+    }
+
+    // A normal (non-initial) discard going unclaimed: turn passes onward.
     this.state.turnSeatIndex = claim.fallbackSeatIndex;
     this.state.hasDrawnThisTurn = false;
     this.state.mustPlaceCard = null;
     this.state.phase = "turn-active";
     this.state.claim = null;
-    // isFirstTurn stays true only if this WAS the initial flip going unclaimed;
-    // drawFromStock() checks it to grant the compensating 2-card draw.
-    if (!claim.isInitialFlip) {
-      this.state.isFirstTurn = false;
-    }
   }
 
   private reshuffleStockIfNeeded(cardsNeeded: number): void {
@@ -285,58 +305,23 @@ export class Table {
       throw new GameError("Ya robaste esta ronda, o no es momento de robar");
     }
 
-    const count = this.state.isFirstTurn ? firstTurnStockDrawCount(false) : 1;
-    this.reshuffleStockIfNeeded(count);
-    const drawn = this.state.stock.slice(-count);
-    this.state.stock = this.state.stock.slice(0, -count);
+    this.reshuffleStockIfNeeded(1);
+    const drawn = this.state.stock.slice(-1);
+    this.state.stock = this.state.stock.slice(0, -1);
     this.state.hands[playerId] = [...handOf(this.state, playerId), ...drawn];
-
-    if (count === 2) {
-      this.state.firstTurnChoice = [drawn[0]!, drawn[1]!];
-      this.state.phase = "first-turn-choice";
-      return drawn;
-    }
 
     this.state.hasDrawnThisTurn = true;
     this.state.mustPlaceCard = null;
     // The stock draw never joins the "original 9" for a free discard choice —
     // it must be used in a meld or discarded outright before anything else.
     this.state.pendingDrawnCard = drawn[0]!;
-    this.state.isFirstTurn = false;
     return drawn;
-  }
-
-  /** Resolves the first-turn double draw: keep one card, the other is burned to the discard. */
-  chooseFirstTurnCard(playerId: string, keepCard: Card): void {
-    this.requireSeatTurn(playerId);
-    const choice = this.state.firstTurnChoice;
-    if (this.state.phase !== "first-turn-choice" || !choice) {
-      throw new GameError("No hay una elección de robo doble pendiente");
-    }
-    const [a, b] = choice;
-    const keep = [a, b].find((c) => cardId(c) === cardId(keepCard));
-    if (!keep) throw new GameError("Debes elegir una de las dos cartas robadas");
-    const reject = cardId(a) === cardId(keep) ? b : a;
-
-    this.state.hands[playerId] = removeCard(handOf(this.state, playerId), reject);
-    this.state.discard.push(reject);
-    this.state.firstTurnChoice = null;
-    this.state.hasDrawnThisTurn = true;
-    this.state.mustPlaceCard = null;
-    // The card kept from the special double draw is still a stock draw at
-    // heart — same immediate-resolution rule applies to it.
-    this.state.pendingDrawnCard = keep;
-    this.state.isFirstTurn = false;
-    this.state.phase = "turn-active";
   }
 
   private assertCanAct(playerId: string): void {
     this.requireSeatTurn(playerId);
     if (this.state.phase !== "turn-active" || !this.state.hasDrawnThisTurn) {
       throw new GameError("Debes robar antes de jugar");
-    }
-    if (this.state.firstTurnChoice) {
-      throw new GameError("Primero elige cuál de las dos cartas robadas conservas");
     }
   }
 

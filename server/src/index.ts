@@ -149,9 +149,6 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
     case "respond-claim":
       table.respondToClaim(playerId, action.response);
       return;
-    case "choose-first-turn-card":
-      table.chooseFirstTurnCard(playerId, action.card);
-      return;
     case "place-meld":
       table.placeMeld(playerId, action.cards);
       return;

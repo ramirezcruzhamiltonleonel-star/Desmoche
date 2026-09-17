@@ -26,10 +26,8 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     hasDrawnThisTurn: true,
     mustPlaceCard: null,
     pendingDrawnCard: null,
-    firstTurnChoice: null,
     cambio: null,
     claim: null,
-    isFirstTurn: false,
     handOutcome: null,
     ...overrides,
   };
@@ -53,19 +51,6 @@ describe("toClientView", () => {
   it("only exposes the top discard card", () => {
     const view = toClientView(baseState(), identity, "p0");
     expect(view.topDiscard).toEqual(c("10", "diamonds"));
-  });
-
-  it("only reveals the pending first-turn choice to the player making it", () => {
-    const state = baseState({
-      turnSeatIndex: 1,
-      firstTurnChoice: [c("A", "spades"), c("K", "hearts")],
-    });
-
-    const viewerIsActing = toClientView(state, identity, "p1");
-    expect(viewerIsActing.yourFirstTurnChoice).toEqual([c("A", "spades"), c("K", "hearts")]);
-
-    const bystander = toClientView(state, identity, "p0");
-    expect(bystander.yourFirstTurnChoice).toBeNull();
   });
 
   it("reports stock as a count only, never the actual cards", () => {

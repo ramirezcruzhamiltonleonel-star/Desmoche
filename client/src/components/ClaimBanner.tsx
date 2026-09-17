@@ -20,13 +20,13 @@ export default function ClaimBanner({ claim, isEligible, onRespond }: ClaimBanne
             onClick={() => onRespond("claim")}
             className="rounded-lg bg-gold px-4 py-1.5 text-sm font-semibold text-stone-900 transition hover:bg-gold-light"
           >
-            Reclamar
+            Sí me sirve
           </button>
           <button
             onClick={() => onRespond("pass")}
             className="rounded-lg border border-stone-500 px-4 py-1.5 text-sm text-stone-200 transition hover:border-stone-300"
           >
-            Pasar
+            No me sirve
           </button>
         </div>
       ) : (

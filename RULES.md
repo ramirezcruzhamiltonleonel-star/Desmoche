@@ -102,3 +102,20 @@ actualiza en el mismo commit que el código y sus tests.
   mazo se agota, esa mano simplemente termina sin que nadie deba cumplir un reto.
 - Estas manos sí quedan registradas en el historial persistente (`winnerUserId` nulo
   para esa mano), y cuentan como "mano jugada" en las estadísticas del jugador.
+
+## Pendiente de definir (ideas registradas — sin implementar)
+
+Estas son ideas que el usuario pidió dejar anotadas para diseñar con calma más
+adelante. Ninguna tiene mecánica ni código todavía.
+
+- **Fichas diarias gratis**: dar a cada jugador una cantidad de fichas gratis
+  periódicamente. Sin definir: cuántas fichas, cada cuánto tiempo, si hay un tope
+  máximo de fichas acumulables.
+- **Modo un jugador contra bots**: para practicar o jugar sin depender de tener 3
+  oponentes humanos disponibles. Sin definir: qué tan "inteligente" debe ser el bot,
+  si aplica a los 3 modos de apuesta o solo a Fichas/Retos.
+- **Recarga de fichas con dinero real**: se conecta directamente con el Modo Dinero
+  real, que ya estaba marcado como pendiente en la especificación original por el
+  tema legal — Nicaragua no tiene ley específica de apuestas online, y operar desde
+  EE.UU. implica posible exposición legal. **No avanzar en esto sin retomar
+  primero esa conversación legal.**

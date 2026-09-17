@@ -10,9 +10,20 @@ const SUIT_SYMBOL: Record<CardModel["suit"], string> = {
 const RED_SUITS = new Set<CardModel["suit"]>(["hearts", "diamonds"]);
 
 const SIZE_CLASSES = {
-  sm: "h-14 w-10 text-xs",
-  md: "h-20 w-14 text-base",
-  lg: "h-24 w-16 text-lg",
+  xs: "h-10 w-7 px-0.5 py-0.5 text-[9px]",
+  sm: "h-14 w-10 px-1 py-1 text-xs",
+  md: "h-20 w-14 px-1 py-1 text-base",
+  lg: "h-24 w-16 px-1 py-1 text-lg",
+} as const;
+
+// The suit glyph is deliberately bigger than the rank text at every size —
+// scaled here to match, since the rest of the card's font size comes from
+// SIZE_CLASSES above.
+const SUIT_SYMBOL_SIZE = {
+  xs: "text-xs",
+  sm: "text-base",
+  md: "text-xl",
+  lg: "text-2xl",
 } as const;
 
 interface CardProps {
@@ -35,7 +46,7 @@ export default function Card({ card, selected = false, pendingDraw = false, onCl
         onClick?.();
       }}
       disabled={!onClick}
-      className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 px-1 py-1 font-semibold shadow-md transition
+      className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 font-semibold shadow-md transition
         ${isRed ? "text-red-600" : "text-stone-900"}
         ${
           pendingDraw
@@ -48,7 +59,7 @@ export default function Card({ card, selected = false, pendingDraw = false, onCl
         ${SIZE_CLASSES[size]}`}
     >
       <span className="self-start leading-none">{card.rank}</span>
-      <span className="text-xl leading-none">{SUIT_SYMBOL[card.suit]}</span>
+      <span className={`${SUIT_SYMBOL_SIZE[size]} leading-none`}>{SUIT_SYMBOL[card.suit]}</span>
       <span className="self-end rotate-180 leading-none">{card.rank}</span>
     </button>
   );

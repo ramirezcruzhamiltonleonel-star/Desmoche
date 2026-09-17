@@ -17,7 +17,7 @@ import ClaimBanner from "./ClaimBanner";
 import FlyingCard, { type Point } from "./FlyingCard";
 import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
-import MeldsBoard from "./MeldsBoard";
+import PlayerMeldsCluster from "./PlayerMeldsCluster";
 import PlayerSeat from "./PlayerSeat";
 import StockFlipCard from "./StockFlipCard";
 import VoiceChatPanel from "./VoiceChatPanel";
@@ -243,7 +243,7 @@ export default function GameTable() {
 
       <div
         className="relative mx-3 mb-3 flex-1 rounded-[2.5rem] border-8 border-wood bg-felt shadow-inner"
-        style={{ minHeight: "50vh" }}
+        style={{ minHeight: "58vh" }}
       >
         {others.map((seat, i) => (
           <div
@@ -251,12 +251,15 @@ export default function GameTable() {
             ref={(el) => dealAnim.registerSeatRef(seat.seatIndex, el)}
             className={SLOT_CLASSES[slots[i]!]}
           >
-            <PlayerSeat
-              seat={seat}
-              isTurn={seat.seatIndex === state.turnSeatIndex}
-              isDealer={seat.seatIndex === state.dealerSeatIndex}
-              isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
-            />
+            <div className="flex flex-col items-center gap-1">
+              <PlayerSeat
+                seat={seat}
+                isTurn={seat.seatIndex === state.turnSeatIndex}
+                isDealer={seat.seatIndex === state.dealerSeatIndex}
+                isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
+              />
+              <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
+            </div>
           </div>
         ))}
 
@@ -274,15 +277,6 @@ export default function GameTable() {
               )}
               <span className="text-[10px] text-stone-400">Descarte</span>
             </div>
-          </div>
-          <div className="max-h-40 w-full overflow-y-auto">
-            <MeldsBoard
-              melds={state.melds}
-              seatNameByPlayerId={nameByPlayerId}
-              canPickSourceFrom={(meld) => desmocheMode && meld.ownerId === yourPlayerId && !desmocheSource}
-              onPickSourceCard={handlePickDesmocheSource}
-              sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
-            />
           </div>
         </div>
       </div>
@@ -318,6 +312,18 @@ export default function GameTable() {
             {handArranged ? "Orden normal" : "Acomodar"}
           </button>
         </div>
+        {myMelds.length > 0 && (
+          <div className="mb-2">
+            <PlayerMeldsCluster
+              melds={myMelds}
+              size="sm"
+              direction="row"
+              pickable={() => desmocheMode && !desmocheSource}
+              onPickSourceCard={handlePickDesmocheSource}
+              sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
+            />
+          </div>
+        )}
         <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
           {(handArranged ? arrangeHandForDisplay(state.yourHand) : sortHandForDisplay(state.yourHand)).map((card) => (
             <Card

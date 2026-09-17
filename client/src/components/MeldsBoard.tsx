@@ -28,6 +28,7 @@ export default function MeldsBoard({
         return (
           <div
             key={meld.id}
+            data-meld-id={meld.id}
             className="flex flex-col items-center gap-1 rounded-lg border-2 border-stone-600/40 bg-black/10 p-2"
           >
             <span className="text-[10px] uppercase tracking-wide text-stone-400">
@@ -35,13 +36,14 @@ export default function MeldsBoard({
             </span>
             <div className="flex gap-1">
               {meld.cards.map((card) => (
-                <Card
-                  key={cardKey(card)}
-                  card={card}
-                  size="sm"
-                  selected={sourceCardKey === cardKey(card)}
-                  onClick={pickable ? () => onPickSourceCard?.(meld.id, card) : undefined}
-                />
+                <div key={cardKey(card)} data-card-key={cardKey(card)}>
+                  <Card
+                    card={card}
+                    size="sm"
+                    selected={sourceCardKey === cardKey(card)}
+                    onClick={pickable ? () => onPickSourceCard?.(meld.id, card) : undefined}
+                  />
+                </div>
               ))}
             </div>
           </div>

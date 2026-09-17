@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Card as CardModel, ClientSeatView } from "@desmoche/shared";
 import { useGame } from "../context/GameContext";
+import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 import { cardKey } from "../lib/cardKey";
@@ -12,11 +13,24 @@ import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
 import FirstTurnChoiceModal from "./FirstTurnChoiceModal";
+import FlyingCard, { type Point } from "./FlyingCard";
 import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
 import MeldsBoard from "./MeldsBoard";
 import PlayerSeat from "./PlayerSeat";
+import StockFlipCard from "./StockFlipCard";
 import VoiceChatPanel from "./VoiceChatPanel";
+
+interface DesmocheFlight {
+  from: Point;
+  to: Point;
+  card: CardModel;
+}
+
+interface StockFlip {
+  card: CardModel;
+  origin: Point;
+}
 
 type Slot = "top" | "left" | "right";
 
@@ -41,9 +55,12 @@ export default function GameTable() {
   const { state, sendAction, nextHand, leaveTable } = useGame();
   const sound = useSound();
   const voice = useVoiceChat();
+  const dealAnim = useDealAnimation();
   const [selectedCards, setSelectedCards] = useState<CardModel[]>([]);
   const [desmocheMode, setDesmocheMode] = useState(false);
   const [desmocheSource, setDesmocheSource] = useState<DesmocheSource | null>(null);
+  const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
+  const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
@@ -60,6 +77,11 @@ export default function GameTable() {
     // A fresh hand always opens on "cambio" — that's the deal.
     if (state?.phase === "cambio" && prevPhaseRef.current !== "cambio") {
       sound.playDeal();
+      const dealOrder: number[] = [];
+      for (let offset = 1; offset <= state.seats.length; offset++) {
+        dealOrder.push((state.dealerSeatIndex + offset) % state.seats.length);
+      }
+      dealAnim.trigger(dealOrder, state.yourSeatIndex);
     }
     prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.
@@ -85,6 +107,14 @@ export default function GameTable() {
     // builds naturally has to include it.
     if (state?.pendingDrawnCard) {
       setSelectedCards([state.pendingDrawnCard]);
+      const deckEl = dealAnim.deckRef.current;
+      if (deckEl) {
+        const rect = deckEl.getBoundingClientRect();
+        setStockFlip({
+          card: state.pendingDrawnCard,
+          origin: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.pendingDrawnCard && cardKey(state.pendingDrawnCard)]);
@@ -156,6 +186,19 @@ export default function GameTable() {
 
   function handlePickDesmocheDestination(meldId: string) {
     if (!desmocheSource) return;
+    const sourceEl = document.querySelector<HTMLElement>(
+      `[data-meld-id="${desmocheSource.meldId}"] [data-card-key="${cardKey(desmocheSource.card)}"]`,
+    );
+    const destEl = document.querySelector<HTMLElement>(`[data-meld-id="${meldId}"]`);
+    if (sourceEl && destEl) {
+      const fromRect = sourceEl.getBoundingClientRect();
+      const toRect = destEl.getBoundingClientRect();
+      setDesmocheFlight({
+        from: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
+        to: { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 },
+        card: desmocheSource.card,
+      });
+    }
     sendAction({
       type: "desmochar",
       fromMeldId: desmocheSource.meldId,
@@ -204,7 +247,11 @@ export default function GameTable() {
         style={{ minHeight: "50vh" }}
       >
         {others.map((seat, i) => (
-          <div key={seat.playerId} className={SLOT_CLASSES[slots[i]!]}>
+          <div
+            key={seat.playerId}
+            ref={(el) => dealAnim.registerSeatRef(seat.seatIndex, el)}
+            className={SLOT_CLASSES[slots[i]!]}
+          >
             <PlayerSeat
               seat={seat}
               isTurn={seat.seatIndex === state.turnSeatIndex}
@@ -216,7 +263,7 @@ export default function GameTable() {
 
         <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col items-center gap-3 px-2">
           <div className="flex items-center gap-6">
-            <div className="flex flex-col items-center gap-1">
+            <div ref={dealAnim.deckRef} className="flex flex-col items-center gap-1">
               <CardBack size="md" />
               <span className="text-[10px] text-stone-400">Mazo ({state.stockCount})</span>
             </div>
@@ -250,6 +297,7 @@ export default function GameTable() {
       )}
 
       <div
+        ref={dealAnim.handTrayRef}
         className={`border-t bg-black/20 px-3 py-3 transition-colors ${
           isYourTurn && state.phase === "turn-active"
             ? "border-gold shadow-[0_-2px_16px_-2px_rgba(212,175,55,0.5)]"
@@ -324,6 +372,29 @@ export default function GameTable() {
 
       {showHistory && (
         <HandHistoryPanel state={state} nameByPlayerId={nameByPlayerId} onClose={() => setShowHistory(false)} />
+      )}
+
+      {dealAnim.flights.map((flight) => (
+        <FlyingCard
+          key={flight.id}
+          from={flight.from}
+          to={flight.to}
+          delayMs={flight.delayMs}
+          durationMs={dealAnim.flightDurationMs}
+        />
+      ))}
+
+      {desmocheFlight && (
+        <FlyingCard
+          from={desmocheFlight.from}
+          to={desmocheFlight.to}
+          card={desmocheFlight.card}
+          onDone={() => setDesmocheFlight(null)}
+        />
+      )}
+
+      {stockFlip && (
+        <StockFlipCard card={stockFlip.card} origin={stockFlip.origin} onDone={() => setStockFlip(null)} />
       )}
     </div>
   );

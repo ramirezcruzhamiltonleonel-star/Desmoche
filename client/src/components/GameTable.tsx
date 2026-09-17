@@ -311,6 +311,7 @@ export default function GameTable() {
               key={cardKey(card)}
               card={card}
               selected={selectedCards.some((c) => cardKey(c) === cardKey(card))}
+              pendingDraw={Boolean(state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card))}
               onClick={() => toggleHandCard(card)}
             />
           ))}

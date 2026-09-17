@@ -39,3 +39,19 @@ body {
 .screen-fade {
   animation: screen-fade-in 0.25s ease-out;
 }
+
+@keyframes gold-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px 2px rgba(212, 175, 55, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 22px 6px rgba(212, 175, 55, 0.9);
+  }
+}
+
+/* The card just drawn from the stock — a breathing gold glow, not a flashing
+   one, so it stays easy to read while still being unmistakable at a glance. */
+.pending-draw-glow {
+  animation: gold-glow-pulse 1.6s ease-in-out infinite;
+}

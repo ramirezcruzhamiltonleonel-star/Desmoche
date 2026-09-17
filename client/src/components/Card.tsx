@@ -18,11 +18,13 @@ const SIZE_CLASSES = {
 interface CardProps {
   card: CardModel;
   selected?: boolean;
+  /** The card just drawn from the stock this turn, still pending a decision (meld or discard) — bigger and gold-lit so it's unmistakable among the other 9. */
+  pendingDraw?: boolean;
   onClick?: () => void;
   size?: keyof typeof SIZE_CLASSES;
 }
 
-export default function Card({ card, selected = false, onClick, size = "md" }: CardProps) {
+export default function Card({ card, selected = false, pendingDraw = false, onClick, size = "md" }: CardProps) {
   const isRed = RED_SUITS.has(card.suit);
 
   return (
@@ -35,7 +37,13 @@ export default function Card({ card, selected = false, onClick, size = "md" }: C
       disabled={!onClick}
       className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 px-1 py-1 font-semibold shadow-md transition
         ${isRed ? "text-red-600" : "text-stone-900"}
-        ${selected ? "-translate-y-2 border-gold ring-2 ring-gold" : "border-stone-300"}
+        ${
+          pendingDraw
+            ? "pending-draw-glow z-10 scale-110 -translate-y-2 border-gold ring-4 ring-gold"
+            : selected
+              ? "-translate-y-2 border-gold ring-2 ring-gold"
+              : "border-stone-300"
+        }
         ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}
     >

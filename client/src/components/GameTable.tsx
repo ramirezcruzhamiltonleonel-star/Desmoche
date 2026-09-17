@@ -4,6 +4,7 @@ import { useGame } from "../context/GameContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
 import { useVoiceChat } from "../hooks/useVoiceChat";
+import { arrangeHandForDisplay } from "../lib/arrangeHand";
 import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
@@ -62,6 +63,7 @@ export default function GameTable() {
   const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [handArranged, setHandArranged] = useState(false);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -78,6 +80,7 @@ export default function GameTable() {
     if (state?.phase === "cambio" && prevPhaseRef.current !== "cambio") {
       sound.playDeal();
       dealAnim.trigger(buildDealOrder(state.dealerSeatIndex, state.seats.length), state.yourSeatIndex);
+      setHandArranged(false);
     }
     prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.
@@ -305,8 +308,18 @@ export default function GameTable() {
             ★ Tu turno ★
           </p>
         )}
+        <div className="mb-1 flex justify-end">
+          <button
+            onClick={() => setHandArranged((prev) => !prev)}
+            className={`rounded-lg border px-3 py-1 text-xs font-semibold transition ${
+              handArranged ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-300 hover:border-gold"
+            }`}
+          >
+            {handArranged ? "Orden normal" : "Acomodar"}
+          </button>
+        </div>
         <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
-          {sortHandForDisplay(state.yourHand).map((card) => (
+          {(handArranged ? arrangeHandForDisplay(state.yourHand) : sortHandForDisplay(state.yourHand)).map((card) => (
             <Card
               key={cardKey(card)}
               card={card}

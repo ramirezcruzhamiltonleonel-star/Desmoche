@@ -6,7 +6,7 @@ import type { Card, Meld } from "@desmoche/shared";
 // sortHand.ts for the same workaround) — these are tiny, stable lookup
 // tables duplicating the same ace-high/ace-low logic melds.ts already uses
 // to validate a run, only here to decide how to DISPLAY one.
-const LOW_ACE_VALUE: Record<Card["rank"], number> = {
+export const LOW_ACE_VALUE: Record<Card["rank"], number> = {
   A: 1,
   "2": 2,
   "3": 3,
@@ -48,7 +48,7 @@ function sortRunForDisplay(cards: Card[]): Card[] {
  * 3-card set, black-red-black-red for a 4-card set) instead of letting
  * same-color cards cluster together based on the order they were added.
  */
-function sortSetForDisplay(cards: Card[]): Card[] {
+export function sortSetForDisplay(cards: Card[]): Card[] {
   const black = cards
     .filter((c) => BLACK_SUITS.has(c.suit))
     .sort((a, b) => BLACK_SUIT_PRIORITY[a.suit]! - BLACK_SUIT_PRIORITY[b.suit]!);

@@ -28,7 +28,7 @@ export default function HandOverModal({
 
         {settlement && settlement.kind === "dare" && settlement.playersWhoOweADare.length > 0 && (
           <div className="mb-4 space-y-1 text-sm text-stone-300">
-            <p className="text-xs uppercase tracking-wide text-stone-400">Deben cumplir su reto</p>
+            <p className="text-[10px] uppercase tracking-wide text-stone-400">Deben cumplir su reto</p>
             {settlement.playersWhoOweADare.map((playerId) => (
               <p key={playerId}>{nameByPlayerId[playerId] ?? playerId}</p>
             ))}
@@ -42,7 +42,7 @@ export default function HandOverModal({
             </p>
             {Object.entries(settlement.extraPerLoser).some(([, extra]) => extra > 0) && (
               <div className="text-xs">
-                <p className="mb-1 uppercase tracking-wide text-stone-400">Bono Mico</p>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-400">Bono Mico</p>
                 {Object.entries(settlement.extraPerLoser)
                   .filter(([, extra]) => extra > 0)
                   .map(([playerId, extra]) => (

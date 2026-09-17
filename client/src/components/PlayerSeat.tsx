@@ -20,14 +20,14 @@ export default function PlayerSeat({ seat, isTurn, isDealer, isSpeaking }: Playe
         <span className={`text-xs font-semibold sm:text-sm ${seat.connected ? "text-stone-100" : "text-stone-500"}`}>
           {seat.displayName}
         </span>
-        {isDealer && <span className="text-[9px] text-gold">reparte</span>}
+        {isDealer && <span className="text-[10px] text-gold">reparte</span>}
       </div>
       <div className="flex -space-x-5">
         {Array.from({ length: Math.min(seat.cardCount, 11) }).map((_, i) => (
           <CardBack key={i} size="sm" />
         ))}
       </div>
-      {!seat.connected && <span className="text-[9px] text-red-400">Desconectado</span>}
+      {!seat.connected && <span className="text-[10px] text-red-400">Desconectado</span>}
     </div>
   );
 }

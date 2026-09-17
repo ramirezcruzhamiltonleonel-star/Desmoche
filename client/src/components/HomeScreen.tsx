@@ -85,7 +85,7 @@ export default function HomeScreen() {
           </button>
         </div>
 
-        <div className="rounded-2xl border-4 border-wood bg-felt p-5 shadow-2xl">
+        <div className="rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
           {mode === "create" ? (
             <div className="space-y-4">
               <label className="block text-sm text-stone-200">

@@ -22,7 +22,7 @@ export default function CambioModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-5 text-center shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 text-center shadow-2xl">
         <h3 className="mb-1 font-display text-lg text-gold">Cambio</h3>
 
         {submitted ? (

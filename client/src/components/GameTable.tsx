@@ -222,13 +222,13 @@ export default function GameTable() {
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
         </span>
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="text-base">
+          <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
             📜
           </button>
-          <button onClick={sound.toggle} aria-label="Sonido" className="text-base">
+          <button onClick={sound.toggle} aria-label="Sonido" className="p-1 text-base">
             {sound.enabled ? "🔊" : "🔇"}
           </button>
-          <button onClick={leaveTable} className="underline">
+          <button onClick={leaveTable} className="p-1 underline">
             Salir
           </button>
         </div>

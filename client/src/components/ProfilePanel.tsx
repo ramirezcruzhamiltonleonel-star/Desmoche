@@ -28,7 +28,7 @@ export default function ProfilePanel({ token, displayName, onClose }: ProfilePan
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-5 shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-lg text-gold">Perfil de {displayName}</h3>
           <button onClick={onClose} aria-label="Cerrar" className="text-stone-300 hover:text-gold">

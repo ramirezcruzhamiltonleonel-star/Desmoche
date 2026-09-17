@@ -14,7 +14,7 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-      <div className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-2xl border-4 border-wood bg-felt p-5 shadow-2xl">
+      <div className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-lg text-gold">Historial de la mesa</h3>
           <button onClick={onClose} aria-label="Cerrar" className="text-stone-300 hover:text-gold">

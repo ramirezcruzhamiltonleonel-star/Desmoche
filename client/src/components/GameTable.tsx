@@ -4,6 +4,7 @@ import { useGame } from "../context/GameContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
 import { useVoiceChat } from "../hooks/useVoiceChat";
+import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
@@ -77,11 +78,7 @@ export default function GameTable() {
     // A fresh hand always opens on "cambio" — that's the deal.
     if (state?.phase === "cambio" && prevPhaseRef.current !== "cambio") {
       sound.playDeal();
-      const dealOrder: number[] = [];
-      for (let offset = 1; offset <= state.seats.length; offset++) {
-        dealOrder.push((state.dealerSeatIndex + offset) % state.seats.length);
-      }
-      dealAnim.trigger(dealOrder, state.yourSeatIndex);
+      dealAnim.trigger(buildDealOrder(state.dealerSeatIndex, state.seats.length), state.yourSeatIndex);
     }
     prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.

@@ -1,4 +1,5 @@
 import type { ClientGameState, ClientHandHistoryEntry, StakeType } from "@desmoche/shared";
+import { BOT_PERSONAS, isBotPlayerId } from "../game/bot";
 import { toClientView } from "../game/clientView";
 import { GameError } from "../game/errors";
 import { Table } from "../game/table";
@@ -70,6 +71,47 @@ export class Room {
       displayName,
       connected: true,
       ready: false,
+    });
+  }
+
+  private requireCreator(requesterId: string, action: string): void {
+    if (this.seats[0]?.playerId !== requesterId) {
+      throw new GameError(`Solo quien creó la mesa puede ${action}`);
+    }
+  }
+
+  /** Only the table creator (seat 0), and only before the hand has started — fills the next open seat with the next unused fixed bot persona. */
+  addBot(requesterId: string): void {
+    if (this.hasStarted) throw new GameError("La mesa ya empezó a jugar");
+    this.requireCreator(requesterId, "agregar bots");
+    if (this.seats.length >= 4) throw new GameError("La mesa ya está llena");
+
+    const used = new Set(this.seats.map((s) => s.playerId));
+    const persona = BOT_PERSONAS.find((p) => !used.has(p.id));
+    if (!persona) throw new GameError("No hay más bots disponibles");
+
+    this.seats.push({
+      seatIndex: this.seats.length,
+      playerId: persona.id,
+      displayName: persona.displayName,
+      connected: true,
+      // Bots have no "listo" UI of their own — they're always ready, so the
+      // table only ever waits on the humans still seated.
+      ready: true,
+    });
+  }
+
+  /** Only the table creator, and only before the hand has started — re-indexes remaining seats so seatIndex stays contiguous. */
+  removeBot(requesterId: string, botPlayerId: string): void {
+    if (this.hasStarted) throw new GameError("La mesa ya empezó a jugar");
+    this.requireCreator(requesterId, "quitar bots");
+    if (!isBotPlayerId(botPlayerId)) throw new GameError("Ese jugador no es un bot");
+
+    const index = this.seats.findIndex((s) => s.playerId === botPlayerId);
+    if (index === -1) throw new GameError("Ese bot no está en la mesa");
+    this.seats.splice(index, 1);
+    this.seats.forEach((seat, i) => {
+      seat.seatIndex = i;
     });
   }
 
@@ -185,6 +227,7 @@ export class Room {
         ready: s.ready,
         cardCount: 0,
         inactiveThisHand: false,
+        isBot: isBotPlayerId(s.playerId),
       })),
       yourSeatIndex: this.seats.find((s) => s.playerId === playerId)?.seatIndex ?? null,
       yourHand: [],

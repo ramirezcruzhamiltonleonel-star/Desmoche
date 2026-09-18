@@ -23,6 +23,8 @@ export interface ClientSeatView {
    * as a loser in that hand's settlement, same as anyone who didn't win.
    */
   inactiveThisHand: boolean;
+  /** A fixed bot persona filling this seat, added by the table creator — never a real account. */
+  isBot: boolean;
 }
 
 /** Who has already handed over their Cambio card — never which card, since it's blind/simultaneous. */

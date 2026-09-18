@@ -1,4 +1,5 @@
 import type { ClientGameState } from "@desmoche/shared";
+import { isBotPlayerId } from "./bot";
 import type { GameState } from "./state";
 
 export interface TableIdentity {
@@ -33,6 +34,7 @@ export function toClientView(
       ready: seat.ready,
       cardCount: state.hands[seat.playerId]?.length ?? 0,
       inactiveThisHand: state.inactiveSeatIndices.includes(seat.seatIndex),
+      isBot: isBotPlayerId(seat.playerId),
     })),
     yourSeatIndex: viewerSeat?.seatIndex ?? null,
     yourHand: state.hands[viewerPlayerId] ?? [],

@@ -3,16 +3,21 @@ import type { StakeType } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import { STAKE_LABELS } from "../lib/labels";
+import { readJoinCodeFromUrl } from "../lib/joinLink";
 import ProfilePanel from "./ProfilePanel";
 import Spinner from "./Spinner";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
   const { createTable, joinTable } = useGame();
-  const [mode, setMode] = useState<"create" | "join">("create");
+  // A shared join link (?mesa=CODE) lands here pre-filled on the "join" tab
+  // instead of "create" — read once on mount, since the URL doesn't change
+  // while this screen is up.
+  const [sharedCode] = useState(() => readJoinCodeFromUrl());
+  const [mode, setMode] = useState<"create" | "join">(sharedCode ? "join" : "create");
   const [stakeType, setStakeType] = useState<StakeType>("chips");
   const [ante, setAnte] = useState(100);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(sharedCode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showProfile, setShowProfile] = useState(false);

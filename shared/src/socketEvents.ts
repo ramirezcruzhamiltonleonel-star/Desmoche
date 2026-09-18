@@ -82,6 +82,8 @@ export interface ClientToServerEvents {
   "table:join": (payload: JoinTablePayload, ack: (result: JoinAck | ErrorPayload) => void) => void;
   "table:ready": (payload: { ready: boolean }) => void;
   "table:next-hand": () => void;
+  "table:add-bot": () => void;
+  "table:remove-bot": (payload: { playerId: string }) => void;
   "game:action": (action: GameAction) => void;
   "voice:join": (ack: (result: VoiceJoinAck) => void) => void;
   "voice:leave": () => void;

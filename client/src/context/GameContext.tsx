@@ -25,6 +25,8 @@ interface GameContextValue {
   setReady: (ready: boolean) => void;
   nextHand: () => void;
   sendAction: (action: GameAction) => void;
+  addBot: () => void;
+  removeBot: (playerId: string) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -104,6 +106,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setReady: (ready) => socketRef.current?.emit("table:ready", { ready }),
       nextHand: () => socketRef.current?.emit("table:next-hand"),
       sendAction: (action) => socketRef.current?.emit("game:action", action),
+      addBot: () => socketRef.current?.emit("table:add-bot"),
+      removeBot: (playerId) => socketRef.current?.emit("table:remove-bot", { playerId }),
     }),
     [connected, socket, state, lastError],
   );

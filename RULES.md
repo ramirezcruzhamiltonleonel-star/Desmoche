@@ -97,6 +97,32 @@ actualiza en el mismo commit que el código y sus tests.
 - Si al repartir una mano nueva ya hay ≤1 asiento conectado, Cambio se salta por
   completo (no hay con quién intercambiar) y se va directo al ritual de apertura.
 
+## Bots (para practicar o completar mesa)
+
+- Solo quien creó la mesa puede agregar o quitar bots, y solo antes de que
+  empiece la mano (en la sala de espera). Cada bot ocupa un asiento normal —
+  cuenta para el mínimo/máximo de jugadores (2 a 4) igual que un humano.
+- Un bot siempre figura "Listo" — la mesa solo espera a los humanos
+  sentados. Nunca se desconecta ni se retira por su cuenta; juega la mano
+  completa siempre que esté sentado.
+- **Participa exactamente por las mismas reglas que un humano**, sin ningún
+  camino especial que se salte validaciones: entrega carta en Cambio,
+  declara Peladía/Cuatro Cuerpos automático si le toca (misma lógica que ya
+  evalúa a todos los asientos al repartir), reclama un descarte solo cuando
+  de verdad le sirve de inmediato, baja grupos y desmocha cuando eso
+  claramente lo ayuda (nunca al azar, pero tampoco con búsqueda exhaustiva —
+  ver más abajo), y descarta al terminar su turno.
+- **Nivel de juego**: razonable, no experto. En Cambio y al descartar, entrega
+  siempre la carta que menos encaja con el resto de su mano (la más aislada,
+  sin pareja de rango ni vecinos cercanos del mismo palo). Baja cualquier
+  grupo nuevo o extensión que pueda formar. Desmocha únicamente si mover una
+  carta entre dos de sus propios grupos en mesa libera de inmediato otra
+  carta de su mano para bajarla — nunca reordena sus grupos "porque puede".
+- **Modo Fichas**: los bots juegan con fichas reales, igual que cualquier
+  jugador — ganarle o perderle a un bot mueve el saldo normalmente. Cada bot
+  es una cuenta fija de la base de datos con saldo alto que se recarga solo
+  si baja demasiado, así nunca es un obstáculo para que una mano se liquide.
+
 ## Bonos de pago (modo Fichas y Dinero real)
 
 - **Mico abajo**: escalera A-2-3 del mismo palo en la jugada ganadora → cada perdedor

@@ -12,6 +12,8 @@ import type {
 } from "@desmoche/shared";
 import { verifyAuthToken } from "./auth/jwt";
 import { prisma } from "./db/prisma";
+import { seedBotUsers } from "./db/seedBots";
+import { fallbackBotAction, nextBotAction } from "./game/bot";
 import { GameError } from "./game/errors";
 import type { Table } from "./game/table";
 import { createAuthRouter } from "./http/authRoutes";
@@ -22,6 +24,7 @@ import { RoomManager } from "./rooms/roomManager";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const CLAIM_WINDOW_MS = 12_000;
+const BOT_THINK_MS = 700;
 
 // CLIENT_ORIGIN: comma-separated allowed origins for the deployed frontend
 // (e.g. "https://desmoche-client.up.railway.app"). Unset (dev default) allows
@@ -114,6 +117,47 @@ function scheduleClaimTimeoutIfNeeded(room: Room): void {
   }, CLAIM_WINDOW_MS);
 }
 
+/**
+ * Drains any bot actions currently pending (Cambio, a claim-window response,
+ * or an active turn) one step at a time, re-broadcasting after each so
+ * clients see the bot "think" rather than the whole turn resolving at once.
+ * Re-checks from scratch on every tick instead of trusting a stale plan, so
+ * a human acting first (e.g. claiming before the bot gets to) simply makes
+ * the next check find nothing to do.
+ */
+function driveBotsIfNeeded(room: Room): void {
+  if (!room.hasStarted) return;
+  const table = room.requireTable();
+  if (!nextBotAction(table.state)) return;
+
+  setTimeout(() => {
+    if (!room.hasStarted) return;
+    const pending = nextBotAction(table.state);
+    if (!pending) return;
+
+    try {
+      applyAction(table, pending.playerId, pending.action);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Bot action rejected, falling back to a safe default", err);
+      try {
+        const fallback = fallbackBotAction(table.state, pending.playerId);
+        if (fallback) applyAction(table, pending.playerId, fallback);
+      } catch (fallbackErr) {
+        // eslint-disable-next-line no-console
+        console.error("Bot fallback action also failed — leaving it to a human/timeout", fallbackErr);
+        broadcastRoom(room);
+        return; // don't recurse — avoid a tight retry loop on a persistent bug
+      }
+    }
+
+    broadcastRoom(room);
+    persistIfHandJustEnded(room);
+    scheduleClaimTimeoutIfNeeded(room);
+    driveBotsIfNeeded(room);
+  }, BOT_THINK_MS);
+}
+
 function registerSocket(socket: AppSocket, room: Room): void {
   const userId = socket.data.userId!;
   socket.data.code = room.code;
@@ -198,6 +242,7 @@ io.on("connection", (socket: AppSocket) => {
       room.setReady(playerId, ready);
       broadcastRoom(room);
       scheduleClaimTimeoutIfNeeded(room);
+      driveBotsIfNeeded(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -209,6 +254,27 @@ io.on("connection", (socket: AppSocket) => {
       room.nextHand();
       broadcastRoom(room);
       scheduleClaimTimeoutIfNeeded(room);
+      driveBotsIfNeeded(room);
+    } catch (err) {
+      socket.emit("table:error", { message: errorMessage(err) });
+    }
+  });
+
+  socket.on("table:add-bot", () => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      room.addBot(playerId);
+      broadcastRoom(room);
+    } catch (err) {
+      socket.emit("table:error", { message: errorMessage(err) });
+    }
+  });
+
+  socket.on("table:remove-bot", ({ playerId: botPlayerId }) => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      room.removeBot(playerId, botPlayerId);
+      broadcastRoom(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -222,6 +288,7 @@ io.on("connection", (socket: AppSocket) => {
       broadcastRoom(room);
       persistIfHandJustEnded(room);
       scheduleClaimTimeoutIfNeeded(room);
+      driveBotsIfNeeded(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -282,7 +349,14 @@ io.on("connection", (socket: AppSocket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Desmoche server listening on :${PORT}`);
-});
+seedBotUsers(prisma)
+  .catch((err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error("No se pudieron sembrar los usuarios bot", err);
+  })
+  .finally(() => {
+    httpServer.listen(PORT, () => {
+      // eslint-disable-next-line no-console
+      console.log(`Desmoche server listening on :${PORT}`);
+    });
+  });

@@ -73,6 +73,80 @@ describe("Room — lobby", () => {
   });
 });
 
+describe("Room — bots", () => {
+  it("lets the creator add a bot, filling the next seat and marking it ready", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.addBot("user-a");
+
+    const view = room.viewFor("user-a");
+    expect(view.seats).toHaveLength(2);
+    const bot = view.seats[1]!;
+    expect(bot.isBot).toBe(true);
+    expect(bot.ready).toBe(true);
+    expect(bot.connected).toBe(true);
+  });
+
+  it("refuses to let a non-creator add a bot", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    expect(() => room.addBot("user-b")).toThrow(GameError);
+  });
+
+  it("refuses to add a bot once the game has started", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    expect(() => room.addBot("user-a")).toThrow(GameError);
+  });
+
+  it("never seats the same bot persona twice, and refuses once all are seated", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.addBot("user-a");
+    room.addBot("user-a");
+    room.addBot("user-a");
+
+    const ids = room.viewFor("user-a").seats.map((s) => s.playerId);
+    expect(new Set(ids).size).toBe(4);
+    expect(() => room.addBot("user-a")).toThrow(GameError); // table full (4 seats)
+  });
+
+  it("lets the creator remove a bot and re-indexes the remaining seats", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.addBot("user-a");
+    room.addBot("user-a");
+    const botId = room.viewFor("user-a").seats[1]!.playerId;
+
+    room.removeBot("user-a", botId);
+
+    const seats = room.viewFor("user-a").seats;
+    expect(seats).toHaveLength(2);
+    expect(seats.map((s) => s.seatIndex)).toEqual([0, 1]);
+    expect(seats.some((s) => s.playerId === botId)).toBe(false);
+  });
+
+  it("refuses to let a non-creator remove a bot", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.addBot("user-a");
+    const botId = room.viewFor("user-a").seats[2]!.playerId;
+    expect(() => room.removeBot("user-b", botId)).toThrow(GameError);
+  });
+
+  it("refuses to remove a seat that isn't a bot", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    expect(() => room.removeBot("user-a", "user-b")).toThrow(GameError);
+  });
+});
+
 describe("Room — connection tracking", () => {
   it("reflects disconnects and reconnects in both the lobby and the live table", () => {
     const room = makeRoom();

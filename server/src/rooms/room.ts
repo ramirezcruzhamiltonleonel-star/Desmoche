@@ -31,6 +31,8 @@ export class Room {
   readonly code: string;
   readonly stakeType: StakeType;
   readonly ante: number;
+  /** "Modo sin automáticas": Peladía/Cuatro Cuerpos never end a hand early when false. Fixed for the table's lifetime, chosen at creation. */
+  readonly autoWinsEnabled: boolean;
 
   private seats: Seat[] = [];
   private table: Table | null = null;
@@ -40,10 +42,11 @@ export class Room {
   /** Every hand settled so far this session — never reset across hands, only starts empty for a brand-new Room. */
   private history: ClientHandHistoryEntry[] = [];
 
-  constructor(code: string, stakeType: StakeType, ante: number) {
+  constructor(code: string, stakeType: StakeType, ante: number, autoWinsEnabled = true) {
     this.code = code;
     this.stakeType = stakeType;
     this.ante = ante;
+    this.autoWinsEnabled = autoWinsEnabled;
   }
 
   get hasStarted(): boolean {
@@ -141,7 +144,12 @@ export class Room {
   }
 
   private startGame(): void {
-    const config: TableConfig = { code: this.code, stakeType: this.stakeType, ante: this.ante };
+    const config: TableConfig = {
+      code: this.code,
+      stakeType: this.stakeType,
+      ante: this.ante,
+      autoWinsEnabled: this.autoWinsEnabled,
+    };
     this.dealerSeatIndex = 0;
     this.handSettled = false;
     this.settlementCache = null;
@@ -206,7 +214,7 @@ export class Room {
       return {
         ...toClientView(
           this.table.state,
-          { code: this.code, stakeType: this.stakeType, ante: this.ante },
+          { code: this.code, stakeType: this.stakeType, ante: this.ante, autoWinsEnabled: this.autoWinsEnabled },
           playerId,
         ),
         handSettlement: this.settlementCache,
@@ -218,6 +226,7 @@ export class Room {
       code: this.code,
       stakeType: this.stakeType,
       ante: this.ante,
+      autoWinsEnabled: this.autoWinsEnabled,
       phase: "lobby",
       seats: this.seats.map((s) => ({
         seatIndex: s.seatIndex,

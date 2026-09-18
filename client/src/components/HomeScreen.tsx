@@ -17,6 +17,7 @@ export default function HomeScreen() {
   const [mode, setMode] = useState<"create" | "join">(sharedCode ? "join" : "create");
   const [stakeType, setStakeType] = useState<StakeType>("chips");
   const [ante, setAnte] = useState(100);
+  const [autoWinsEnabled, setAutoWinsEnabled] = useState(true);
   const [code, setCode] = useState(sharedCode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +27,7 @@ export default function HomeScreen() {
     setError(null);
     setBusy(true);
     try {
-      await createTable(stakeType, stakeType === "chips" ? ante : 0);
+      await createTable(stakeType, stakeType === "chips" ? ante : 0, autoWinsEnabled);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -119,6 +120,20 @@ export default function HomeScreen() {
                   />
                 </label>
               )}
+              <label className="flex items-start gap-2 text-sm text-stone-200">
+                <input
+                  type="checkbox"
+                  checked={!autoWinsEnabled}
+                  onChange={(e) => setAutoWinsEnabled(!e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Modo sin automáticas
+                  <span className="block text-xs text-stone-400">
+                    Peladía y Cuatro Cuerpos no aplican — cada mano se juega completa.
+                  </span>
+                </span>
+              </label>
               <button
                 onClick={handleCreate}
                 disabled={busy}

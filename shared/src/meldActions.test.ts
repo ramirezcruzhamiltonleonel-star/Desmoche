@@ -1,4 +1,5 @@
-import type { Card, Meld } from "@desmoche/shared";
+import type { Card } from "./cards";
+import type { Meld } from "./melds";
 import { canDesmocharFrom, canUseDiscardImmediately, isHandEmptied } from "./meldActions";
 
 function c(rank: Card["rank"], suit: Card["suit"]): Card {

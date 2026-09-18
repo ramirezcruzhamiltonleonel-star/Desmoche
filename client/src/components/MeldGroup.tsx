@@ -7,16 +7,25 @@ interface MeldGroupProps {
   meld: Meld;
   size?: "xs" | "sm";
   pickable?: boolean;
+  /** True when a pick is in progress elsewhere in this cluster and THIS meld isn't a legal option — dims it instead of leaving it looking just as inviting as the legal ones. */
+  dimmed?: boolean;
   onPickSourceCard?: (meldId: string, card: CardModel) => void;
   sourceCardKey?: string | null;
 }
 
 /** One meld (tercia or escalera), cards in reading order, in a tidy bordered strip. */
-export default function MeldGroup({ meld, size = "xs", pickable = false, onPickSourceCard, sourceCardKey }: MeldGroupProps) {
+export default function MeldGroup({
+  meld,
+  size = "xs",
+  pickable = false,
+  dimmed = false,
+  onPickSourceCard,
+  sourceCardKey,
+}: MeldGroupProps) {
   return (
     <div
       data-meld-id={meld.id}
-      className="flex shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1"
+      className={`flex shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1 transition-opacity ${dimmed ? "opacity-40" : ""}`}
     >
       {sortMeldCardsForDisplay(meld).map((card) => (
         <div key={cardKey(card)} data-card-key={cardKey(card)}>

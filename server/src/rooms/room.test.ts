@@ -73,6 +73,34 @@ describe("Room — lobby", () => {
   });
 });
 
+describe('Room — "modo sin automáticas"', () => {
+  it("defaults to enabled when the room is created without specifying it", () => {
+    const room = makeRoom();
+    expect(room.autoWinsEnabled).toBe(true);
+  });
+
+  it("threads the chosen value through to the live table's config", () => {
+    const room = new Room("ABCDE", "chips", 100, false);
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    expect(room.requireTable().config.autoWinsEnabled).toBe(false);
+  });
+
+  it("exposes the setting in every viewFor, lobby and in-hand alike", () => {
+    const room = new Room("ABCDE", "chips", 100, false);
+    room.join("user-a", "Ana");
+    expect(room.viewFor("user-a").autoWinsEnabled).toBe(false);
+
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    expect(room.viewFor("user-a").autoWinsEnabled).toBe(false);
+  });
+});
+
 describe("Room — bots", () => {
   it("lets the creator add a bot, filling the next seat and marking it ready", () => {
     const room = makeRoom();

@@ -1,7 +1,15 @@
-import { cardId, RANK_ORDER, type Card, type GameAction, type Meld } from "@desmoche/shared";
-import { combinations } from "./combinations";
-import { canDesmocharFrom, canUseDiscardImmediately } from "./meldActions";
-import { canExtendMeld, isValidMeld } from "./melds";
+import {
+  cardId,
+  canDesmocharFrom,
+  canExtendMeld,
+  canUseDiscardImmediately,
+  combinations,
+  isValidMeld,
+  RANK_ORDER,
+  type Card,
+  type GameAction,
+  type Meld,
+} from "@desmoche/shared";
 import type { GameState } from "./state";
 import { handOf } from "./state";
 

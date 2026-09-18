@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { Card as CardModel, ClientSeatView } from "@desmoche/shared";
+import {
+  canDesmocharFrom,
+  canUseDiscardImmediately,
+  isValidMeld,
+  type Card as CardModel,
+  type ClientSeatView,
+} from "@desmoche/shared";
 import { useGame } from "../context/GameContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
@@ -9,6 +15,7 @@ import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
+import { hasTutorialBeenSeen, markTutorialSeen } from "../lib/tutorialStorage";
 import ActionBar from "./ActionBar";
 import CambioModal from "./CambioModal";
 import Card from "./Card";
@@ -20,6 +27,7 @@ import HandOverModal from "./HandOverModal";
 import PlayerMeldsCluster from "./PlayerMeldsCluster";
 import PlayerSeat from "./PlayerSeat";
 import StockFlipCard from "./StockFlipCard";
+import TutorialModal from "./TutorialModal";
 import VoiceChatPanel from "./VoiceChatPanel";
 
 interface DesmocheFlight {
@@ -63,6 +71,7 @@ export default function GameTable() {
   const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => !hasTutorialBeenSeen());
   const [handArranged, setHandArranged] = useState(false);
   const [confirmingRetire, setConfirmingRetire] = useState(false);
   const wonAlreadyRef = useRef(false);
@@ -149,6 +158,34 @@ export default function GameTable() {
     state.claim !== null &&
     state.yourSeatIndex !== null &&
     state.claim.pendingSeatIndices.includes(state.yourSeatIndex);
+  const canClaim =
+    isClaimEligible && state.claim !== null && canUseDiscardImmediately(state.yourHand, state.claim.card, myMelds);
+
+  // A stock draw is never a free choice — whatever's selected must include it
+  // before placing/extending is allowed to go through (mirrors the server's
+  // assertPendingDrawnCardIncluded). A claimed discard (mustPlaceCard) works
+  // the same way but doesn't force a specific selection beyond "place it".
+  const requiredCard = state.pendingDrawnCard;
+  const selectionIncludesRequired =
+    !requiredCard || selectedCards.some((c) => cardKey(c) === cardKey(requiredCard));
+  const canPlaceMeld = selectionIncludesRequired && isValidMeld(selectedCards);
+  const extendableMeldIds = new Set(
+    selectedCards.length > 0 && selectionIncludesRequired
+      ? myMelds.filter((meld) => isValidMeld([...meld.cards, ...selectedCards])).map((meld) => meld.id)
+      : [],
+  );
+  const canDiscardSelection =
+    selectedCards.length === 1 &&
+    !state.mustPlaceCard &&
+    (!requiredCard || cardKey(selectedCards[0]!) === cardKey(requiredCard));
+  const canDesmoche = myMelds.some((meld) => canDesmocharFrom(meld.cards));
+  const validDesmocheDestinationIds = new Set(
+    desmocheSource
+      ? myMelds
+          .filter((meld) => meld.id !== desmocheSource.meldId && isValidMeld([...meld.cards, desmocheSource.card]))
+          .map((meld) => meld.id)
+      : [],
+  );
 
   // Available any time after Cambio (claim window or your turn) — Cambio
   // itself is mandatory, blind, and simultaneous, so retiring mid-Cambio
@@ -188,6 +225,11 @@ export default function GameTable() {
 
   function handlePickDesmocheSource(meldId: string, card: CardModel) {
     setDesmocheSource({ meldId, card });
+  }
+
+  function handleCloseTutorial() {
+    markTutorialSeen();
+    setShowTutorial(false);
   }
 
   function handleRetire() {
@@ -233,8 +275,12 @@ export default function GameTable() {
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
           {state.accumulatedPot > 0 ? ` · pozo acumulado ${state.accumulatedPot}` : ""}
+          {!state.autoWinsEnabled ? " · sin automáticas" : ""}
         </span>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowTutorial(true)} aria-label="Cómo se juega" className="p-1 text-base">
+            ❓
+          </button>
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
             📜
           </button>
@@ -299,6 +345,7 @@ export default function GameTable() {
         <ClaimBanner
           claim={state.claim}
           isEligible={isClaimEligible}
+          canClaim={canClaim}
           onRespond={(response) => sendAction({ type: "respond-claim", response })}
         />
       )}
@@ -360,7 +407,8 @@ export default function GameTable() {
               melds={myMelds}
               size="sm"
               direction="row"
-              pickable={() => desmocheMode && !desmocheSource}
+              pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharFrom(meld.cards)}
+              pickInProgress={desmocheMode && !desmocheSource}
               onPickSourceCard={handlePickDesmocheSource}
               sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
             />
@@ -390,18 +438,23 @@ export default function GameTable() {
             onDraw={handleDraw}
             canAct={canAct}
             selectedCount={selectedCards.length}
+            canPlaceMeld={canPlaceMeld}
             onPlaceMeld={handlePlaceMeld}
             myMelds={myMelds}
+            extendableMeldIds={extendableMeldIds}
             onExtend={handleExtend}
+            canDiscardSelection={canDiscardSelection}
             onDiscard={handleDiscard}
             mustPlaceCard={state.mustPlaceCard}
             pendingDrawnCard={state.pendingDrawnCard}
+            canDesmoche={canDesmoche}
             desmocheMode={desmocheMode}
             onToggleDesmoche={() => {
               setDesmocheMode((prev) => !prev);
               setDesmocheSource(null);
             }}
             desmocheSource={desmocheSource}
+            validDesmocheDestinationIds={validDesmocheDestinationIds}
             onPickDestination={handlePickDesmocheDestination}
           />
         )}
@@ -431,6 +484,8 @@ export default function GameTable() {
       {showHistory && (
         <HandHistoryPanel state={state} nameByPlayerId={nameByPlayerId} onClose={() => setShowHistory(false)} />
       )}
+
+      {showTutorial && <TutorialModal onClose={handleCloseTutorial} />}
 
       {dealAnim.flights.map((flight) => (
         <FlyingCard

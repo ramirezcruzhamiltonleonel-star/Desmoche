@@ -1,5 +1,5 @@
-import type { Card } from "@desmoche/shared";
-import { canExtendMeld, isValidMeld, isValidRun, isValidSet } from "./melds";
+import type { Card } from "./cards";
+import { canExtendMeld, isValidMeld, isValidRun, isValidSet } from "./meldRules";
 
 function c(rank: Card["rank"], suit: Card["suit"]): Card {
   return { rank, suit };

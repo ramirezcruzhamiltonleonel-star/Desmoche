@@ -18,7 +18,7 @@ function seats(count: number): Seat[] {
 }
 
 function config(overrides: Partial<TableConfig> = {}): TableConfig {
-  return { code: "ABCD", stakeType: "chips", ante: 100, ...overrides };
+  return { code: "ABCD", stakeType: "chips", ante: 100, autoWinsEnabled: true, ...overrides };
 }
 
 /**
@@ -154,6 +154,56 @@ describe("Table — dealing and auto-wins", () => {
       fallbackSeatIndex: 1,
       pendingSeatIndices: [0, 1],
     });
+  });
+});
+
+describe('Table — "modo sin automáticas" (autoWinsEnabled: false)', () => {
+  it("does not end the hand on a Peladía — goes to Cambio like any other deal", () => {
+    const table = new Table(config({ autoWinsEnabled: false }), seats(2));
+    const deck = buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+
+    expect(table.state.phase).toBe("cambio");
+    expect(table.state.handOutcome).toBeNull();
+  });
+
+  it("does not end the hand on a Cuatro Cuerpos either", () => {
+    const cuatroA: Card[] = [
+      c("8", "spades"),
+      c("8", "hearts"),
+      c("8", "clubs"),
+      c("8", "diamonds"),
+      c("2", "hearts"),
+      c("K", "diamonds"),
+      c("4", "spades"),
+      c("J", "clubs"),
+      c("3", "diamonds"),
+    ];
+    const table = new Table(config({ autoWinsEnabled: false }), seats(2));
+    const deck = buildDeck([cuatroA, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+
+    expect(table.state.phase).toBe("cambio");
+    expect(table.state.handOutcome).toBeNull();
+  });
+
+  it("still ends a hand normally through meld-out once Cambio and play proceed", () => {
+    const table = new Table(config({ autoWinsEnabled: false }), seats(2));
+    const deck = buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
+
+    // Auto-wins are off, but the hand still plays and can still end some
+    // other way — this isn't a rule that got globally disabled, just this
+    // one specific early-exit path.
+    expect(table.state.phase).toBe("claim-window");
+  });
+
+  it("defaults to enabled when unspecified", () => {
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+    expect(table.state.handOutcome?.reason).toBe("peladia");
   });
 });
 

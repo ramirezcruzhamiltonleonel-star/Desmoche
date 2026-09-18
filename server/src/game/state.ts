@@ -15,6 +15,8 @@ export interface TableConfig {
   code: string;
   stakeType: StakeType;
   ante: number;
+  /** false = "modo sin automáticas": Peladía/Cuatro Cuerpos never end a hand early, every deal is played out normally. Defaults to true (classic) wherever a config is built without specifying it. */
+  autoWinsEnabled: boolean;
 }
 
 export interface ClaimWindowState {

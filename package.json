@@ -15,7 +15,7 @@
     "build:client": "npm run build:shared && npm run build -w client",
     "start:server": "npm run start -w server",
     "start:client": "npm run start -w client",
-    "test": "npm run build:shared && npm run test -w server",
+    "test": "npm run test -w shared && npm run build:shared && npm run test -w server",
     "test:watch": "npm run build:shared && npm run test:watch -w server",
     "dev": "npm run build:shared && npm run dev -w server",
     "dev:client": "npm run dev -w client",

@@ -1,4 +1,4 @@
-import { cardId, type Card, type Rank } from "@desmoche/shared";
+import { cardId, type Card, type Rank } from "./cards";
 
 const LOW_ACE_VALUE: Record<Rank, number> = {
   A: 1,

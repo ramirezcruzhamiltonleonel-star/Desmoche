@@ -84,6 +84,8 @@ export interface ClientGameState {
   code: string;
   stakeType: StakeType;
   ante: number;
+  /** "Modo sin automáticas": when false, Peladía/Cuatro Cuerpos never end a hand early — every deal is played out normally. Fixed for the table's lifetime. */
+  autoWinsEnabled: boolean;
   phase: Phase;
   seats: ClientSeatView[];
   yourSeatIndex: number | null;

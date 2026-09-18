@@ -1,9 +1,16 @@
-import { cardId, type Card, type Meld } from "@desmoche/shared";
+import {
+  cardId,
+  canDesmocharFrom,
+  canUseDiscardImmediately,
+  isHandEmptied,
+  isValidMeld,
+  isValidSet,
+  type Card,
+  type Meld,
+} from "@desmoche/shared";
 import { checkAutoWins, closestToDealerRight } from "./autoWins";
 import { calculateBonuses } from "./bonuses";
 import { buildShuffledDeck, deal, shuffle, type Rng } from "./deck";
-import { canDesmocharFrom, canUseDiscardImmediately, isHandEmptied } from "./meldActions";
-import { isValidMeld, isValidSet } from "./melds";
 import { GameError } from "./errors";
 import { resolveDiscardClaimPriority } from "./discardClaim";
 import { calculateHandOutcome, type HandOutcome } from "./payouts";
@@ -242,24 +249,28 @@ export class Table {
       .filter((s) => !s.connected)
       .map((s) => s.seatIndex);
 
-    const autoWins = checkAutoWins(hands);
-    // A four-of-a-kind hand always contains a pair, so no single hand can
-    // qualify for both bonuses at once. When different players qualify for
-    // different auto-wins in the same deal (not covered by the traditional
-    // rule), Cuatro Cuerpos takes precedence as the rarer, more specific win.
-    if (autoWins.cuatroCuerposSeatIndices.length > 0) {
-      const winnerSeat = closestToDealerRight(
-        dealerSeatIndex,
-        autoWins.cuatroCuerposSeatIndices,
-        n,
-      );
-      this.finishHand("cuatro-cuerpos", winnerSeat, []);
-      return;
-    }
-    if (autoWins.peladiaSeatIndices.length > 0) {
-      const winnerSeat = closestToDealerRight(dealerSeatIndex, autoWins.peladiaSeatIndices, n);
-      this.finishHand("peladia", winnerSeat, []);
-      return;
+    // "Modo sin automáticas": Peladía/Cuatro Cuerpos are skipped entirely —
+    // every hand gets played out through Cambio and normal turns.
+    if (this.config.autoWinsEnabled) {
+      const autoWins = checkAutoWins(hands);
+      // A four-of-a-kind hand always contains a pair, so no single hand can
+      // qualify for both bonuses at once. When different players qualify for
+      // different auto-wins in the same deal (not covered by the traditional
+      // rule), Cuatro Cuerpos takes precedence as the rarer, more specific win.
+      if (autoWins.cuatroCuerposSeatIndices.length > 0) {
+        const winnerSeat = closestToDealerRight(
+          dealerSeatIndex,
+          autoWins.cuatroCuerposSeatIndices,
+          n,
+        );
+        this.finishHand("cuatro-cuerpos", winnerSeat, []);
+        return;
+      }
+      if (autoWins.peladiaSeatIndices.length > 0) {
+        const winnerSeat = closestToDealerRight(dealerSeatIndex, autoWins.peladiaSeatIndices, n);
+        this.finishHand("peladia", winnerSeat, []);
+        return;
+      }
     }
 
     // Peladía/Cuatro Cuerpos are checked on the as-dealt hand — Cambio only

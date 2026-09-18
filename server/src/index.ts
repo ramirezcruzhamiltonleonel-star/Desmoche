@@ -212,9 +212,9 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
 }
 
 io.on("connection", (socket: AppSocket) => {
-  socket.on("table:create", ({ stakeType, ante }, ack: (r: JoinAck | ErrorPayload) => void) => {
+  socket.on("table:create", ({ stakeType, ante, autoWinsEnabled }, ack: (r: JoinAck | ErrorPayload) => void) => {
     try {
-      const room = roomManager.createRoom(stakeType, ante);
+      const room = roomManager.createRoom(stakeType, ante, autoWinsEnabled ?? true);
       room.join(socket.data.userId!, socket.data.displayName!);
       registerSocket(socket, room);
       ack({ code: room.code });

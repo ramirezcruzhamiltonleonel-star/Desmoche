@@ -13,15 +13,25 @@ interface ActionBarProps {
   onDraw: () => void;
   canAct: boolean;
   selectedCount: number;
+  /** Whether the currently selected cards actually form a valid meld — same rule the server enforces, so this button is never clickable only to get rejected. */
+  canPlaceMeld: boolean;
   onPlaceMeld: () => void;
   myMelds: Meld[];
+  /** Which of myMelds the current selection would validly extend. */
+  extendableMeldIds: Set<string>;
   onExtend: (meldId: string) => void;
+  /** Whether the current selection is a legal thing to discard right now (exactly 1 card, and — when a stock draw or claimed discard is pending — exactly that card). */
+  canDiscardSelection: boolean;
   onDiscard: () => void;
   mustPlaceCard: CardModel | null;
   pendingDrawnCard: CardModel | null;
+  /** Whether at least one own meld has a spare card to shed — desmoche is pointless to offer otherwise. */
+  canDesmoche: boolean;
   desmocheMode: boolean;
   onToggleDesmoche: () => void;
   desmocheSource: DesmocheSource | null;
+  /** Which of myMelds (other than the source) the picked-up card would validly land in. */
+  validDesmocheDestinationIds: Set<string>;
   onPickDestination: (meldId: string) => void;
 }
 
@@ -32,15 +42,20 @@ export default function ActionBar({
   onDraw,
   canAct,
   selectedCount,
+  canPlaceMeld,
   onPlaceMeld,
   myMelds,
+  extendableMeldIds,
   onExtend,
+  canDiscardSelection,
   onDiscard,
   mustPlaceCard,
   pendingDrawnCard,
+  canDesmoche,
   desmocheMode,
   onToggleDesmoche,
   desmocheSource,
+  validDesmocheDestinationIds,
   onPickDestination,
 }: ActionBarProps) {
   if (!isTurnActivePhase) {
@@ -81,15 +96,16 @@ export default function ActionBar({
           <div className="flex gap-2">
             <button
               onClick={onPlaceMeld}
-              disabled={selectedCount < 3}
-              className="flex-1 rounded-lg border border-gold px-3 py-2 text-sm font-semibold text-gold disabled:opacity-40"
+              disabled={!canPlaceMeld}
+              title={selectedCount >= 3 && !canPlaceMeld ? "Esas cartas no forman un grupo válido" : undefined}
+              className="flex-1 rounded-lg border border-gold px-3 py-2 text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40"
             >
               Bajar grupo nuevo
             </button>
             <button
               onClick={onDiscard}
-              disabled={selectedCount !== 1 || Boolean(mustPlaceCard)}
-              className="flex-1 rounded-lg border border-stone-500 px-3 py-2 text-sm text-stone-200 disabled:opacity-40"
+              disabled={!canDiscardSelection}
+              className="flex-1 rounded-lg border border-stone-500 px-3 py-2 text-sm text-stone-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Descartar
             </button>
@@ -101,15 +117,20 @@ export default function ActionBar({
                 Agregar cartas seleccionadas a un grupo propio
               </p>
               <div className="flex flex-wrap justify-center gap-2">
-                {myMelds.map((meld) => (
-                  <button
-                    key={meld.id}
-                    onClick={() => onExtend(meld.id)}
-                    className="rounded-md border border-stone-500 px-2 py-1 text-xs text-stone-200 hover:border-gold"
-                  >
-                    {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
-                  </button>
-                ))}
+                {myMelds.map((meld) => {
+                  const legal = extendableMeldIds.has(meld.id);
+                  return (
+                    <button
+                      key={meld.id}
+                      onClick={() => onExtend(meld.id)}
+                      disabled={!legal}
+                      title={legal ? undefined : "Esa carta no encaja en este grupo"}
+                      className="rounded-md border border-stone-500 px-2 py-1 text-xs text-stone-200 hover:border-gold disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-stone-500"
+                    >
+                      {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -121,7 +142,9 @@ export default function ActionBar({
           ) : myMelds.length >= 2 ? (
             <button
               onClick={onToggleDesmoche}
-              className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+              disabled={!desmocheMode && !canDesmoche}
+              title={canDesmoche ? undefined : "Ninguno de tus grupos tiene una carta de sobra para mover"}
+              className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                 desmocheMode ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-200"
               }`}
             >
@@ -135,7 +158,7 @@ export default function ActionBar({
 
           {desmocheMode && !desmocheSource && (
             <p className="text-center text-xs text-stone-400">
-              Toca una carta de uno de tus grupos para tomarla.
+              Toca una carta resaltada de uno de tus grupos para tomarla.
             </p>
           )}
 
@@ -147,15 +170,20 @@ export default function ActionBar({
               <div className="flex flex-wrap justify-center gap-2">
                 {myMelds
                   .filter((meld) => meld.id !== desmocheSource.meldId)
-                  .map((meld) => (
-                    <button
-                      key={meld.id}
-                      onClick={() => onPickDestination(meld.id)}
-                      className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30"
-                    >
-                      {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
-                    </button>
-                  ))}
+                  .map((meld) => {
+                    const legal = validDesmocheDestinationIds.has(meld.id);
+                    return (
+                      <button
+                        key={meld.id}
+                        onClick={() => onPickDestination(meld.id)}
+                        disabled={!legal}
+                        title={legal ? undefined : "Esa carta no encaja en este grupo"}
+                        className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                      >
+                        {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}

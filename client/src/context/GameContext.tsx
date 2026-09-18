@@ -19,7 +19,7 @@ interface GameContextValue {
   state: ClientGameState | null;
   lastError: string | null;
   dismissError: () => void;
-  createTable: (stakeType: StakeType, ante: number) => Promise<void>;
+  createTable: (stakeType: StakeType, ante: number, autoWinsEnabled: boolean) => Promise<void>;
   joinTable: (code: string) => Promise<void>;
   leaveTable: () => void;
   setReady: (ready: boolean) => void;
@@ -85,9 +85,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       state,
       lastError,
       dismissError: () => setLastError(null),
-      createTable: (stakeType, ante) =>
+      createTable: (stakeType, ante, autoWinsEnabled) =>
         new Promise<void>((resolve, reject) => {
-          socketRef.current?.emit("table:create", { stakeType, ante }, (result) => {
+          socketRef.current?.emit("table:create", { stakeType, ante, autoWinsEnabled }, (result) => {
             if ("message" in result) reject(new Error(result.message));
             else resolve();
           });

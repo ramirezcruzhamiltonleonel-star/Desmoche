@@ -41,6 +41,7 @@ export default function LobbyScreen() {
         <p className="mb-1 text-center text-xs text-stone-400">
           {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
+          {!state.autoWinsEnabled ? " · sin automáticas" : ""}
         </p>
         <p className="mb-3 text-center text-sm text-stone-300">
           Código: <span className="font-mono text-lg tracking-widest text-gold">{state.code}</span>

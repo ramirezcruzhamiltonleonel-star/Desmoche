@@ -5,6 +5,8 @@ import type { ClientGameState } from "./clientState";
 export interface CreateTablePayload {
   stakeType: StakeType;
   ante: number;
+  /** "Modo sin automáticas" opt-out — omit or true for the classic Peladía/Cuatro Cuerpos rules. */
+  autoWinsEnabled?: boolean;
 }
 
 export interface JoinTablePayload {

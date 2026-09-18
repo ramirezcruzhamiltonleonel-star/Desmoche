@@ -1,6 +1,7 @@
-import type { Card, Meld } from "@desmoche/shared";
+import type { Card } from "./cards";
+import type { Meld } from "./melds";
 import { combinations } from "./combinations";
-import { canExtendMeld, isValidMeld } from "./melds";
+import { canExtendMeld, isValidMeld } from "./meldRules";
 
 /**
  * Whether `card` (candidate to draw from the discard pile) can be put to

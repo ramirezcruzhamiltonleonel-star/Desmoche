@@ -7,6 +7,8 @@ interface PlayerMeldsClusterProps {
   /** "column" stacks one meld per row (narrow side seats); "row" wraps melds side by side (more width, e.g. the player's own tray). */
   direction?: "column" | "row";
   pickable?: (meld: Meld) => boolean;
+  /** True while a pick is generally in progress in this cluster — used with `pickable` to dim melds that aren't legal picks right now. */
+  pickInProgress?: boolean;
   onPickSourceCard?: (meldId: string, card: CardModel) => void;
   sourceCardKey?: string | null;
 }
@@ -21,6 +23,7 @@ export default function PlayerMeldsCluster({
   size = "xs",
   direction = "column",
   pickable,
+  pickInProgress = false,
   onPickSourceCard,
   sourceCardKey,
 }: PlayerMeldsClusterProps) {
@@ -32,16 +35,20 @@ export default function PlayerMeldsCluster({
         direction === "row" ? "flex-row flex-wrap justify-center" : "flex-col items-center"
       }`}
     >
-      {melds.map((meld) => (
-        <MeldGroup
-          key={meld.id}
-          meld={meld}
-          size={size}
-          pickable={pickable?.(meld) ?? false}
-          onPickSourceCard={onPickSourceCard}
-          sourceCardKey={sourceCardKey}
-        />
-      ))}
+      {melds.map((meld) => {
+        const legal = pickable?.(meld) ?? false;
+        return (
+          <MeldGroup
+            key={meld.id}
+            meld={meld}
+            size={size}
+            pickable={legal}
+            dimmed={pickInProgress && !legal}
+            onPickSourceCard={onPickSourceCard}
+            sourceCardKey={sourceCardKey}
+          />
+        );
+      })}
     </div>
   );
 }

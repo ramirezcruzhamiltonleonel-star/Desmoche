@@ -16,6 +16,12 @@ actualiza en el mismo commit que el código y sus tests.
   - Si aplica cualquiera de los dos, la mano termina ahí — Cambio nunca llega a
     ocurrir esa mano.
 
+- **Modo "sin automáticas"** (opción al crear la mesa, fija para toda la sesión de
+  esa mesa): si se elige, Peladía y Cuatro Cuerpos no se evalúan nunca — toda
+  mano pasa directo a Cambio y se juega completa, sin importar cómo haya
+  salido el reparto. El resto de las reglas (Cambio, turnos, Mico, Patona,
+  pozo acumulado) no cambia en nada.
+
 ## Cambio (obligatorio, después del reparto — solo si nadie ganó automático)
 
 - Cada jugador entrega **1 carta** de su mano de 9 al siguiente jugador en la rotación

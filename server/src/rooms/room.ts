@@ -78,6 +78,13 @@ export class Room {
     if (seat) seat.connected = connected;
     const tableSeat = this.table?.state.seats.find((s) => s.playerId === playerId);
     if (tableSeat) tableSeat.connected = connected;
+
+    // Disconnecting mid-hand excludes the seat from the REST of this hand's
+    // rotation/claims/Cambio so the game doesn't just stall waiting on them.
+    // Reconnecting deliberately does NOT undo this — see Table.handleDisconnect.
+    if (!connected && this.table) {
+      this.table.handleDisconnect(playerId);
+    }
   }
 
   setReady(playerId: string, ready: boolean): void {
@@ -177,6 +184,7 @@ export class Room {
         connected: s.connected,
         ready: s.ready,
         cardCount: 0,
+        inactiveThisHand: false,
       })),
       yourSeatIndex: this.seats.find((s) => s.playerId === playerId)?.seatIndex ?? null,
       yourHand: [],

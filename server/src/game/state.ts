@@ -77,6 +77,15 @@ export interface GameState {
   cambio: CambioState | null;
   claim: ClaimWindowState | null;
   /**
+   * Seats excluded from THIS hand's turn rotation, claim windows, and Cambio
+   * — either disconnected mid-hand or voluntarily retired via retire().
+   * Rebuilt from scratch (from current connection status) every startHand()
+   * — a past hand's disconnect/retirement never carries into the next one.
+   * Reconnecting mid-hand does NOT remove a seat from this list; they stay
+   * out for the rest of the CURRENT hand and rejoin fresh next hand.
+   */
+  inactiveSeatIndices: number[];
+  /**
    * Chips/money only: pot carried over from hand(s) that ended in
    * "stock-exhausted" ("se va doble"), added on top of the next hand's own
    * ante pot once someone actually wins. Reset to 0 the moment it's paid

@@ -161,6 +161,9 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
     case "discard":
       table.discard(playerId, action.card);
       return;
+    case "retire-from-hand":
+      table.retire(playerId);
+      return;
   }
 }
 

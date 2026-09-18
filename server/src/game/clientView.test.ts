@@ -28,6 +28,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     pendingDrawnCard: null,
     cambio: null,
     claim: null,
+    inactiveSeatIndices: [],
     accumulatedPot: 0,
     handOutcome: null,
     ...overrides,

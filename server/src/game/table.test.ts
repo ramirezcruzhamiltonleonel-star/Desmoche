@@ -748,3 +748,277 @@ describe("Table — a stock draw is resolved immediately, never joining the orig
     expect(table.state.handOutcome?.winnerSeatIndex).toBe(0);
   });
 });
+
+describe("Table — inactive seats: disconnect mid-hand and \"Retirarme de la mano\"", () => {
+  it("skips a disconnected seat's own stalled turn to the next active seat", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true); // it's p0's turn, already drawn
+
+    table.handleDisconnect("p0");
+
+    expect(table.state.inactiveSeatIndices).toEqual([0]);
+    expect(table.state.turnSeatIndex).toBe(1);
+    expect(table.state.hasDrawnThisTurn).toBe(false);
+  });
+
+  it("removes a disconnected seat from a pending claim window without force-resolving it while others are still pending", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1", "p2"]);
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim!.pendingSeatIndices).toEqual([0, 1, 2]);
+
+    table.handleDisconnect("p1");
+
+    expect(table.state.phase).toBe("claim-window"); // p0 and p2 still haven't responded
+    expect(table.state.claim!.pendingSeatIndices).toEqual([0, 2]);
+  });
+
+  it("resolves a claim window immediately once the last pending seat becomes inactive", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.respondToClaim("p0", "pass");
+    expect(table.state.claim!.pendingSeatIndices).toEqual([1]);
+
+    table.handleDisconnect("p1");
+
+    // Nobody left pending -> the ritual reveals the next card on its own.
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim!.isInitialFlip).toBe(true);
+  });
+
+  it("resolves Cambio immediately once the only seat who hadn't submitted becomes inactive, skipping them in the exchange", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    const p0Gives = table.state.hands["p0"]!.at(-1)!;
+    const p1Gives = table.state.hands["p1"]!.at(-1)!;
+    table.submitCambioCard("p0", p0Gives);
+    table.submitCambioCard("p1", p1Gives);
+    expect(table.state.phase).toBe("cambio"); // still waiting on p2
+
+    table.handleDisconnect("p2");
+
+    // p2 never gets a card and never gave one — p0 and p1 swap directly,
+    // skipping straight over the now-inactive seat between them.
+    expect(table.state.phase).toBe("claim-window");
+    const hasCard = (playerId: string, card: Card) =>
+      table.state.hands[playerId]!.some((c2) => cardId(c2) === cardId(card));
+    expect(hasCard("p1", p0Gives)).toBe(true);
+    expect(hasCard("p0", p1Gives)).toBe(true);
+    expect(table.state.hands["p2"]).toHaveLength(9); // untouched
+  });
+
+  it("cancels Cambio and hands back an already-submitted card if a disconnect leaves only one active seat", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    const p0Gives = table.state.hands["p0"]!.at(-1)!;
+    table.submitCambioCard("p0", p0Gives);
+
+    table.handleDisconnect("p1");
+
+    expect(table.state.cambio).toBeNull();
+    expect(table.state.hands["p0"]).toHaveLength(9); // got their submitted card back
+    expect(table.state.hands["p0"]!.some((c2) => cardId(c2) === cardId(p0Gives))).toBe(true);
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim!.pendingSeatIndices).toEqual([0]);
+    expect(table.state.claim!.fallbackSeatIndex).toBe(0); // p0 plays on alone
+  });
+
+  it("skips Cambio entirely when a hand is dealt with only one seat already connected", () => {
+    const oneConnected: Seat[] = [
+      { seatIndex: 0, playerId: "p0", displayName: "Ana", connected: true, ready: true },
+      { seatIndex: 1, playerId: "p1", displayName: "Beto", connected: false, ready: true },
+    ];
+    const table = new Table(config(), oneConnected);
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    expect(table.state.inactiveSeatIndices).toEqual([1]);
+    expect(table.state.phase).toBe("claim-window"); // never entered "cambio" at all
+    expect(table.state.claim!.pendingSeatIndices).toEqual([0]);
+  });
+
+  it("lets the sole remaining active player keep playing solo and actually win the hand", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true); // already past the opening ritual, p0's turn, already drawn
+    table.handleDisconnect("p1"); // p1 leaves; doesn't touch p0's own in-progress turn
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(0);
+    expect(table.state.inactiveSeatIndices).toEqual([1]);
+
+    // Force a hand p0 can fully meld on their own turn, same as the
+    // existing meld-out test does.
+    table.state.hands["p0"] = [
+      c("A", "clubs"),
+      c("2", "clubs"),
+      c("3", "clubs"),
+      c("5", "hearts"),
+      c("6", "hearts"),
+      c("7", "hearts"),
+      c("9", "diamonds"),
+      c("10", "diamonds"),
+      c("J", "diamonds"),
+    ];
+    table.state.hasDrawnThisTurn = true; // pretend they already drew for this turn
+
+    table.placeMeld("p0", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]);
+    table.placeMeld("p0", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")]);
+    table.placeMeld("p0", [c("9", "diamonds"), c("10", "diamonds"), c("J", "diamonds")]);
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "meld-out",
+      winnerSeatIndex: 0,
+      winningMelds: expect.any(Array),
+    });
+
+    // p1 still owes their ante as a loser, even though they were disconnected the whole
+    // time — plus Mico abajo (A-2-3 same suit) and Patona (placed zero melds), same
+    // stacking as the equivalent non-disconnected case (Corrección 1 test above).
+    const outcome = table.settleHand();
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+    expect(outcome.potWon).toBe(200);
+    expect(outcome.extraPerLoser).toEqual({ p1: 200 });
+  });
+
+  it("does NOT hand the solo player an automatic win — the hand can still end with no winner", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0);
+    table.handleDisconnect("p1");
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(0);
+
+    table.state.stock = []; // nothing left to draw
+    table.state.discard = [c("2", "diamonds")];
+
+    table.drawFromStock("p0");
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+  });
+
+  it("reconnecting mid-hand does NOT restore a seat's eligibility for the rest of THAT hand", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.handleDisconnect("p1");
+    expect(table.state.inactiveSeatIndices).toEqual([1]);
+
+    // Simulate p1 reconnecting — only Room flips this back, Table itself
+    // has no "reactivate" concept, by design.
+    table.state.seats.find((s) => s.playerId === "p1")!.connected = true;
+
+    expect(table.state.inactiveSeatIndices).toEqual([1]); // still excluded this hand
+  });
+
+  it("rebuilds inactiveSeatIndices fresh on the next hand — a reconnected seat plays normally again", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.handleDisconnect("p1");
+    table.state.seats.find((s) => s.playerId === "p1")!.connected = true; // reconnects before the next deal
+
+    table.startHand(1, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    expect(table.state.inactiveSeatIndices).toEqual([]);
+    expect(table.state.phase).toBe("cambio"); // both active again, Cambio happens normally
+  });
+
+  describe("retire()", () => {
+    it("refuses to retire before a hand has started, or during Cambio", () => {
+      const table = new Table(config(), seats(2));
+      expect(() => table.retire("p0")).toThrow(GameError);
+
+      table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+      expect(table.state.phase).toBe("cambio");
+      expect(() => table.retire("p0")).toThrow(GameError);
+    });
+
+    it("refuses to retire twice", () => {
+      const table = new Table(config(), seats(3));
+      table.startHand(
+        0,
+        buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+      );
+      resolveCambio(table, ["p0", "p1", "p2"]);
+
+      table.retire("p1");
+      expect(() => table.retire("p1")).toThrow(GameError);
+    });
+
+    it("excludes the player from the rest of the hand's claim windows and turn rotation, same as a disconnect", () => {
+      const table = new Table(config(), seats(3));
+      table.startHand(
+        0,
+        buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+      );
+      resolveCambio(table, ["p0", "p1", "p2"]);
+      expect(table.state.claim!.pendingSeatIndices).toEqual([0, 1, 2]);
+
+      table.retire("p2");
+
+      expect(table.state.inactiveSeatIndices).toEqual([2]);
+      expect(table.state.claim!.pendingSeatIndices).toEqual([0, 1]);
+    });
+
+    it("skips the retiring player's own stalled turn to the next active seat", () => {
+      const table = new Table(config(), seats(2));
+      table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+      resolveCambio(table, ["p0", "p1"]);
+      skipToNormalTurn(table, 0, true);
+
+      table.retire("p0");
+
+      expect(table.state.turnSeatIndex).toBe(1);
+      expect(table.state.inactiveSeatIndices).toEqual([0]);
+    });
+
+    it("still owes its ante (and Patona, if they placed nothing) once someone else wins", () => {
+      const table = new Table(config({ ante: 100 }), seats(2));
+      table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+      resolveCambio(table, ["p0", "p1"]);
+      skipToNormalTurn(table, 1, true);
+      table.retire("p1"); // p1 gives up, never having placed a meld
+
+      // p0 takes over and wins.
+      table.state.turnSeatIndex = 0;
+      table.state.hands["p0"] = [
+        c("A", "clubs"),
+        c("2", "clubs"),
+        c("3", "clubs"),
+        c("5", "hearts"),
+        c("6", "hearts"),
+        c("7", "hearts"),
+        c("9", "diamonds"),
+        c("10", "diamonds"),
+        c("J", "diamonds"),
+      ];
+      table.state.hasDrawnThisTurn = true;
+      table.placeMeld("p0", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]);
+      table.placeMeld("p0", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")]);
+      table.placeMeld("p0", [c("9", "diamonds"), c("10", "diamonds"), c("J", "diamonds")]);
+
+      const outcome = table.settleHand();
+      if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+      // p1 retired having placed zero melds -> owes Patona; p0's winning melds also
+      // include Mico abajo (A-2-3 same suit), which stacks on top.
+      expect(outcome.extraPerLoser).toEqual({ p1: 200 });
+      expect(outcome.potWon).toBe(200);
+    });
+  });
+});

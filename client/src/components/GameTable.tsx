@@ -64,6 +64,7 @@ export default function GameTable() {
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [handArranged, setHandArranged] = useState(false);
+  const [confirmingRetire, setConfirmingRetire] = useState(false);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -87,6 +88,7 @@ export default function GameTable() {
     setSelectedCards([]);
     setDesmocheMode(false);
     setDesmocheSource(null);
+    setConfirmingRetire(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.turnSeatIndex, state?.phase]);
 
@@ -148,6 +150,11 @@ export default function GameTable() {
     state.yourSeatIndex !== null &&
     state.claim.pendingSeatIndices.includes(state.yourSeatIndex);
 
+  // Available any time after Cambio (claim window or your turn) — Cambio
+  // itself is mandatory, blind, and simultaneous, so retiring mid-Cambio
+  // wouldn't mean anything yet.
+  const canRetire = Boolean(yourSeat) && !yourSeat!.inactiveThisHand && state.phase !== "cambio";
+
   function toggleHandCard(card: CardModel) {
     const key = cardKey(card);
     setSelectedCards((prev) =>
@@ -181,6 +188,11 @@ export default function GameTable() {
 
   function handlePickDesmocheSource(meldId: string, card: CardModel) {
     setDesmocheSource({ meldId, card });
+  }
+
+  function handleRetire() {
+    sendAction({ type: "retire-from-hand" });
+    setConfirmingRetire(false);
   }
 
   function handlePickDesmocheDestination(meldId: string) {
@@ -304,6 +316,34 @@ export default function GameTable() {
             ★ Tu turno ★
           </p>
         )}
+        {canRetire && (
+          <div className="mb-1 flex justify-start">
+            {!confirmingRetire ? (
+              <button
+                onClick={() => setConfirmingRetire(true)}
+                className="rounded-lg border border-red-700 bg-red-950/40 px-3 py-1 text-xs font-semibold text-red-300 transition hover:bg-red-900/50"
+              >
+                Retirarme de la mano
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] text-red-300">¿Seguro? No podrás volver a jugar esta mano.</span>
+                <button
+                  onClick={handleRetire}
+                  className="rounded-lg bg-red-700 px-3 py-1 text-xs font-semibold text-white transition hover:bg-red-600"
+                >
+                  Sí, retirarme
+                </button>
+                <button
+                  onClick={() => setConfirmingRetire(false)}
+                  className="rounded-lg border border-stone-500 px-3 py-1 text-xs text-stone-300 transition hover:border-stone-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="mb-1 flex justify-end">
           <button
             onClick={() => setHandArranged((prev) => !prev)}
@@ -338,27 +378,33 @@ export default function GameTable() {
           ))}
         </div>
 
-        <ActionBar
-          isYourTurn={isYourTurn}
-          isTurnActivePhase={state.phase === "turn-active"}
-          canDraw={canDraw}
-          onDraw={handleDraw}
-          canAct={canAct}
-          selectedCount={selectedCards.length}
-          onPlaceMeld={handlePlaceMeld}
-          myMelds={myMelds}
-          onExtend={handleExtend}
-          onDiscard={handleDiscard}
-          mustPlaceCard={state.mustPlaceCard}
-          pendingDrawnCard={state.pendingDrawnCard}
-          desmocheMode={desmocheMode}
-          onToggleDesmoche={() => {
-            setDesmocheMode((prev) => !prev);
-            setDesmocheSource(null);
-          }}
-          desmocheSource={desmocheSource}
-          onPickDestination={handlePickDesmocheDestination}
-        />
+        {yourSeat?.inactiveThisHand ? (
+          <p className="px-3 pb-2 text-center text-xs text-red-300">
+            Te retiraste de esta mano — esperá a que termine para volver a jugar.
+          </p>
+        ) : (
+          <ActionBar
+            isYourTurn={isYourTurn}
+            isTurnActivePhase={state.phase === "turn-active"}
+            canDraw={canDraw}
+            onDraw={handleDraw}
+            canAct={canAct}
+            selectedCount={selectedCards.length}
+            onPlaceMeld={handlePlaceMeld}
+            myMelds={myMelds}
+            onExtend={handleExtend}
+            onDiscard={handleDiscard}
+            mustPlaceCard={state.mustPlaceCard}
+            pendingDrawnCard={state.pendingDrawnCard}
+            desmocheMode={desmocheMode}
+            onToggleDesmoche={() => {
+              setDesmocheMode((prev) => !prev);
+              setDesmocheSource(null);
+            }}
+            desmocheSource={desmocheSource}
+            onPickDestination={handlePickDesmocheDestination}
+          />
+        )}
       </div>
 
       {state.phase === "cambio" && (

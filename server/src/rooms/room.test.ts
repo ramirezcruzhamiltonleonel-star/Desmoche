@@ -91,6 +91,32 @@ describe("Room — connection tracking", () => {
       true,
     );
   });
+
+  it("excludes a mid-hand disconnect from the live table's rotation, and it stays excluded even after reconnecting", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    // A random deal could theoretically auto-win the hand before we get to
+    // disconnect anyone — same tolerance the rest of this file already uses.
+    if (room.requireTable().state.phase === "hand-over") return;
+
+    room.setConnected("user-b", false);
+    expect(room.requireTable().state.inactiveSeatIndices).toContain(1);
+    expect(room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!.inactiveThisHand).toBe(
+      true,
+    );
+
+    // Reconnecting flips `connected` back, but does NOT restore them for
+    // the rest of THIS hand — only a fresh startHand() does that.
+    room.join("user-b", "Beto");
+    expect(room.requireTable().state.inactiveSeatIndices).toContain(1);
+    const view = room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!;
+    expect(view.connected).toBe(true);
+    expect(view.inactiveThisHand).toBe(true);
+  });
 });
 
 describe("Room — hand progression", () => {

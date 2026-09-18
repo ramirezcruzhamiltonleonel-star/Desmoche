@@ -15,6 +15,14 @@ export interface ClientSeatView {
   connected: boolean;
   ready: boolean;
   cardCount: number;
+  /**
+   * Excluded from the CURRENT hand's turn rotation, claim windows, and
+   * Cambio — either because they disconnected mid-hand or used "Retirarme
+   * de la mano". Always false in the lobby and reset fresh every new hand
+   * (a past hand's disconnect/retirement never carries over). Still counts
+   * as a loser in that hand's settlement, same as anyone who didn't win.
+   */
+  inactiveThisHand: boolean;
 }
 
 /** Who has already handed over their Cambio card — never which card, since it's blind/simultaneous. */

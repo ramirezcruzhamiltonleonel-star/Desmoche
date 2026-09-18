@@ -32,6 +32,7 @@ export function toClientView(
       connected: seat.connected,
       ready: seat.ready,
       cardCount: state.hands[seat.playerId]?.length ?? 0,
+      inactiveThisHand: state.inactiveSeatIndices.includes(seat.seatIndex),
     })),
     yourSeatIndex: viewerSeat?.seatIndex ?? null,
     yourHand: state.hands[viewerPlayerId] ?? [],

@@ -67,6 +67,7 @@ export class Table {
       pendingDrawnCard: null,
       cambio: null,
       claim: null,
+      inactiveSeatIndices: [],
       accumulatedPot: 0,
       handOutcome: null,
     };
@@ -88,6 +89,107 @@ export class Table {
       throw new GameError("No es tu turno");
     }
     return seat;
+  }
+
+  /**
+   * Walks forward from `fromSeatIndex`, skipping any seat currently in
+   * `inactiveSeatIndices`, and returns the first active seat found — wraps
+   * all the way around back to `fromSeatIndex` itself if it's the only
+   * active seat left (the "juega solo contra el mazo" case).
+   */
+  private nextActiveSeat(fromSeatIndex: number): number {
+    const n = this.playerCount;
+    let candidate = nextSeat(fromSeatIndex, n);
+    for (let steps = 0; steps < n; steps++) {
+      if (!this.state.inactiveSeatIndices.includes(candidate)) return candidate;
+      candidate = nextSeat(candidate, n);
+    }
+    // Nobody active at all — shouldn't happen while the table exists, but
+    // fall back to the plain next seat rather than looping forever.
+    return nextSeat(fromSeatIndex, n);
+  }
+
+  /**
+   * Excludes a seat from the REST of the current hand's turn rotation,
+   * claim windows, and Cambio — used by both a mid-hand disconnect and a
+   * voluntary "Retirarme de la mano". If it immediately unblocks whatever
+   * the table is waiting on (the last pending Cambio submission, the last
+   * pending claim response, or this seat's own stalled turn), resolves that
+   * right away instead of leaving the hand stuck waiting on someone who can
+   * no longer act.
+   */
+  private markSeatInactive(seatIndex: number): void {
+    if (this.state.inactiveSeatIndices.includes(seatIndex)) return;
+    if (this.state.phase === "lobby" || this.state.phase === "hand-over") return;
+    this.state.inactiveSeatIndices.push(seatIndex);
+
+    if (this.state.phase === "cambio" && this.state.cambio) {
+      const cambio = this.state.cambio;
+      const activeSeats = this.state.seats.filter(
+        (s) => !this.state.inactiveSeatIndices.includes(s.seatIndex),
+      );
+      if (activeSeats.length <= 1) {
+        // Nothing left to exchange — cancel Cambio, handing back whatever
+        // was already submitted, and go straight to the opening ritual.
+        for (const [playerId, card] of Object.entries(cambio.submitted)) {
+          this.state.hands[playerId] = [...handOf(this.state, playerId), card];
+        }
+        this.state.cambio = null;
+        this.openInitialClaimWindow();
+        return;
+      }
+      if (activeSeats.every((s) => cambio.submitted[s.playerId])) {
+        this.resolveCambio();
+      }
+      return;
+    }
+
+    if (this.state.phase === "claim-window" && this.state.claim) {
+      this.state.claim.pendingSeatIndices = this.state.claim.pendingSeatIndices.filter(
+        (s) => s !== seatIndex,
+      );
+      if (this.state.claim.pendingSeatIndices.length === 0) {
+        this.resolveClaimWindow();
+      }
+      return;
+    }
+
+    if (this.state.phase === "turn-active" && this.state.turnSeatIndex === seatIndex) {
+      this.state.turnSeatIndex = this.nextActiveSeat(seatIndex);
+      this.state.hasDrawnThisTurn = false;
+      this.state.mustPlaceCard = null;
+      this.state.pendingDrawnCard = null;
+    }
+  }
+
+  /**
+   * Called when a seat disconnects mid-hand. Reconnecting later does NOT
+   * undo this — they stay excluded from the rest of THIS hand and rejoin
+   * fresh (if still connected) when the next hand is dealt.
+   */
+  handleDisconnect(playerId: string): void {
+    const seat = this.state.seats.find((s) => s.playerId === playerId);
+    if (!seat) return;
+    this.markSeatInactive(seat.seatIndex);
+  }
+
+  /**
+   * "Retirarme de la mano": a player who knows they can't win this hand
+   * steps out on their own initiative. Excluded from the rest of THIS hand
+   * exactly like a disconnect — still owes their ante like any other loser
+   * once the hand settles. Only allowed once the hand is past Cambio, which
+   * is mandatory, blind, and simultaneous — retiring mid-Cambio wouldn't
+   * mean anything yet.
+   */
+  retire(playerId: string): void {
+    const seat = seatOf(this.state, playerId);
+    if (this.state.phase === "lobby" || this.state.phase === "cambio" || this.state.phase === "hand-over") {
+      throw new GameError("No puedes retirarte de la mano en este momento");
+    }
+    if (this.state.inactiveSeatIndices.includes(seat.seatIndex)) {
+      throw new GameError("Ya estás fuera de esta mano");
+    }
+    this.markSeatInactive(seat.seatIndex);
   }
 
   private finishHand(
@@ -134,6 +236,11 @@ export class Table {
     this.state.pendingDrawnCard = null;
     this.state.cambio = null;
     this.state.handOutcome = null;
+    // Rebuilt fresh every hand from CURRENT connection status — a past
+    // hand's disconnect or retirement never carries into a new one.
+    this.state.inactiveSeatIndices = this.state.seats
+      .filter((s) => !s.connected)
+      .map((s) => s.seatIndex);
 
     const autoWins = checkAutoWins(hands);
     // A four-of-a-kind hand always contains a pair, so no single hand can
@@ -158,6 +265,14 @@ export class Table {
     // Peladía/Cuatro Cuerpos are checked on the as-dealt hand — Cambio only
     // happens once neither auto-win applies (see startHand's early returns
     // above), matching the brief's "se declaran apenas se reparte".
+    const activeSeatCount = n - this.state.inactiveSeatIndices.length;
+    if (activeSeatCount <= 1) {
+      // Nothing to exchange with only one (or zero) active seats — skip
+      // straight to the opening claim ritual.
+      this.openInitialClaimWindow();
+      return;
+    }
+
     this.state.phase = "cambio";
     this.state.cambio = { submitted: {} };
   }
@@ -173,13 +288,19 @@ export class Table {
     if (this.state.phase !== "cambio" || !cambio) {
       throw new GameError("No es momento de Cambio");
     }
+    const seat = seatOf(this.state, playerId);
+    if (this.state.inactiveSeatIndices.includes(seat.seatIndex)) {
+      throw new GameError("Ya estás fuera de esta mano");
+    }
     if (cambio.submitted[playerId]) {
       throw new GameError("Ya entregaste tu carta de Cambio");
     }
     this.state.hands[playerId] = removeCard(handOf(this.state, playerId), card);
     cambio.submitted[playerId] = card;
 
-    const allSubmitted = this.state.seats.every((s) => cambio.submitted[s.playerId]);
+    const allSubmitted = this.state.seats
+      .filter((s) => !this.state.inactiveSeatIndices.includes(s.seatIndex))
+      .every((s) => cambio.submitted[s.playerId]);
     if (allSubmitted) {
       this.resolveCambio();
     }
@@ -188,11 +309,11 @@ export class Table {
   private resolveCambio(): void {
     const cambio = this.state.cambio;
     if (!cambio) return;
-    const n = this.playerCount;
 
     for (const seat of this.state.seats) {
+      if (this.state.inactiveSeatIndices.includes(seat.seatIndex)) continue;
       const givenCard = cambio.submitted[seat.playerId]!;
-      const recipientId = this.seatPlayerId(nextSeat(seat.seatIndex, n));
+      const recipientId = this.seatPlayerId(this.nextActiveSeat(seat.seatIndex));
       this.state.hands[recipientId] = [...handOf(this.state, recipientId), givenCard];
     }
     this.state.cambio = null;
@@ -200,18 +321,25 @@ export class Table {
   }
 
   private openInitialClaimWindow(): void {
-    const n = this.playerCount;
-    const firstTurnSeatIndex = nextSeat(this.state.dealerSeatIndex, n);
+    const activeSeatIndices = this.state.seats
+      .map((s) => s.seatIndex)
+      .filter((idx) => !this.state.inactiveSeatIndices.includes(idx));
+    const firstTurnSeatIndex = this.nextActiveSeat(this.state.dealerSeatIndex);
     const initialCard = this.state.discard[this.state.discard.length - 1]!;
     this.state.phase = "claim-window";
     this.state.claim = {
       card: initialCard,
       referenceSeatIndex: this.state.dealerSeatIndex,
-      pendingSeatIndices: this.state.seats.map((s) => s.seatIndex),
+      pendingSeatIndices: activeSeatIndices,
       claimedBy: [],
       fallbackSeatIndex: firstTurnSeatIndex,
       isInitialFlip: true,
     };
+    if (activeSeatIndices.length === 0) {
+      // Nobody left at all to consider it — shouldn't happen while the
+      // table exists, but don't leave the hand stuck waiting on nobody.
+      this.resolveClaimWindow();
+    }
   }
 
   /** A seat's response during the claim window for the current top-of-discard card. */
@@ -285,12 +413,17 @@ export class Table {
       this.state.claim = {
         card: revealedCard,
         referenceSeatIndex: claim.referenceSeatIndex,
-        pendingSeatIndices: this.state.seats.map((s) => s.seatIndex),
+        pendingSeatIndices: this.state.seats
+          .map((s) => s.seatIndex)
+          .filter((idx) => !this.state.inactiveSeatIndices.includes(idx)),
         claimedBy: [],
         fallbackSeatIndex: claim.fallbackSeatIndex,
         isInitialFlip: true,
       };
       this.state.phase = "claim-window";
+      if (this.state.claim.pendingSeatIndices.length === 0) {
+        this.resolveClaimWindow();
+      }
       return;
     }
 
@@ -470,11 +603,16 @@ export class Table {
       referenceSeatIndex: seat.seatIndex,
       pendingSeatIndices: this.state.seats
         .map((s) => s.seatIndex)
-        .filter((s) => s !== seat.seatIndex),
+        .filter((s) => s !== seat.seatIndex && !this.state.inactiveSeatIndices.includes(s)),
       claimedBy: [],
-      fallbackSeatIndex: nextSeat(seat.seatIndex, this.playerCount),
+      fallbackSeatIndex: this.nextActiveSeat(seat.seatIndex),
       isInitialFlip: false,
     };
+    if (this.state.claim.pendingSeatIndices.length === 0) {
+      // Solo player (or everyone else inactive) — nobody around to consider
+      // claiming this discard, so the window resolves immediately.
+      this.resolveClaimWindow();
+    }
   }
 
   /** Combines the auto-win/meld-out outcome with Mico bonuses into a payout — or, for "se va doble", grows the carried-over pot instead. */

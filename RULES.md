@@ -67,6 +67,36 @@ actualiza en el mismo commit que el código y sus tests.
   turno, la rotación normal continúa desde el jugador siguiente a ella (se saltan los
   que quedaron en medio).
 
+## Jugador solitario, desconexión y retiro voluntario ("Retirarme de la mano")
+
+- **Un asiento queda "inactivo para esta mano"** de dos formas: se desconecta a
+  mitad de mano, o usa el botón rojo "Retirarme de la mano". Ambos casos se tratan
+  igual en el motor de juego: el asiento queda excluido del resto de la rotación de
+  turnos, de las ventanas de reclamo y de Cambio por lo que queda de esa mano —
+  nunca se lo salta el juego en silencio dejándolo trabado esperando una acción que
+  nadie va a mandar.
+- **Retirarse** solo está disponible después de Cambio (ventana de reclamo o turno
+  normal) — Cambio es obligatorio, a ciegas y simultáneo, así que retirarse antes de
+  entregar la carta no tendría sentido. Un jugador retirado no puede volver a robar
+  del mazo, no participa en los turnos restantes, y queda fuera de la posibilidad de
+  ganar esa mano específica — pero sigue debiendo su ante (y Patona, si no bajó
+  ningún grupo) como cualquier otro perdedor cuando la mano finalmente se liquida.
+- **Reconectarse a mitad de mano NO restaura la elegibilidad** para lo que queda de
+  esa mano — el asiento sigue excluido hasta la mano siguiente. El estado de
+  inactividad se reconstruye desde cero en cada reparto nuevo, a partir de quién
+  está conectado en ese momento: un jugador que se desconectó pero para la mano
+  siguiente ya se reconectó vuelve a jugar y a apostar con normalidad; uno que se
+  retiró voluntariamente también vuelve fresco la mano siguiente (el retiro solo
+  afecta la mano específica en la que se usó).
+- **Si solo queda un asiento activo** (todos los demás desconectados y/o retirados),
+  ese jugador sigue jugando SOLO contra el mazo — el juego nunca le da la victoria
+  automática por ser el único que queda. Si completa su mano normalmente, gana y se
+  lleva el pozo (incluyendo los antes de los inactivos). Si no la completa (el mazo
+  se agota), la mano termina sin ganador y aplica el pozo acumulado de la sección
+  siguiente — no hay premio por quedar solo en la mesa.
+- Si al repartir una mano nueva ya hay ≤1 asiento conectado, Cambio se salta por
+  completo (no hay con quién intercambiar) y se va directo al ritual de apertura.
+
 ## Bonos de pago (modo Fichas y Dinero real)
 
 - **Mico abajo**: escalera A-2-3 del mismo palo en la jugada ganadora → cada perdedor

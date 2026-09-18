@@ -85,7 +85,7 @@ function errorMessage(err: unknown): string {
 }
 
 function broadcastRoom(room: Room): void {
-  for (const playerId of room.allPlayerIds()) {
+  for (const playerId of [...room.allPlayerIds(), ...room.allSpectatorIds()]) {
     const socketId = socketIdByUserId.get(playerId);
     if (!socketId) continue;
     io.sockets.sockets.get(socketId)?.emit("table:state", room.viewFor(playerId));
@@ -228,6 +228,18 @@ io.on("connection", (socket: AppSocket) => {
     try {
       const room = roomManager.getRoom(code);
       room.join(socket.data.userId!, socket.data.displayName!);
+      registerSocket(socket, room);
+      ack({ code: room.code });
+      broadcastRoom(room);
+    } catch (err) {
+      ack({ message: errorMessage(err) });
+    }
+  });
+
+  socket.on("table:spectate", ({ code }, ack: (r: JoinAck | ErrorPayload) => void) => {
+    try {
+      const room = roomManager.getRoom(code);
+      room.spectate(socket.data.userId!);
       registerSocket(socket, room);
       ack({ code: room.code });
       broadcastRoom(room);

@@ -4,17 +4,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Sourced from CSS variables (see src/styles/index.css) so a
+        // data-theme attribute on <html> can swap every one of these at
+        // once — "clásico", "noche", "cantina" — without touching any
+        // component's className. Each variable holds an "R G B" triplet
+        // (not a hex string) so Tailwind's opacity modifiers (bg-gold/20,
+        // border-wood/60, etc.) keep working exactly as before.
         felt: {
-          DEFAULT: "#0b3d2e",
-          dark: "#082c21",
+          DEFAULT: "rgb(var(--color-felt) / <alpha-value>)",
+          dark: "rgb(var(--color-felt-dark) / <alpha-value>)",
         },
         wood: {
-          DEFAULT: "#5b3a29",
-          dark: "#3d2818",
+          DEFAULT: "rgb(var(--color-wood) / <alpha-value>)",
+          dark: "rgb(var(--color-wood-dark) / <alpha-value>)",
         },
         gold: {
-          DEFAULT: "#d4af37",
-          light: "#f0d878",
+          DEFAULT: "rgb(var(--color-gold) / <alpha-value>)",
+          light: "rgb(var(--color-gold-light) / <alpha-value>)",
         },
       },
       fontFamily: {

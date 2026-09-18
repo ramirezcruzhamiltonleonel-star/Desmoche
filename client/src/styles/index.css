@@ -4,6 +4,35 @@
 
 :root {
   color-scheme: dark;
+
+  /* "Clásico" — the original green-felt/wood/gold casino look. Default when
+     no data-theme is set. */
+  --color-felt: 11 61 46;
+  --color-felt-dark: 8 44 33;
+  --color-wood: 91 58 41;
+  --color-wood-dark: 61 40 24;
+  --color-gold: 212 175 55;
+  --color-gold-light: 240 216 120;
+}
+
+/* "Noche" — deep navy felt and charcoal wood, same gold accent family. */
+[data-theme="noche"] {
+  --color-felt: 15 31 61;
+  --color-felt-dark: 10 21 41;
+  --color-wood: 52 56 74;
+  --color-wood-dark: 33 35 46;
+  --color-gold: 201 166 70;
+  --color-gold-light: 232 207 122;
+}
+
+/* "Cantina" — warm burgundy felt and rich oak, a coppery accent instead of pure gold. */
+[data-theme="cantina"] {
+  --color-felt: 74 20 32;
+  --color-felt-dark: 46 12 20;
+  --color-wood: 107 68 35;
+  --color-wood-dark: 74 47 24;
+  --color-gold: 201 138 58;
+  --color-gold-light: 224 168 92;
 }
 
 body {

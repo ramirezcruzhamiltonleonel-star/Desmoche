@@ -1,4 +1,4 @@
-import type { Card, Meld, Phase, StakeType } from "@desmoche/shared";
+import type { Card, Meld, Phase, StakeType, TableEvent } from "@desmoche/shared";
 
 export type { Phase };
 
@@ -95,6 +95,8 @@ export interface GameState {
    */
   accumulatedPot: number;
   handOutcome: HandOutcomeSummary | null;
+  /** Notable in-hand moments for the whole table session — never reset by startHand(), only starts empty when the Table itself is created. Filterable by type in the UI. */
+  eventLog: TableEvent[];
 }
 
 export function seatOf(state: GameState, playerId: string): Seat {

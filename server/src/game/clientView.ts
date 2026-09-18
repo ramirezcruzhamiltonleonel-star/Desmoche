@@ -39,6 +39,10 @@ export function toClientView(
       isBot: isBotPlayerId(seat.playerId),
     })),
     yourSeatIndex: viewerSeat?.seatIndex ?? null,
+    // Room.viewFor() overrides this with the real answer — it's the one that
+    // knows who's spectating, a lobby/seating concept this pure projector
+    // has no notion of.
+    isSpectator: false,
     yourHand: state.hands[viewerPlayerId] ?? [],
     melds: state.melds,
     stockCount: state.stock.length,
@@ -69,6 +73,7 @@ export function toClientView(
       : null,
     accumulatedPot: state.accumulatedPot,
     handOutcome: state.handOutcome,
+    eventLog: state.eventLog,
     // Populated by Room.viewFor(), which knows the table's stake config and
     // the running session history — this projector only has the rules-engine
     // state for the CURRENT hand, not settlements or cross-hand history.

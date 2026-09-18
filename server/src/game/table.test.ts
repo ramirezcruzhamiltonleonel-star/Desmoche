@@ -1072,3 +1072,94 @@ describe("Table — inactive seats: disconnect mid-hand and \"Retirarme de la ma
     });
   });
 });
+
+describe("Table — event log", () => {
+  it("logs a Peladía declaration", () => {
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+
+    expect(table.state.eventLog).toEqual([{ type: "peladia", seatIndex: 0 }]);
+  });
+
+  it("logs a Cuatro Cuerpos declaration", () => {
+    const cuatroA: Card[] = [
+      c("8", "spades"),
+      c("8", "hearts"),
+      c("8", "clubs"),
+      c("8", "diamonds"),
+      c("2", "hearts"),
+      c("K", "diamonds"),
+      c("4", "spades"),
+      c("J", "clubs"),
+      c("3", "diamonds"),
+    ];
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([cuatroA, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+
+    expect(table.state.eventLog).toEqual([{ type: "cuatro-cuerpos", seatIndex: 0 }]);
+  });
+
+  it("logs who claimed a discard out of turn, and which card", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    // Give p1 a pair of 8s so the discarded 8♣ completes a set — genuinely
+    // eligible to claim, not just structurally allowed to try.
+    table.state.hands["p1"] = [c("8", "hearts"), c("8", "diamonds"), c("2", "clubs")];
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+    table.respondToClaim("p1", "claim");
+
+    expect(table.state.eventLog).toContainEqual({
+      type: "claimed-discard",
+      seatIndex: 1,
+      card: c("8", "clubs"),
+    });
+  });
+
+  it("logs a desmoche, with the card that moved", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push(
+      {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+      },
+      { id: "m2", type: "set", ownerId: "p1", cards: [c("8", "spades"), c("8", "hearts")] },
+    );
+    table.desmochar("p1", "m1", "m2", c("8", "diamonds"));
+
+    expect(table.state.eventLog).toContainEqual({
+      type: "desmocho",
+      seatIndex: 1,
+      card: c("8", "diamonds"),
+    });
+  });
+
+  it("accumulates across hands instead of resetting on startHand()", () => {
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([PELADIA_HAND, NORMAL_HAND], c("4", "diamonds"));
+    table.startHand(0, deck);
+    expect(table.state.eventLog).toHaveLength(1);
+
+    // A second hand, this time a normal deal — the Peladía entry from hand 1
+    // must still be there afterward.
+    table.startHand(1, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    expect(table.state.eventLog).toHaveLength(1);
+    expect(table.state.eventLog[0]).toEqual({ type: "peladia", seatIndex: 0 });
+  });
+
+  it("starts empty for a brand-new table", () => {
+    const table = new Table(config(), seats(2));
+    expect(table.state.eventLog).toEqual([]);
+  });
+});

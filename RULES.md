@@ -129,6 +129,18 @@ actualiza en el mismo commit que el código y sus tests.
   es una cuenta fija de la base de datos con saldo alto que se recarga solo
   si baja demasiado, así nunca es un obstáculo para que una mano se liquide.
 
+## Modo espectador
+
+- Cualquiera con el código (o el enlace/QR) de una mesa **que ya empezó a
+  jugar** puede entrar a mirarla sin ocupar un asiento — no cuenta para el
+  mínimo/máximo de jugadores, nunca recibe cartas, nunca mueve fichas, y no
+  puede ejecutar ninguna acción de juego.
+- Ve la mesa exactamente igual que vería otro jugador a un rival: los grupos
+  ya bajados están completamente visibles, la mano de cada jugador se reduce
+  a una cantidad de cartas (nunca cuáles son) hasta que las baje.
+- No se puede espectar una mesa que todavía está en la sala de espera (no ha
+  empezado la primera mano) — hay que esperar a que arranque.
+
 ## Bonos de pago (modo Fichas y Dinero real)
 
 - **Mico abajo**: escalera A-2-3 del mismo palo en la jugada ganadora → cada perdedor

@@ -221,6 +221,70 @@ describe("Room — connection tracking", () => {
   });
 });
 
+describe("Room — spectating", () => {
+  function startedRoom(): Room {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    return room;
+  }
+
+  it("refuses to spectate a table that hasn't started yet", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    expect(() => room.spectate("stranger")).toThrow(GameError);
+  });
+
+  it("lets a non-seated user watch a table already in progress", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+
+    const view = room.viewFor("stranger");
+    expect(view.isSpectator).toBe(true);
+    expect(view.yourSeatIndex).toBeNull();
+    expect(view.yourHand).toEqual([]);
+  });
+
+  it("never adds the spectator as a seat, and never shows other seats' hands to them", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+
+    expect(room.playerCount).toBe(2);
+    const view = room.viewFor("stranger");
+    expect(view.seats).toHaveLength(2);
+    for (const seat of view.seats) {
+      expect(seat.cardCount).toBeGreaterThan(0);
+    }
+  });
+
+  it("includes the spectator in allSpectatorIds, separate from allPlayerIds", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+
+    expect(room.allSpectatorIds()).toEqual(["stranger"]);
+    expect(room.allPlayerIds()).not.toContain("stranger");
+  });
+
+  it("is a no-op for someone who's already seated", () => {
+    const room = startedRoom();
+    room.spectate("user-a");
+
+    expect(room.allSpectatorIds()).toEqual([]);
+    expect(room.viewFor("user-a").isSpectator).toBe(false);
+  });
+
+  it("stops tracking a spectator once they disconnect", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+    expect(room.allSpectatorIds()).toEqual(["stranger"]);
+
+    room.setConnected("stranger", false);
+    expect(room.allSpectatorIds()).toEqual([]);
+  });
+});
+
 describe("Room — hand progression", () => {
   it("refuses to start the next hand before the game has started", () => {
     const room = makeRoom();

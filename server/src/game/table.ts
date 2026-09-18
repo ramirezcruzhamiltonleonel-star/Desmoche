@@ -77,6 +77,7 @@ export class Table {
       inactiveSeatIndices: [],
       accumulatedPot: 0,
       handOutcome: null,
+      eventLog: [],
     };
   }
 
@@ -263,11 +264,13 @@ export class Table {
           autoWins.cuatroCuerposSeatIndices,
           n,
         );
+        this.state.eventLog.push({ type: "cuatro-cuerpos", seatIndex: winnerSeat });
         this.finishHand("cuatro-cuerpos", winnerSeat, []);
         return;
       }
       if (autoWins.peladiaSeatIndices.length > 0) {
         const winnerSeat = closestToDealerRight(dealerSeatIndex, autoWins.peladiaSeatIndices, n);
+        this.state.eventLog.push({ type: "peladia", seatIndex: winnerSeat });
         this.finishHand("peladia", winnerSeat, []);
         return;
       }
@@ -395,6 +398,7 @@ export class Table {
     if (claim.claimedBy.length > 0) {
       const winnerSeat = resolveDiscardClaimPriority(claim.referenceSeatIndex, claim.claimedBy, n);
       const winnerId = this.seatPlayerId(winnerSeat);
+      this.state.eventLog.push({ type: "claimed-discard", seatIndex: winnerSeat, card: claim.card });
       this.state.discard.pop();
       this.state.hands[winnerId] = [...handOf(this.state, winnerId), claim.card];
       this.state.turnSeatIndex = winnerSeat;
@@ -587,6 +591,7 @@ export class Table {
     }
     fromMeld.cards = remainingFrom;
     toMeld.cards = combinedTo;
+    this.state.eventLog.push({ type: "desmocho", seatIndex: seatOf(this.state, playerId).seatIndex, card });
   }
 
   /** Ends the turn by discarding, opening a new claim window for the card. */

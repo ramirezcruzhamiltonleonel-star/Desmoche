@@ -41,6 +41,8 @@ export class Room {
   private settlementCache: HandOutcome | null = null;
   /** Every hand settled so far this session — never reset across hands, only starts empty for a brand-new Room. */
   private history: ClientHandHistoryEntry[] = [];
+  /** Users watching the table without a seat — never counted toward playerCount, never dealt a hand, never touch settlement. */
+  private spectatorIds = new Set<string>();
 
   constructor(code: string, stakeType: StakeType, ante: number, autoWinsEnabled = true) {
     this.code = code;
@@ -130,6 +132,20 @@ export class Room {
     if (!connected && this.table) {
       this.table.handleDisconnect(playerId);
     }
+    // A spectator has no seat to flag — just stop tracking them so the set
+    // doesn't grow forever with people who've long since left.
+    if (!connected) this.spectatorIds.delete(playerId);
+  }
+
+  /** Watch a table already in progress, without taking a seat — every hand stays hidden to them exactly like an opponent's does. A no-op for someone who's already seated; they already see everything relevant. */
+  spectate(userId: string): void {
+    if (!this.hasStarted) throw new GameError("La mesa todavía no empezó a jugar");
+    if (this.seats.some((s) => s.playerId === userId)) return;
+    this.spectatorIds.add(userId);
+  }
+
+  allSpectatorIds(): string[] {
+    return [...this.spectatorIds];
   }
 
   setReady(playerId: string, ready: boolean): void {
@@ -219,6 +235,7 @@ export class Room {
         ),
         handSettlement: this.settlementCache,
         handHistory: this.history,
+        isSpectator: this.spectatorIds.has(playerId),
       };
     }
 
@@ -239,6 +256,9 @@ export class Room {
         isBot: isBotPlayerId(s.playerId),
       })),
       yourSeatIndex: this.seats.find((s) => s.playerId === playerId)?.seatIndex ?? null,
+      // Spectating requires the game to already be in progress — this
+      // branch only runs pre-game, so it's never true here.
+      isSpectator: false,
       yourHand: [],
       melds: [],
       stockCount: 0,
@@ -257,6 +277,7 @@ export class Room {
       handOutcome: null,
       handSettlement: null,
       handHistory: this.history,
+      eventLog: [],
     };
   }
 }

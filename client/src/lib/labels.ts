@@ -13,3 +13,10 @@ export const REASON_LABELS: Record<string, string> = {
   "discard-out": "Ganó por descarte",
   "stock-exhausted": "Se acabó el mazo — nadie ganó",
 };
+
+export const EVENT_TYPE_LABELS: Record<string, string> = {
+  "claimed-discard": "Robó del descarte",
+  desmocho: "Desmoche",
+  peladia: "Peladía",
+  "cuatro-cuerpos": "Cuatro Cuerpos",
+};

@@ -7,6 +7,7 @@ import {
   type ClientSeatView,
 } from "@desmoche/shared";
 import { useGame } from "../context/GameContext";
+import { useTheme } from "../context/ThemeContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
 import { useVoiceChat } from "../hooks/useVoiceChat";
@@ -15,7 +16,9 @@ import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
+import { THEME_LABELS, THEMES } from "../lib/themeStorage";
 import { hasTutorialBeenSeen, markTutorialSeen } from "../lib/tutorialStorage";
+import { vibrate } from "../lib/vibration";
 import ActionBar from "./ActionBar";
 import CambioModal from "./CambioModal";
 import Card from "./Card";
@@ -62,6 +65,7 @@ interface DesmocheSource {
 
 export default function GameTable() {
   const { state, sendAction, nextHand, leaveTable } = useGame();
+  const { theme, setTheme } = useTheme();
   const sound = useSound();
   const voice = useVoiceChat();
   const dealAnim = useDealAnimation();
@@ -106,6 +110,11 @@ export default function GameTable() {
       state?.phase === "turn-active" && state.yourSeatIndex !== null && state.yourSeatIndex === state.turnSeatIndex;
     if (isYourTurnNow && !prevIsYourTurnRef.current) {
       sound.playTurn();
+      // Especially useful with voice chat going — a buzz cuts through a
+      // distracted conversation better than a beep alone. Tied to the same
+      // sound toggle rather than a separate setting, and simply does
+      // nothing on platforms without the Vibration API (desktop, iOS).
+      if (sound.enabled) vibrate(200);
     }
     prevIsYourTurnRef.current = Boolean(isYourTurnNow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,6 +287,18 @@ export default function GameTable() {
           {!state.autoWinsEnabled ? " · sin automáticas" : ""}
         </span>
         <div className="flex items-center gap-3">
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as (typeof THEMES)[number])}
+            aria-label="Tema visual de la mesa"
+            className="rounded border border-wood-dark bg-stone-900 px-1 py-0.5 text-[10px] text-stone-300"
+          >
+            {THEMES.map((t) => (
+              <option key={t} value={t}>
+                🎨 {THEME_LABELS[t]}
+              </option>
+            ))}
+          </select>
           <button onClick={() => setShowTutorial(true)} aria-label="Cómo se juega" className="p-1 text-base">
             ❓
           </button>
@@ -358,109 +379,121 @@ export default function GameTable() {
             : "border-wood/60"
         }`}
       >
-        {isYourTurn && state.phase === "turn-active" && (
-          <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
-            ★ Tu turno ★
-          </p>
-        )}
-        {canRetire && (
-          <div className="mb-1 flex justify-start">
-            {!confirmingRetire ? (
-              <button
-                onClick={() => setConfirmingRetire(true)}
-                className="rounded-lg border border-red-700 bg-red-950/40 px-3 py-1 text-xs font-semibold text-red-300 transition hover:bg-red-900/50"
-              >
-                Retirarme de la mano
-              </button>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-red-300">¿Seguro? No podrás volver a jugar esta mano.</span>
-                <button
-                  onClick={handleRetire}
-                  className="rounded-lg bg-red-700 px-3 py-1 text-xs font-semibold text-white transition hover:bg-red-600"
-                >
-                  Sí, retirarme
-                </button>
-                <button
-                  onClick={() => setConfirmingRetire(false)}
-                  className="rounded-lg border border-stone-500 px-3 py-1 text-xs text-stone-300 transition hover:border-stone-300"
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        <div className="mb-1 flex justify-end">
-          <button
-            onClick={() => setHandArranged((prev) => !prev)}
-            className={`rounded-lg border px-3 py-1 text-xs font-semibold transition ${
-              handArranged ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-300 hover:border-gold"
-            }`}
-          >
-            {handArranged ? "Orden normal" : "Acomodar"}
-          </button>
-        </div>
-        {myMelds.length > 0 && (
-          <div className="mb-2">
-            <PlayerMeldsCluster
-              melds={myMelds}
-              size="sm"
-              direction="row"
-              pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharFrom(meld.cards)}
-              pickInProgress={desmocheMode && !desmocheSource}
-              onPickSourceCard={handlePickDesmocheSource}
-              sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
-            />
-          </div>
-        )}
-        <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
-          {(handArranged ? arrangeHandForDisplay(state.yourHand) : sortHandForDisplay(state.yourHand)).map((card) => (
-            <Card
-              key={cardKey(card)}
-              card={card}
-              selected={selectedCards.some((c) => cardKey(c) === cardKey(card))}
-              pendingDraw={Boolean(state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card))}
-              onClick={() => toggleHandCard(card)}
-            />
-          ))}
-        </div>
-
-        {yourSeat?.inactiveThisHand ? (
-          <p className="px-3 pb-2 text-center text-xs text-red-300">
-            Te retiraste de esta mano — esperá a que termine para volver a jugar.
+        {state.isSpectator ? (
+          <p className="py-3 text-center text-xs text-stone-400">
+            👁 Modo espectador — estás mirando esta mesa sin participar.
           </p>
         ) : (
-          <ActionBar
-            isYourTurn={isYourTurn}
-            isTurnActivePhase={state.phase === "turn-active"}
-            canDraw={canDraw}
-            onDraw={handleDraw}
-            canAct={canAct}
-            selectedCount={selectedCards.length}
-            canPlaceMeld={canPlaceMeld}
-            onPlaceMeld={handlePlaceMeld}
-            myMelds={myMelds}
-            extendableMeldIds={extendableMeldIds}
-            onExtend={handleExtend}
-            canDiscardSelection={canDiscardSelection}
-            onDiscard={handleDiscard}
-            mustPlaceCard={state.mustPlaceCard}
-            pendingDrawnCard={state.pendingDrawnCard}
-            canDesmoche={canDesmoche}
-            desmocheMode={desmocheMode}
-            onToggleDesmoche={() => {
-              setDesmocheMode((prev) => !prev);
-              setDesmocheSource(null);
-            }}
-            desmocheSource={desmocheSource}
-            validDesmocheDestinationIds={validDesmocheDestinationIds}
-            onPickDestination={handlePickDesmocheDestination}
-          />
+          <>
+            {isYourTurn && state.phase === "turn-active" && (
+              <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
+                ★ Tu turno ★
+              </p>
+            )}
+            {canRetire && (
+              <div className="mb-1 flex justify-start">
+                {!confirmingRetire ? (
+                  <button
+                    onClick={() => setConfirmingRetire(true)}
+                    className="rounded-lg border border-red-700 bg-red-950/40 px-3 py-1 text-xs font-semibold text-red-300 transition hover:bg-red-900/50"
+                  >
+                    Retirarme de la mano
+                  </button>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] text-red-300">¿Seguro? No podrás volver a jugar esta mano.</span>
+                    <button
+                      onClick={handleRetire}
+                      className="rounded-lg bg-red-700 px-3 py-1 text-xs font-semibold text-white transition hover:bg-red-600"
+                    >
+                      Sí, retirarme
+                    </button>
+                    <button
+                      onClick={() => setConfirmingRetire(false)}
+                      className="rounded-lg border border-stone-500 px-3 py-1 text-xs text-stone-300 transition hover:border-stone-300"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="mb-1 flex justify-end">
+              <button
+                onClick={() => setHandArranged((prev) => !prev)}
+                className={`rounded-lg border px-3 py-1 text-xs font-semibold transition ${
+                  handArranged ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-300 hover:border-gold"
+                }`}
+              >
+                {handArranged ? "Orden normal" : "Acomodar"}
+              </button>
+            </div>
+            {myMelds.length > 0 && (
+              <div className="mb-2">
+                <PlayerMeldsCluster
+                  melds={myMelds}
+                  size="sm"
+                  direction="row"
+                  pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharFrom(meld.cards)}
+                  pickInProgress={desmocheMode && !desmocheSource}
+                  onPickSourceCard={handlePickDesmocheSource}
+                  sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
+                />
+              </div>
+            )}
+            <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
+              {(handArranged ? arrangeHandForDisplay(state.yourHand) : sortHandForDisplay(state.yourHand)).map(
+                (card) => (
+                  <Card
+                    key={cardKey(card)}
+                    card={card}
+                    selected={selectedCards.some((c) => cardKey(c) === cardKey(card))}
+                    pendingDraw={Boolean(
+                      state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card),
+                    )}
+                    onClick={() => toggleHandCard(card)}
+                  />
+                ),
+              )}
+            </div>
+
+            {yourSeat?.inactiveThisHand ? (
+              <p className="px-3 pb-2 text-center text-xs text-red-300">
+                Te retiraste de esta mano — esperá a que termine para volver a jugar.
+              </p>
+            ) : (
+              <ActionBar
+                isYourTurn={isYourTurn}
+                isTurnActivePhase={state.phase === "turn-active"}
+                canDraw={canDraw}
+                onDraw={handleDraw}
+                canAct={canAct}
+                selectedCount={selectedCards.length}
+                canPlaceMeld={canPlaceMeld}
+                onPlaceMeld={handlePlaceMeld}
+                myMelds={myMelds}
+                extendableMeldIds={extendableMeldIds}
+                onExtend={handleExtend}
+                canDiscardSelection={canDiscardSelection}
+                onDiscard={handleDiscard}
+                mustPlaceCard={state.mustPlaceCard}
+                pendingDrawnCard={state.pendingDrawnCard}
+                canDesmoche={canDesmoche}
+                desmocheMode={desmocheMode}
+                onToggleDesmoche={() => {
+                  setDesmocheMode((prev) => !prev);
+                  setDesmocheSource(null);
+                }}
+                desmocheSource={desmocheSource}
+                validDesmocheDestinationIds={validDesmocheDestinationIds}
+                onPickDestination={handlePickDesmocheDestination}
+              />
+            )}
+          </>
         )}
       </div>
 
-      {state.phase === "cambio" && (
+      {state.phase === "cambio" && !state.isSpectator && (
         <CambioModal
           hand={state.yourHand}
           submitted={state.yourCambioSubmitted}

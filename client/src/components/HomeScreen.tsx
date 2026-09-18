@@ -9,12 +9,12 @@ import Spinner from "./Spinner";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
-  const { createTable, joinTable } = useGame();
+  const { createTable, joinTable, spectateTable } = useGame();
   // A shared join link (?mesa=CODE) lands here pre-filled on the "join" tab
   // instead of "create" — read once on mount, since the URL doesn't change
   // while this screen is up.
   const [sharedCode] = useState(() => readJoinCodeFromUrl());
-  const [mode, setMode] = useState<"create" | "join">(sharedCode ? "join" : "create");
+  const [mode, setMode] = useState<"create" | "join" | "spectate">(sharedCode ? "join" : "create");
   const [stakeType, setStakeType] = useState<StakeType>("chips");
   const [ante, setAnte] = useState(100);
   const [autoWinsEnabled, setAutoWinsEnabled] = useState(true);
@@ -41,6 +41,19 @@ export default function HomeScreen() {
     setBusy(true);
     try {
       await joinTable(code.trim().toUpperCase());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSpectate(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await spectateTable(code.trim().toUpperCase());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -87,7 +100,15 @@ export default function HomeScreen() {
             }`}
             onClick={() => setMode("join")}
           >
-            Unirse por código
+            Unirse
+          </button>
+          <button
+            className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
+              mode === "spectate" ? "bg-gold text-stone-900" : "text-stone-300"
+            }`}
+            onClick={() => setMode("spectate")}
+          >
+            Ver mesa
           </button>
         </div>
 
@@ -143,7 +164,7 @@ export default function HomeScreen() {
                 {busy ? "Creando..." : "Crear mesa"}
               </button>
             </div>
-          ) : (
+          ) : mode === "join" ? (
             <form onSubmit={handleJoin} className="space-y-4">
               <label className="block text-sm text-stone-200">
                 Código de mesa
@@ -162,6 +183,31 @@ export default function HomeScreen() {
               >
                 {busy && <Spinner size="sm" tone="dark" />}
                 {busy ? "Uniendo..." : "Unirse"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSpectate} className="space-y-4">
+              <p className="text-xs text-stone-400">
+                Mirá una mesa de amigos sin participar — las cartas de los jugadores quedan ocultas
+                hasta que las bajen. Solo funciona en mesas que ya empezaron a jugar.
+              </p>
+              <label className="block text-sm text-stone-200">
+                Código de mesa
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-center text-lg uppercase tracking-widest text-stone-100"
+                  maxLength={6}
+                  placeholder="ABCDE"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={busy}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold px-4 py-2 font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-50"
+              >
+                {busy && <Spinner size="sm" tone="gold" />}
+                {busy ? "Entrando..." : "👁 Ver mesa"}
               </button>
             </form>
           )}

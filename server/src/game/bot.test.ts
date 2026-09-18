@@ -38,6 +38,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     inactiveSeatIndices: [],
     accumulatedPot: 0,
     handOutcome: null,
+    eventLog: [],
     ...overrides,
   };
 }

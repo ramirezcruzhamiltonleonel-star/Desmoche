@@ -1,5 +1,6 @@
 import type { Card } from "./cards";
 import type { Meld, StakeType } from "./melds";
+import type { TableEvent } from "./tableEvents";
 
 export type Phase =
   | "lobby"
@@ -89,6 +90,8 @@ export interface ClientGameState {
   phase: Phase;
   seats: ClientSeatView[];
   yourSeatIndex: number | null;
+  /** Watching without a seat — every UI affordance for acting (hand tray, ActionBar, Cambio, retiring) should stay hidden. */
+  isSpectator: boolean;
   yourHand: Card[];
   melds: Meld[];
   stockCount: number;
@@ -112,4 +115,6 @@ export interface ClientGameState {
   handSettlement: ClientHandSettlement | null;
   /** Every hand settled so far in this table session, oldest first. */
   handHistory: ClientHandHistoryEntry[];
+  /** Notable in-hand moments (discard claims, desmoches, Peladía/Cuatro Cuerpos) for the whole table session, oldest first — filterable by type in the UI. */
+  eventLog: TableEvent[];
 }

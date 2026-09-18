@@ -82,6 +82,8 @@ export interface VoiceJoinAck {
 export interface ClientToServerEvents {
   "table:create": (payload: CreateTablePayload, ack: (result: JoinAck | ErrorPayload) => void) => void;
   "table:join": (payload: JoinTablePayload, ack: (result: JoinAck | ErrorPayload) => void) => void;
+  /** Watch a table already in progress without taking a seat — every hand stays hidden (card counts only) exactly like an opponent's does for a seated player, until it's melded onto the table. */
+  "table:spectate": (payload: JoinTablePayload, ack: (result: JoinAck | ErrorPayload) => void) => void;
   "table:ready": (payload: { ready: boolean }) => void;
   "table:next-hand": () => void;
   "table:add-bot": () => void;

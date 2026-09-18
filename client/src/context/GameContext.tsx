@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { ClientGameState, GameAction, StakeType } from "@desmoche/shared";
 import { connectSocket, disconnectSocket, type AppSocket } from "../lib/socket";
-import { clearTableCode, loadTableCode, saveTableCode } from "../lib/tableStorage";
+import { clearTableCode, loadTableCode, loadTableMode, saveTableCode } from "../lib/tableStorage";
 import { useAuth } from "./AuthContext";
 
 interface GameContextValue {
@@ -21,6 +21,7 @@ interface GameContextValue {
   dismissError: () => void;
   createTable: (stakeType: StakeType, ante: number, autoWinsEnabled: boolean) => Promise<void>;
   joinTable: (code: string) => Promise<void>;
+  spectateTable: (code: string) => Promise<void>;
   leaveTable: () => void;
   setReady: (ready: boolean) => void;
   nextHand: () => void;
@@ -57,7 +58,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setConnected(true);
       const savedCode = loadTableCode();
       if (savedCode) {
-        socket.emit("table:join", { code: savedCode }, (result) => {
+        const event = loadTableMode() === "spectator" ? "table:spectate" : "table:join";
+        socket.emit(event, { code: savedCode }, (result) => {
           if ("message" in result) clearTableCode();
         });
       }
@@ -65,7 +67,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("disconnect", () => setConnected(false));
     socket.on("table:state", (nextState) => {
       setState(nextState);
-      saveTableCode(nextState.code);
+      saveTableCode(nextState.code, nextState.isSpectator ? "spectator" : "player");
     });
     socket.on("table:error", (err) => setLastError(err.message));
     socket.on("connect_error", (err) => setLastError(err.message));
@@ -95,6 +97,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       joinTable: (code) =>
         new Promise<void>((resolve, reject) => {
           socketRef.current?.emit("table:join", { code }, (result) => {
+            if ("message" in result) reject(new Error(result.message));
+            else resolve();
+          });
+        }),
+      spectateTable: (code) =>
+        new Promise<void>((resolve, reject) => {
+          socketRef.current?.emit("table:spectate", { code }, (result) => {
             if ("message" in result) reject(new Error(result.message));
             else resolve();
           });

@@ -6,6 +6,7 @@ import HomeScreen from "./components/HomeScreen";
 import LoadingScreen from "./components/LoadingScreen";
 import LobbyScreen from "./components/LobbyScreen";
 import LoginScreen from "./components/LoginScreen";
+import { ThemeProvider } from "./context/ThemeContext";
 import { loadTableCode } from "./lib/tableStorage";
 
 function Screens() {
@@ -34,8 +35,10 @@ function Authenticated() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Authenticated />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Authenticated />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

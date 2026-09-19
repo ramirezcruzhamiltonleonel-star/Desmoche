@@ -76,11 +76,21 @@ actualiza en el mismo commit que el código y sus tests.
 ## Jugador solitario, desconexión y retiro voluntario ("Retirarme de la mano")
 
 - **Un asiento queda "inactivo para esta mano"** de dos formas: se desconecta a
-  mitad de mano, o usa el botón rojo "Retirarme de la mano". Ambos casos se tratan
-  igual en el motor de juego: el asiento queda excluido del resto de la rotación de
-  turnos, de las ventanas de reclamo y de Cambio por lo que queda de esa mano —
-  nunca se lo salta el juego en silencio dejándolo trabado esperando una acción que
-  nadie va a mandar.
+  mitad de mano y no vuelve a conectarse dentro del minuto siguiente (ver más
+  abajo), o usa el botón rojo "Retirarme de la mano" (inmediato, sin espera). Ambos
+  casos se tratan igual en el motor de juego una vez que se aplican: el asiento
+  queda excluido del resto de la rotación de turnos, de las ventanas de reclamo y
+  de Cambio por lo que queda de esa mano — nunca se lo salta el juego en silencio
+  dejándolo trabado esperando una acción que nadie va a mandar.
+- **Desconexión: un minuto de gracia antes de excluir.** Al desconectarse (se
+  recarga la página, se corta el internet un momento), el asiento se marca
+  "Desconectado" en la interfaz de inmediato, pero **sigue formando parte normal de la
+  rotación de esa mano hasta que pasa 1 minuto sin que vuelva a conectarse** — una
+  recarga de página o un corte breve no le cuesta el turno. Si se reconecta dentro
+  de ese minuto (recargando o con el internet de vuelta), sigue jugando exactamente
+  donde estaba, sin ninguna penalidad. Si el minuto se cumple sin reconexión, recién
+  ahí se excluye del resto de la mano — igual que el retiro voluntario a partir de
+  ese momento.
 - **Retirarse** solo está disponible después de Cambio (ventana de reclamo o turno
   normal) — Cambio es obligatorio, a ciegas y simultáneo, así que retirarse antes de
   entregar la carta no tendría sentido. Un jugador retirado no puede volver a robar

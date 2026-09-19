@@ -25,6 +25,8 @@ import { RoomManager } from "./rooms/roomManager";
 const PORT = Number(process.env.PORT ?? 4000);
 const CLAIM_WINDOW_MS = 12_000;
 const BOT_THINK_MS = 700;
+/** How long a disconnected seat stays in the current hand's rotation before being excluded — a page refresh or brief network drop shouldn't cost a mid-hand player their turn. */
+const DISCONNECT_GRACE_MS = 60_000;
 
 // CLIENT_ORIGIN: comma-separated allowed origins for the deployed frontend
 // (e.g. "https://desmoche-client.up.railway.app"). Unset (dev default) allows
@@ -349,12 +351,25 @@ io.on("connection", (socket: AppSocket) => {
     if (!userId || !code) return;
     try {
       const room = roomManager.getRoom(code);
+      // A page refresh tears down the old socket AFTER the new one has
+      // already connected and rejoined — if this stale disconnect were
+      // applied unconditionally, it would wrongly flip a live player back
+      // to "disconnected". Only act on it if no newer socket has replaced
+      // this one for this user.
+      if (socketIdByUserId.get(userId) !== socket.id) return;
+      socketIdByUserId.delete(userId);
       room.setConnected(userId, false);
       leaveVoice(code, userId);
-      if (socketIdByUserId.get(userId) === socket.id) {
-        socketIdByUserId.delete(userId);
-      }
       broadcastRoom(room);
+      // Give them a real chance to reconnect (a refresh, a brief network
+      // drop) before it costs them their turn for the rest of this hand.
+      setTimeout(() => {
+        room.excludeFromCurrentHandIfStillDisconnected(userId);
+        broadcastRoom(room);
+        persistIfHandJustEnded(room);
+        scheduleClaimTimeoutIfNeeded(room);
+        driveBotsIfNeeded(room);
+      }, DISCONNECT_GRACE_MS);
     } catch {
       // Room no longer exists — nothing to clean up.
     }

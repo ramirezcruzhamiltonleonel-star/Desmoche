@@ -194,7 +194,7 @@ describe("Room — connection tracking", () => {
     );
   });
 
-  it("excludes a mid-hand disconnect from the live table's rotation, and it stays excluded even after reconnecting", () => {
+  it("does NOT immediately exclude a mid-hand disconnect from the live table's rotation — a reconnect grace period comes first", () => {
     const room = makeRoom();
     room.join("user-a", "Ana");
     room.join("user-b", "Beto");
@@ -206,14 +206,63 @@ describe("Room — connection tracking", () => {
     if (room.requireTable().state.phase === "hand-over") return;
 
     room.setConnected("user-b", false);
+    // A quick refresh or network blip should never cost a mid-hand player
+    // their turn on its own — only the transport layer's grace-period
+    // timeout (see index.ts) actually excludes them, by calling
+    // excludeFromCurrentHandIfStillDisconnected below.
+    expect(room.requireTable().state.inactiveSeatIndices).not.toContain(1);
+    const view = room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!;
+    expect(view.connected).toBe(false);
+    expect(view.inactiveThisHand).toBe(false);
+  });
+
+  it("excludes the seat once the grace period elapses with no reconnection", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    if (room.requireTable().state.phase === "hand-over") return;
+
+    room.setConnected("user-b", false);
+    room.excludeFromCurrentHandIfStillDisconnected("user-b"); // simulates the grace timer firing
+
     expect(room.requireTable().state.inactiveSeatIndices).toContain(1);
     expect(room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!.inactiveThisHand).toBe(
       true,
     );
+  });
 
-    // Reconnecting flips `connected` back, but does NOT restore them for
-    // the rest of THIS hand — only a fresh startHand() does that.
+  it("does nothing if they reconnected before the grace period elapsed", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
     room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    if (room.requireTable().state.phase === "hand-over") return;
+
+    room.setConnected("user-b", false);
+    room.join("user-b", "Beto"); // reconnects within the grace window
+    room.excludeFromCurrentHandIfStillDisconnected("user-b"); // the (now-stale) timer still fires
+
+    expect(room.requireTable().state.inactiveSeatIndices).not.toContain(1);
+    const view = room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!;
+    expect(view.connected).toBe(true);
+    expect(view.inactiveThisHand).toBe(false);
+  });
+
+  it("still does not restore eligibility for the rest of THIS hand once actually excluded, even after reconnecting", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    if (room.requireTable().state.phase === "hand-over") return;
+
+    room.setConnected("user-b", false);
+    room.excludeFromCurrentHandIfStillDisconnected("user-b"); // grace period already elapsed
+
+    room.join("user-b", "Beto"); // reconnects too late for this hand
     expect(room.requireTable().state.inactiveSeatIndices).toContain(1);
     const view = room.viewFor("user-a").seats.find((s) => s.playerId === "user-b")!;
     expect(view.connected).toBe(true);

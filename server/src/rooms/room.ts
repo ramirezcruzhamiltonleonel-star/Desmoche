@@ -120,21 +120,37 @@ export class Room {
     });
   }
 
+  /**
+   * Flips the `connected` flag only — does NOT exclude the seat from the
+   * current hand. A disconnect that resolves quickly (a page refresh, a
+   * brief network drop) should never cost a mid-hand player their turn; see
+   * `excludeFromCurrentHandIfStillDisconnected`, which the transport layer
+   * calls after a grace period, for the part that actually does that.
+   */
   setConnected(playerId: string, connected: boolean): void {
     const seat = this.seats.find((s) => s.playerId === playerId);
     if (seat) seat.connected = connected;
     const tableSeat = this.table?.state.seats.find((s) => s.playerId === playerId);
     if (tableSeat) tableSeat.connected = connected;
 
-    // Disconnecting mid-hand excludes the seat from the REST of this hand's
-    // rotation/claims/Cambio so the game doesn't just stall waiting on them.
-    // Reconnecting deliberately does NOT undo this — see Table.handleDisconnect.
-    if (!connected && this.table) {
-      this.table.handleDisconnect(playerId);
-    }
     // A spectator has no seat to flag — just stop tracking them so the set
     // doesn't grow forever with people who've long since left.
     if (!connected) this.spectatorIds.delete(playerId);
+  }
+
+  /**
+   * Excludes a seat from the REST of the current hand's turn rotation,
+   * claim windows, and Cambio — called by the transport layer once a
+   * reconnect grace period (see index.ts, DISCONNECT_GRACE_MS) has elapsed
+   * with no reconnection. A no-op if they reconnected (setConnected(true))
+   * at any point before this fires — `join()` flips `seat.connected` back
+   * to true immediately, so this check alone is enough, no timer
+   * cancellation bookkeeping required.
+   */
+  excludeFromCurrentHandIfStillDisconnected(playerId: string): void {
+    const seat = this.seats.find((s) => s.playerId === playerId);
+    if (!seat || seat.connected) return;
+    this.table?.handleDisconnect(playerId);
   }
 
   /** Watch a table already in progress, without taking a seat — every hand stays hidden to them exactly like an opponent's does. A no-op for someone who's already seated; they already see everything relevant. */

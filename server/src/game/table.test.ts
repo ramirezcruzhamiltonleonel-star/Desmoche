@@ -585,6 +585,76 @@ describe("Table — Patona", () => {
   });
 });
 
+describe("Table — stock reshuffle mid-hand (recycling the discard pile)", () => {
+  it("reshuffles the discard pile back into the stock the moment it hits 0, conserving every card and NOT ending the hand", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0);
+
+    // Contrived but deterministic: 1 card left in stock, 9 cards sitting in
+    // the discard pile (the eventual top card + 8 to recycle).
+    table.state.stock = [c("9", "spades")];
+    table.state.discard = [
+      c("2", "diamonds"),
+      c("3", "diamonds"),
+      c("5", "diamonds"),
+      c("6", "diamonds"),
+      c("7", "diamonds"),
+      c("9", "diamonds"),
+      c("10", "diamonds"),
+      c("J", "diamonds"),
+      c("Q", "diamonds"), // top of discard, stays there after reshuffle
+    ];
+
+    const beforeTotal =
+      Object.values(table.state.hands).reduce((n, h) => n + h.length, 0) +
+      table.state.stock.length +
+      table.state.discard.length +
+      table.state.melds.reduce((n, m) => n + m.cards.length, 0);
+
+    // Draw #1: takes the last card in stock (9♠) — stock hits 0, but the
+    // hand does NOT end here, since the discard still has cards to recycle.
+    const firstDrawn = table.drawFromStock("p0");
+    expect(firstDrawn).toEqual([c("9", "spades")]);
+    expect(table.state.phase).not.toBe("hand-over");
+    // Must resolve this stock draw before anything else is legal.
+    table.discard("p0", c("9", "spades"));
+    table.forceResolveClaimWindow(); // nobody claims, unrelated to this test
+
+    skipToNormalTurn(table, 0);
+    expect(table.state.stock).toHaveLength(0);
+
+    // Draw #2: THIS is the reshuffle moment — stock is 0, so drawFromStock
+    // recycles discard-minus-top into a fresh stock before drawing. The
+    // count visibly jumps up here, same as what was reported — and that's
+    // exactly the "se va doble" rule already documented in RULES.md: stock
+    // exhaustion only ends the hand once the discard has nothing left to
+    // recycle either.
+    const stockBeforeReshuffle = table.state.stock.length; // 0
+    const discardBeforeReshuffle = table.state.discard.length; // 9 (1 was just added)
+    const secondDrawn = table.drawFromStock("p0");
+
+    expect(secondDrawn).toHaveLength(1);
+    // 9 cards were in discard; 1 stays as the new top, 8 got shuffled into
+    // stock, then 1 of those 8 was immediately drawn — net stock count is 7.
+    expect(table.state.stock).toHaveLength(discardBeforeReshuffle - 1 - 1);
+    expect(table.state.discard).toHaveLength(1); // only the old top card remains
+    expect(table.state.stock.length).toBeGreaterThan(stockBeforeReshuffle);
+    expect(table.state.phase).not.toBe("hand-over");
+
+    const afterTotal =
+      Object.values(table.state.hands).reduce((n, h) => n + h.length, 0) +
+      table.state.stock.length +
+      table.state.discard.length +
+      table.state.melds.reduce((n, m) => n + m.cards.length, 0);
+    // No card was created or destroyed — the visible stock count going up
+    // is cards moving from the discard pile, never cards appearing from
+    // nowhere.
+    expect(afterTotal).toBe(beforeTotal);
+  });
+});
+
 describe('Table — "se va doble": the pot carries over when a hand ends with no winner', () => {
   function forceStockExhausted(table: Table): void {
     (table.state as { phase: string }).phase = "hand-over";

@@ -78,9 +78,11 @@ export default function GameTable() {
   const [showTutorial, setShowTutorial] = useState(() => !hasTutorialBeenSeen());
   const [handArranged, setHandArranged] = useState(false);
   const [confirmingRetire, setConfirmingRetire] = useState(false);
+  const [reshuffleNotice, setReshuffleNotice] = useState(false);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
+  const prevStockCountRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -95,6 +97,10 @@ export default function GameTable() {
       sound.playDeal();
       dealAnim.trigger(buildDealOrder(state.dealerSeatIndex, state.seats.length), state.yourSeatIndex);
       setHandArranged(false);
+      // A brand-new deal's full stock is not a "reshuffle" of this hand's
+      // discard pile — don't let the very first comparison after this
+      // treat it as one.
+      prevStockCountRef.current = undefined;
     }
     prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.
@@ -119,6 +125,23 @@ export default function GameTable() {
     prevIsYourTurnRef.current = Boolean(isYourTurnNow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase, state?.turnSeatIndex, state?.yourSeatIndex]);
+
+  useEffect(() => {
+    // Stock can only ever go DOWN as cards are drawn (or stay put) — the
+    // one exception is the discard pile getting recycled back into the
+    // stock once it hits 0 ("se va doble" territory otherwise). Surface
+    // that moment explicitly so the count visibly jumping up never reads
+    // as cards appearing from nowhere.
+    const isReshuffle =
+      state && prevStockCountRef.current !== undefined && state.stockCount > prevStockCountRef.current;
+    prevStockCountRef.current = state?.stockCount;
+    if (isReshuffle) {
+      setReshuffleNotice(true);
+      const timer = setTimeout(() => setReshuffleNotice(false), 3000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [state?.stockCount]);
 
   useEffect(() => {
     // A stock draw is never a free choice among the original 9 — pre-select
@@ -359,6 +382,11 @@ export default function GameTable() {
               <span className="text-[10px] text-stone-400">Descarte</span>
             </div>
           </div>
+          {reshuffleNotice && (
+            <p className="animate-pulse rounded-full border border-gold/60 bg-stone-900/80 px-3 py-1 text-[10px] font-semibold text-gold">
+              🔄 Se recicló el descarte — el mazo vuelve a tener cartas
+            </p>
+          )}
         </div>
       </div>
 

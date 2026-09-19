@@ -23,8 +23,22 @@ import { Room } from "./rooms/room";
 import { RoomManager } from "./rooms/roomManager";
 
 const PORT = Number(process.env.PORT ?? 4000);
-const CLAIM_WINDOW_MS = 12_000;
-const BOT_THINK_MS = 700;
+/**
+ * How long a claim window (the initial flip, every one-at-a-time ritual
+ * reveal, and every normal mid-hand discard) stays open before treating
+ * silence as a pass. Confirmed live in production that this is the ONLY
+ * thing governing that window — bots claiming/passing quickly doesn't
+ * shorten it for whoever's left pending, so this one number is the real
+ * knob. 30s (up from 12s) so a human has real time to scan their whole hand
+ * before it moves on, not just react to a flash.
+ */
+const CLAIM_WINDOW_MS = 30_000;
+/** A bot's per-step pacing is randomized in this range instead of a fixed delay, so it reads as "thinking" rather than reacting instantly. */
+const BOT_THINK_MS_MIN = 1_000;
+const BOT_THINK_MS_MAX = 3_000;
+function randomBotThinkMs(): number {
+  return BOT_THINK_MS_MIN + Math.floor(Math.random() * (BOT_THINK_MS_MAX - BOT_THINK_MS_MIN + 1));
+}
 /** How long a disconnected seat stays in the current hand's rotation before being excluded — a page refresh or brief network drop shouldn't cost a mid-hand player their turn. */
 const DISCONNECT_GRACE_MS = 60_000;
 
@@ -157,7 +171,7 @@ function driveBotsIfNeeded(room: Room): void {
     persistIfHandJustEnded(room);
     scheduleClaimTimeoutIfNeeded(room);
     driveBotsIfNeeded(room);
-  }, BOT_THINK_MS);
+  }, randomBotThinkMs());
 }
 
 function registerSocket(socket: AppSocket, room: Room): void {

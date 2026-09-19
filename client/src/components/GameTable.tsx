@@ -106,10 +106,12 @@ export default function GameTable() {
   const [handArranged, setHandArranged] = useState(false);
   const [confirmingRetire, setConfirmingRetire] = useState(false);
   const [reshuffleNotice, setReshuffleNotice] = useState(false);
+  const [drawingSeatIndex, setDrawingSeatIndex] = useState<number | null>(null);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
   const prevStockCountRef = useRef<number | undefined>(undefined);
+  const prevCardCountsRef = useRef<Record<number, number>>({});
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -169,6 +171,27 @@ export default function GameTable() {
     }
     return undefined;
   }, [state?.stockCount]);
+
+  useEffect(() => {
+    // Whoever's card count just went up drew from the stock (or claimed a
+    // discard) — visible to every viewer via cardCount alone, so this needs
+    // no new server state. Briefly highlight that seat so it's obvious at a
+    // glance who's acting, without exposing which card it was.
+    if (!state) return;
+    const prev = prevCardCountsRef.current;
+    const grown = state.seats.find((seat) => {
+      const before = prev[seat.seatIndex];
+      return before !== undefined && seat.cardCount > before;
+    });
+    prevCardCountsRef.current = Object.fromEntries(state.seats.map((s) => [s.seatIndex, s.cardCount]));
+    if (grown) {
+      setDrawingSeatIndex(grown.seatIndex);
+      const timer = setTimeout(() => setDrawingSeatIndex(null), 1600);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.seats.map((s) => s.cardCount).join(",")]);
 
   useEffect(() => {
     // A stock draw is never a free choice among the original 9 — pre-select
@@ -419,6 +442,7 @@ export default function GameTable() {
               isTurn={seat.seatIndex === state.turnSeatIndex}
               isDealer={seat.seatIndex === state.dealerSeatIndex}
               isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
+              isDrawing={seat.seatIndex === drawingSeatIndex}
             />
             <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
           </div>

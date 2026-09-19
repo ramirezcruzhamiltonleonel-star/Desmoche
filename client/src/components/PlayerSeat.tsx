@@ -6,15 +6,19 @@ interface PlayerSeatProps {
   isTurn: boolean;
   isDealer: boolean;
   isSpeaking?: boolean;
+  /** Briefly true right after this seat's card count goes up — visible to everyone, not just the drawer, so it's obvious at a glance who's pulling from the stock. */
+  isDrawing?: boolean;
 }
 
-export default function PlayerSeat({ seat, isTurn, isDealer, isSpeaking }: PlayerSeatProps) {
+export default function PlayerSeat({ seat, isTurn, isDealer, isSpeaking, isDrawing }: PlayerSeatProps) {
   const isOutOfHand = !seat.connected || seat.inactiveThisHand;
   return (
     <div
       className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1 transition ${
         isTurn ? "bg-gold/20 ring-2 ring-gold shadow-[0_0_14px_-2px_rgba(212,175,55,0.7)]" : ""
-      } ${isSpeaking ? "ring-2 ring-green-400" : ""} ${isOutOfHand ? "opacity-60" : ""}`}
+      } ${isSpeaking ? "ring-2 ring-green-400" : ""} ${isOutOfHand ? "opacity-60" : ""} ${
+        isDrawing ? "pending-draw-glow ring-2 ring-gold" : ""
+      }`}
     >
       <div className="flex items-center gap-1 whitespace-nowrap">
         {isSpeaking && <span aria-hidden className="text-xs text-green-400">🔊</span>}

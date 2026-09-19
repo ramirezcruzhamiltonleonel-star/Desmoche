@@ -151,10 +151,21 @@ actualiza en el mismo commit que el código y sus tests.
 ## Modo invitado ("Jugar ahora")
 
 - Desde la pantalla de login, "Jugar ahora" entra directo con solo un nombre —
-  sin correo, sin código. Es una sesión temporal: no crea ninguna cuenta, no
-  queda ninguna fila en la base de datos, y no sobrevive a un refresco de
-  página (a propósito — reforzar que no se guarda nada es parte del incentivo
-  para registrarse).
+  sin correo, sin código. Es una sesión temporal: no crea ninguna cuenta y no
+  queda ninguna fila en la base de datos.
+- **Un refresco de página SÍ reconecta a la misma mesa** — en la sala de
+  espera y a mitad de mano, igual que una cuenta real. La sesión de invitado
+  (token + código de mesa) se guarda en `sessionStorage`, no en
+  `localStorage`: sobrevive a un refresco de la misma pestaña pero desaparece
+  al cerrarla, para no perder el diseño original de "no deja rastro" (nada
+  persiste entre pestañas, dispositivos, ni reinicios del navegador) sin
+  romper el caso real de que el anfitrión no pueda ni recargar su propia
+  pantalla mientras espera a sus amigos. Antes de este fix, CUALQUIER
+  refresco (sala de espera o mitad de mano) generaba una sesión de invitado
+  nueva con un `playerId` distinto, que la mesa no reconocía como el mismo
+  asiento — causa raíz separada de los timeouts de reconexión de mitad de
+  mano (`DISCONNECT_GRACE_MS`, `TURN_IDLE_TIMEOUT_MS`), que sí asumen que la
+  identidad del jugador sigue intacta al reconectar.
 - Un invitado ve exactamente la misma pantalla de inicio que una cuenta
   real — crear mesa, unirse por código, o ver una mesa — y puede jugar
   multijugador real con otros invitados o con cuentas registradas, sin

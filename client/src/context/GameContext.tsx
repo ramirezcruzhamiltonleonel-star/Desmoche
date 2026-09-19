@@ -58,22 +58,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socket.on("connect", () => {
       setConnected(true);
-      const savedCode = loadTableCode();
+      const savedCode = loadTableCode(isGuest);
       if (savedCode) {
-        const event = loadTableMode() === "spectator" ? "table:spectate" : "table:join";
+        const event = loadTableMode(isGuest) === "spectator" ? "table:spectate" : "table:join";
         socket.emit(event, { code: savedCode }, (result) => {
-          if ("message" in result) clearTableCode();
+          if ("message" in result) clearTableCode(isGuest);
         });
       }
     });
     socket.on("disconnect", () => setConnected(false));
     socket.on("table:state", (nextState) => {
       setState(nextState);
-      // A guest session is meant to leave zero trace — saving their table
-      // code would risk a later session (a fresh guest run, or a real
-      // login on the same browser) getting stuck trying to silently
-      // reconnect to a table that's long gone by then.
-      if (!isGuest) saveTableCode(nextState.code, nextState.isSpectator ? "spectator" : "player");
+      // A guest's table code is saved too now (to sessionStorage — this tab
+      // only, gone on close — see guestSessionStorage.ts), so a refresh
+      // while waiting in the lobby or mid-hand can rejoin the same table
+      // instead of losing it entirely.
+      saveTableCode(isGuest, nextState.code, nextState.isSpectator ? "spectator" : "player");
     });
     socket.on("table:error", (err) => setLastError(err.message));
     socket.on("connect_error", (err) => setLastError(err.message));
@@ -134,7 +134,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         socketRef.current?.emit("table:ready", { ready: true });
       },
       leaveTable: () => {
-        clearTableCode();
+        clearTableCode(isGuest);
         setState(null);
       },
       setReady: (ready) => socketRef.current?.emit("table:ready", { ready }),
@@ -143,7 +143,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       addBot: () => socketRef.current?.emit("table:add-bot"),
       removeBot: (playerId) => socketRef.current?.emit("table:remove-bot", { playerId }),
     }),
-    [connected, socket, state, lastError],
+    [connected, socket, state, lastError, isGuest],
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

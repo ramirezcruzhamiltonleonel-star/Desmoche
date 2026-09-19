@@ -335,8 +335,9 @@ export default function GameTable() {
     if (yourSeat) saveGuestNameHint(yourSeat.displayName);
     setShowGuestSummary(false);
     // Unmounts <GameProvider> (which disconnects the socket in its own
-    // cleanup) and routes back to <LoginScreen/> — nothing else to tear
-    // down first, since a guest's table code was never saved to begin with.
+    // cleanup) and routes back to <LoginScreen/> — logout() itself clears
+    // the guest's session and any saved table code, so nothing else to
+    // tear down first.
     logout();
   }
 

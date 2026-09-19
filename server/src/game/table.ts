@@ -422,23 +422,32 @@ export class Table {
         this.endHandWithNoWinner();
         return;
       }
+      const activeSeatIndices = this.state.seats
+        .map((s) => s.seatIndex)
+        .filter((idx) => !this.state.inactiveSeatIndices.includes(idx));
+      if (activeSeatIndices.length === 0) {
+        // Nobody left at all to consider a revealed card (e.g. every seat
+        // disconnected and their reconnect grace periods all ran out around
+        // the same time) — recursing here would create a fresh empty claim
+        // window every call, forever: the "stock hits 0" exit never
+        // triggers on its own because each reveal also feeds the discard
+        // pile, which keeps getting recycled back into the stock. End the
+        // hand outright instead of looping.
+        this.endHandWithNoWinner();
+        return;
+      }
       const revealedCard = this.state.stock[this.state.stock.length - 1]!;
       this.state.stock = this.state.stock.slice(0, -1);
       this.state.discard.push(revealedCard);
       this.state.claim = {
         card: revealedCard,
         referenceSeatIndex: claim.referenceSeatIndex,
-        pendingSeatIndices: this.state.seats
-          .map((s) => s.seatIndex)
-          .filter((idx) => !this.state.inactiveSeatIndices.includes(idx)),
+        pendingSeatIndices: activeSeatIndices,
         claimedBy: [],
         fallbackSeatIndex: claim.fallbackSeatIndex,
         isInitialFlip: true,
       };
       this.state.phase = "claim-window";
-      if (this.state.claim.pendingSeatIndices.length === 0) {
-        this.resolveClaimWindow();
-      }
       return;
     }
 

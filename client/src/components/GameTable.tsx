@@ -52,11 +52,32 @@ function seatSlots(count: number): Slot[] {
   return ["left", "top", "right"];
 }
 
-const SLOT_CLASSES: Record<Slot, string> = {
-  top: "absolute left-1/2 top-2 -translate-x-1/2",
-  left: "absolute left-2 top-1/2 -translate-y-1/2",
-  right: "absolute right-2 top-1/2 -translate-y-1/2",
-};
+/**
+ * A CSS Grid template for the felt's opponent/center layout, keyed to how
+ * many opponents are seated. Each region (top / left / center / right) gets
+ * its own reserved track — however tall a player's melds grow, the row just
+ * grows with them instead of spilling into a neighboring region. `minmax(0,
+ * Nfr)` on the side columns is what makes that hold even under a fr-based
+ * width: without the explicit 0 minimum, a track refuses to shrink below
+ * its content's natural size, which is exactly the old overlap bug.
+ */
+function feltGridTemplate(otherCount: number): { areas: string; columns: string; rows: string } {
+  if (otherCount <= 1) {
+    return { areas: '"top" "center"', columns: "1fr", rows: "auto 1fr" };
+  }
+  if (otherCount === 2) {
+    return {
+      areas: '"left center right"',
+      columns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)",
+      rows: "1fr",
+    };
+  }
+  return {
+    areas: '"top top top" "left center right"',
+    columns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)",
+    rows: "auto 1fr",
+  };
+}
 
 interface DesmocheSource {
   meldId: string;
@@ -184,6 +205,7 @@ export default function GameTable() {
     if (seat) others.push(seat);
   }
   const slots = seatSlots(others.length);
+  const feltGrid = feltGridTemplate(others.length);
 
   const isClaimEligible =
     state.phase === "claim-window" &&
@@ -346,29 +368,33 @@ export default function GameTable() {
       </div>
 
       <div
-        className="relative mx-3 mb-3 flex-1 rounded-[2.5rem] border-8 border-wood bg-felt shadow-inner"
-        style={{ minHeight: "58vh" }}
+        className="mx-3 mb-3 grid flex-1 items-center justify-items-center gap-x-1 gap-y-3 rounded-[2.5rem] border-8 border-wood bg-felt p-2 shadow-inner sm:gap-x-3 sm:p-4"
+        style={{
+          minHeight: "58vh",
+          gridTemplateAreas: feltGrid.areas,
+          gridTemplateColumns: feltGrid.columns,
+          gridTemplateRows: feltGrid.rows,
+        }}
       >
         {others.map((seat, i) => (
           <div
             key={seat.playerId}
             ref={(el) => dealAnim.registerSeatRef(seat.seatIndex, el)}
-            className={SLOT_CLASSES[slots[i]!]}
+            style={{ gridArea: slots[i] }}
+            className="flex max-w-full flex-col items-center gap-1 justify-self-center"
           >
-            <div className="flex flex-col items-center gap-1">
-              <PlayerSeat
-                seat={seat}
-                isTurn={seat.seatIndex === state.turnSeatIndex}
-                isDealer={seat.seatIndex === state.dealerSeatIndex}
-                isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
-              />
-              <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
-            </div>
+            <PlayerSeat
+              seat={seat}
+              isTurn={seat.seatIndex === state.turnSeatIndex}
+              isDealer={seat.seatIndex === state.dealerSeatIndex}
+              isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
+            />
+            <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
           </div>
         ))}
 
-        <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col items-center gap-3 px-2">
-          <div className="flex items-center gap-6">
+        <div style={{ gridArea: "center" }} className="flex max-w-full flex-col items-center gap-3">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div ref={dealAnim.deckRef} className="flex flex-col items-center gap-1">
               <CardBack size="md" />
               <span className="text-[10px] text-stone-400">Mazo ({state.stockCount})</span>

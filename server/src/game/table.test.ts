@@ -296,6 +296,39 @@ describe("Table — the opening ritual reveals one stock card at a time (never t
     const drawn = table.drawFromStock("p1");
     expect(drawn).toHaveLength(1);
   });
+
+  it("ends the hand instead of recursing forever if every seat becomes inactive mid-ritual (regression: this crashed the server with a stack overflow in production)", () => {
+    // Reproduces the exact production crash: both seats disconnect (their
+    // reconnect grace periods both run out around the same time) while the
+    // opening ritual's claim window is still open with nobody having
+    // claimed anything yet. Before the fix, resolveClaimWindow() would
+    // recurse to reveal another card, find pendingSeatIndices empty again
+    // (nobody left to offer it to), and recurse again — forever, since
+    // each reveal also feeds the discard pile, which keeps getting
+    // recycled back into the stock, so "stock hits 0" never becomes a real
+    // exit condition on its own.
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
+    table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim?.isInitialFlip).toBe(true);
+
+    // Both seats disconnect and their grace periods elapse without either
+    // reconnecting — handleDisconnect is exactly what the transport layer
+    // calls once that timer fires (see index.ts).
+    expect(() => {
+      table.handleDisconnect("p0");
+      table.handleDisconnect("p1");
+    }).not.toThrow();
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+  });
 });
 
 describe("Table — claiming a discard out of turn", () => {
@@ -365,6 +398,84 @@ describe("Table — claiming a discard out of turn", () => {
     // Rotation resumes from the seat AFTER the claimant (seat0), skipping seat1.
     table.forceResolveClaimWindow();
     expect(table.state.turnSeatIndex).toBe(0);
+  });
+
+  it("offers a discard to every other active seat at once — not one at a time in sequence", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND, NORMAL_HAND], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("9", "spades")];
+    table.discard("p0", c("9", "spades"));
+
+    expect(table.state.phase).toBe("claim-window");
+    // Both p1 and p2 are simultaneously eligible to respond — neither has to
+    // wait for the other to pass first.
+    expect(table.state.claim?.pendingSeatIndices.sort()).toEqual([1, 2]);
+  });
+
+  it("resolves a simultaneous multi-claim by rotation priority, not by who responded first", () => {
+    // 4 players, seat0 discards a card both seat2 and seat3 can use —
+    // seat2 is closer in rotation from seat0, so it wins even if seat3
+    // responds first.
+    const hand2: Card[] = [c("8", "hearts"), c("8", "diamonds"), ...NORMAL_HAND.slice(2)];
+    // A run, not a pair — completes 6-7-8 of spades with the discarded card.
+    const hand3: Card[] = [c("6", "spades"), c("7", "spades"), ...NORMAL_HAND.slice(2)];
+    const table = new Table(config(), seats(4));
+    const deck = buildDeck([NORMAL_HAND, NORMAL_HAND, hand2, hand3], c("4", "diamonds"));
+    table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1", "p2", "p3"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "spades")];
+    table.discard("p0", c("8", "spades"));
+
+    // p3 responds FIRST, p2 responds second — priority must still go to p2
+    // (closer to the discarder), not whoever answered first.
+    table.respondToClaim("p3", "claim");
+    table.respondToClaim("p1", "pass");
+    table.respondToClaim("p2", "claim");
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(2);
+    expect(table.state.hands["p2"]).toContainEqual(c("8", "spades"));
+    expect(table.state.hands["p3"]).not.toContainEqual(c("8", "spades"));
+  });
+
+  it("moves on to the next active seat, unclaimed, when nobody claims it", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND, NORMAL_HAND], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "diamonds")];
+    table.discard("p0", c("K", "diamonds"));
+
+    table.respondToClaim("p1", "pass");
+    table.respondToClaim("p2", "pass");
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(1); // normal next seat after p0
+    expect(table.state.hasDrawnThisTurn).toBe(false); // p1 hasn't drawn yet
+    expect(table.state.discard[table.state.discard.length - 1]).toEqual(c("K", "diamonds"));
+  });
+
+  it("rejects a claim from a seat that isn't genuinely eligible, without silently passing them through", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "diamonds")];
+    table.discard("p0", c("K", "diamonds"));
+
+    // p1's hand (NORMAL_HAND reversed) has nothing that pairs with a lone
+    // King of diamonds — claiming must be refused, not silently accepted.
+    expect(() => table.respondToClaim("p1", "claim")).toThrow(GameError);
+    // The window is still open — the rejection didn't consume their turn to respond.
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim?.pendingSeatIndices).toContain(1);
   });
 });
 

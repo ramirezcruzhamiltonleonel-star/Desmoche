@@ -381,7 +381,11 @@ export default function GameTable() {
             key={seat.playerId}
             ref={(el) => dealAnim.registerSeatRef(seat.seatIndex, el)}
             style={{ gridArea: slots[i] }}
-            className="flex max-w-full flex-col items-center gap-1 justify-self-center"
+            // min-w-0 overrides a grid/flex item's default "never shrink
+            // below content size" — without it, a wide meld cluster ignores
+            // the track width entirely and spills into the neighboring
+            // area instead of scrolling within its own box.
+            className="flex w-full min-w-0 flex-col items-center gap-1 justify-self-center"
           >
             <PlayerSeat
               seat={seat}
@@ -393,7 +397,7 @@ export default function GameTable() {
           </div>
         ))}
 
-        <div style={{ gridArea: "center" }} className="flex max-w-full flex-col items-center gap-3">
+        <div style={{ gridArea: "center" }} className="flex w-full min-w-0 flex-col items-center gap-3">
           <div className="flex items-center gap-4 sm:gap-6">
             <div ref={dealAnim.deckRef} className="flex flex-col items-center gap-1">
               <CardBack size="md" />

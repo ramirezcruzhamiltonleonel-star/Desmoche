@@ -25,7 +25,7 @@ export default function MeldGroup({
   return (
     <div
       data-meld-id={meld.id}
-      className={`flex shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1 transition-opacity ${dimmed ? "opacity-40" : ""}`}
+      className={`flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1 transition-opacity ${dimmed ? "opacity-40" : ""}`}
     >
       {sortMeldCardsForDisplay(meld).map((card) => (
         <div key={cardKey(card)} data-card-key={cardKey(card)}>

@@ -31,7 +31,7 @@ export default function PlayerMeldsCluster({
 
   return (
     <div
-      className={`flex max-h-28 gap-1 overflow-y-auto ${
+      className={`flex w-full min-w-0 max-h-28 gap-1 overflow-y-auto ${
         direction === "row" ? "flex-row flex-wrap justify-center" : "flex-col items-center"
       }`}
     >

@@ -13,7 +13,7 @@ import type {
 import { verifyAuthToken } from "./auth/jwt";
 import { prisma } from "./db/prisma";
 import { seedBotUsers } from "./db/seedBots";
-import { fallbackBotAction, nextBotAction } from "./game/bot";
+import { fallbackBotAction, isBotPlayerId, nextBotAction } from "./game/bot";
 import { GameError } from "./game/errors";
 import type { Table } from "./game/table";
 import { createAuthRouter } from "./http/authRoutes";
@@ -21,6 +21,33 @@ import { createStatsRouter } from "./http/statsRoutes";
 import { persistHandOutcome } from "./persistence/handHistory";
 import { Room } from "./rooms/room";
 import { RoomManager } from "./rooms/roomManager";
+
+/**
+ * TEMPORARY diagnostics (added while chasing an intermittent multi-minute
+ * freeze report — see git history / RULES.md for context): Node already
+ * prints an uncaught exception's stack before the process exits, which is
+ * how the earlier resolveClaimWindow stack-overflow crash got found — but
+ * that only helps if someone happens to be watching `railway logs` right
+ * then, since Railway's log retention only covers the CURRENT container's
+ * lifetime (a restart wipes the trail). These handlers exist purely to make
+ * a fatal error impossible to miss on the NEXT occurrence: a clearly
+ * labeled, grep-able line, logged before the same restart-on-crash behavior
+ * Node already has. Safe to remove once the freeze is confirmed fixed or
+ * root-caused some other way.
+ */
+process.on("uncaughtException", (err) => {
+  // eslint-disable-next-line no-console
+  console.error("[FATAL uncaughtException]", err instanceof Error ? err.stack ?? err.message : err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  // eslint-disable-next-line no-console
+  console.error(
+    "[FATAL unhandledRejection]",
+    reason instanceof Error ? reason.stack ?? reason.message : reason,
+  );
+  process.exit(1);
+});
 
 const PORT = Number(process.env.PORT ?? 4000);
 /**
@@ -41,6 +68,18 @@ function randomBotThinkMs(): number {
 }
 /** How long a disconnected seat stays in the current hand's rotation before being excluded — a page refresh or brief network drop shouldn't cost a mid-hand player their turn. */
 const DISCONNECT_GRACE_MS = 60_000;
+/**
+ * How long a CONNECTED player's own turn can sit with zero activity (no
+ * draw, no meld, no discard — nothing) before they're excluded from the
+ * rest of the hand, same as a disconnect. Before this existed, there was no
+ * timeout at all for "socket still open, but nobody's actually there" —
+ * unlike a claim window or an actual disconnect, a stalled turn could sit
+ * forever with no automatic recovery, which is the leading suspect for
+ * reports of a hand freezing for several minutes. Debounced: any action
+ * from them resets the clock, so this only ever catches TRUE inactivity,
+ * never someone genuinely still deciding.
+ */
+const TURN_IDLE_TIMEOUT_MS = 60_000;
 
 // CLIENT_ORIGIN: comma-separated allowed origins for the deployed frontend
 // (e.g. "https://desmoche-client.up.railway.app"). Unset (dev default) allows
@@ -68,7 +107,18 @@ app.use("/users", createStatsRouter(prisma));
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(
   httpServer,
-  { cors: { origin: corsOrigin } },
+  {
+    cors: { origin: corsOrigin },
+    // Socket.io's defaults (25s interval, 20s timeout) mean a connection
+    // that silently dies (closed laptop, dropped wifi, no clean close
+    // frame) can take up to ~45s before the server even notices —  on top
+    // of DISCONNECT_GRACE_MS, that's a long stretch where a table looks
+    // "stuck" waiting on someone who isn't coming back anytime soon.
+    // Tighter values detect it in ~20s instead, without being so aggressive
+    // that a normal brief hiccup gets flagged as dead.
+    pingInterval: 10_000,
+    pingTimeout: 10_000,
+  },
 );
 
 // Every socket must carry a valid auth JWT — there is no anonymous play.
@@ -130,6 +180,12 @@ function scheduleClaimTimeoutIfNeeded(room: Room): void {
     broadcastRoom(room);
     persistIfHandJustEnded(room);
     scheduleClaimTimeoutIfNeeded(room);
+    // A force-resolved claim window can land straight on a bot's turn (or
+    // open straight into another claim window) — without this, that bot's
+    // turn had nothing driving it forward until some unrelated broadcast
+    // happened to fire next, which could be a long, unpredictable wait.
+    driveBotsIfNeeded(room);
+    scheduleTurnIdleTimeoutIfNeeded(room);
   }, CLAIM_WINDOW_MS);
 }
 
@@ -155,15 +211,30 @@ function driveBotsIfNeeded(room: Room): void {
       applyAction(table, pending.playerId, pending.action);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("Bot action rejected, falling back to a safe default", err);
+      console.error("[bot] action rejected, falling back to a safe default", pending.playerId, err);
       try {
         const fallback = fallbackBotAction(table.state, pending.playerId);
         if (fallback) applyAction(table, pending.playerId, fallback);
       } catch (fallbackErr) {
+        // Both the real decision AND its guaranteed-legal fallback failed —
+        // this should be unreachable given how fallbackBotAction is built,
+        // but if some bug ever gets here, giving up silently would freeze
+        // the whole table on this one broken bot forever (this was a real,
+        // previously-unbounded gap). Excluding it from the rest of the hand
+        // — the same mechanism a disconnect or an idle human gets — lets
+        // everyone else keep playing instead.
         // eslint-disable-next-line no-console
-        console.error("Bot fallback action also failed — leaving it to a human/timeout", fallbackErr);
-        broadcastRoom(room);
-        return; // don't recurse — avoid a tight retry loop on a persistent bug
+        console.error(
+          "[FATAL bot] fallback action also failed — excluding this bot from the rest of the hand",
+          pending.playerId,
+          fallbackErr,
+        );
+        try {
+          table.markIdle(pending.playerId);
+        } catch (markIdleErr) {
+          // eslint-disable-next-line no-console
+          console.error("[FATAL bot] markIdle itself failed too", pending.playerId, markIdleErr);
+        }
       }
     }
 
@@ -171,7 +242,46 @@ function driveBotsIfNeeded(room: Room): void {
     persistIfHandJustEnded(room);
     scheduleClaimTimeoutIfNeeded(room);
     driveBotsIfNeeded(room);
+    scheduleTurnIdleTimeoutIfNeeded(room);
   }, randomBotThinkMs());
+}
+
+/**
+ * Tracks the last time each room's current turn saw any activity, so the
+ * idle-turn timeout below can tell "still deciding" apart from "actually
+ * gone" — keyed by room code, only ever touched while it's a human's turn.
+ */
+const lastTurnActivityAt = new Map<string, number>();
+
+/**
+ * If it's a connected human's turn, schedules a check that excludes them
+ * from the rest of the hand if NOTHING happens for TURN_IDLE_TIMEOUT_MS —
+ * debounced against lastTurnActivityAt, so a slow-but-active player (who
+ * keeps triggering fresh calls to this via their own actions) never gets
+ * caught by a stale timer scheduled before their latest move.
+ */
+function scheduleTurnIdleTimeoutIfNeeded(room: Room): void {
+  if (!room.hasStarted) return;
+  const table = room.requireTable();
+  if (table.state.phase !== "turn-active") return;
+  const seat = table.state.seats.find((s) => s.seatIndex === table.state.turnSeatIndex);
+  if (!seat || isBotPlayerId(seat.playerId)) return; // bots always act on their own — no timeout needed
+
+  const scheduledForSeat = table.state.turnSeatIndex;
+  const scheduledAt = Date.now();
+  lastTurnActivityAt.set(room.code, scheduledAt);
+
+  setTimeout(() => {
+    if (!room.hasStarted) return;
+    if (table.state.phase !== "turn-active" || table.state.turnSeatIndex !== scheduledForSeat) return; // the turn moved on already
+    if (lastTurnActivityAt.get(room.code) !== scheduledAt) return; // something happened since — a newer timer owns this now
+    table.markIdle(seat.playerId);
+    broadcastRoom(room);
+    persistIfHandJustEnded(room);
+    scheduleClaimTimeoutIfNeeded(room);
+    driveBotsIfNeeded(room);
+    scheduleTurnIdleTimeoutIfNeeded(room);
+  }, TURN_IDLE_TIMEOUT_MS);
 }
 
 function registerSocket(socket: AppSocket, room: Room): void {
@@ -271,6 +381,7 @@ io.on("connection", (socket: AppSocket) => {
       broadcastRoom(room);
       scheduleClaimTimeoutIfNeeded(room);
       driveBotsIfNeeded(room);
+      scheduleTurnIdleTimeoutIfNeeded(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -283,6 +394,7 @@ io.on("connection", (socket: AppSocket) => {
       broadcastRoom(room);
       scheduleClaimTimeoutIfNeeded(room);
       driveBotsIfNeeded(room);
+      scheduleTurnIdleTimeoutIfNeeded(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -317,6 +429,7 @@ io.on("connection", (socket: AppSocket) => {
       persistIfHandJustEnded(room);
       scheduleClaimTimeoutIfNeeded(room);
       driveBotsIfNeeded(room);
+      scheduleTurnIdleTimeoutIfNeeded(room);
     } catch (err) {
       socket.emit("table:error", { message: errorMessage(err) });
     }
@@ -383,6 +496,7 @@ io.on("connection", (socket: AppSocket) => {
         persistIfHandJustEnded(room);
         scheduleClaimTimeoutIfNeeded(room);
         driveBotsIfNeeded(room);
+        scheduleTurnIdleTimeoutIfNeeded(room);
       }, DISCONNECT_GRACE_MS);
     } catch {
       // Room no longer exists — nothing to clean up.

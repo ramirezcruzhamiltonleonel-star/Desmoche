@@ -994,6 +994,19 @@ describe("Table — inactive seats: disconnect mid-hand and \"Retirarme de la ma
     expect(table.state.hasDrawnThisTurn).toBe(false);
   });
 
+  it("markIdle excludes a connected-but-unresponsive seat the same way a disconnect does", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true); // it's p0's turn, already drawn — and still fully connected
+
+    table.markIdle("p0");
+
+    expect(table.state.inactiveSeatIndices).toEqual([0]);
+    expect(table.state.turnSeatIndex).toBe(1);
+    expect(table.state.hasDrawnThisTurn).toBe(false);
+  });
+
   it("removes a disconnected seat from a pending claim window without force-resolving it while others are still pending", () => {
     const table = new Table(config(), seats(3));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")));

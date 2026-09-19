@@ -182,6 +182,22 @@ export class Table {
   }
 
   /**
+   * A player whose socket is still connected but who simply never acted on
+   * their own turn within a reasonable window (stepped away, distracted,
+   * closed the laptop without a clean disconnect) — same exclusion as an
+   * actual disconnect, since being present at the socket level doesn't mean
+   * they're actually at the table. Distinct method name from
+   * handleDisconnect purely so the reason is clear wherever it's called
+   * from; the effect is identical (and equally idempotent/safe to call on
+   * an already-inactive seat).
+   */
+  markIdle(playerId: string): void {
+    const seat = this.state.seats.find((s) => s.playerId === playerId);
+    if (!seat) return;
+    this.markSeatInactive(seat.seatIndex);
+  }
+
+  /**
    * "Retirarme de la mano": a player who knows they can't win this hand
    * steps out on their own initiative. Excluded from the rest of THIS hand
    * exactly like a disconnect — still owes their ante like any other loser

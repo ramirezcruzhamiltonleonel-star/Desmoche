@@ -91,6 +91,15 @@ actualiza en el mismo commit que el código y sus tests.
   donde estaba, sin ninguna penalidad. Si el minuto se cumple sin reconexión, recién
   ahí se excluye del resto de la mano — igual que el retiro voluntario a partir de
   ese momento.
+- **Turno inactivo: un minuto sin ninguna acción también excluye, aunque siga
+  conectado.** Si a alguien le toca su turno y no hace absolutamente nada (ni
+  robar, ni bajar grupo, ni descartar) durante 1 minuto seguido, se lo excluye del
+  resto de la mano igual que a una desconexión — sin esto, alguien conectado pero
+  ausente (se distrajo, cerró la laptop sin que se detecte como desconexión de
+  inmediato) podía trabar la mesa indefinidamente, sin ningún mecanismo que la
+  recuperara. Cualquier acción suya reinicia el conteo — esto nunca excluye a
+  alguien que sigue decidiendo activamente, solo a una inactividad real y
+  sostenida.
 - **Retirarse** solo está disponible después de Cambio (ventana de reclamo o turno
   normal) — Cambio es obligatorio, a ciegas y simultáneo, así que retirarse antes de
   entregar la carta no tendría sentido. Un jugador retirado no puede volver a robar

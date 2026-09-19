@@ -410,11 +410,15 @@ export default function GameTable() {
       </header>
 
       <div className="flex justify-end px-3 pb-2">
-        <VoiceChatPanel
-          voice={voice}
-          isSelfSpeaking={Boolean(yourPlayerId && voice.speakingPlayerIds.has(yourPlayerId))}
-          nameByPlayerId={nameByPlayerId}
-        />
+        {isGuest ? (
+          <span className="text-[10px] text-stone-500">🎙️ Chat de voz — creá una cuenta para usarlo</span>
+        ) : (
+          <VoiceChatPanel
+            voice={voice}
+            isSelfSpeaking={Boolean(yourPlayerId && voice.speakingPlayerIds.has(yourPlayerId))}
+            nameByPlayerId={nameByPlayerId}
+          />
+        )}
       </div>
 
       <div

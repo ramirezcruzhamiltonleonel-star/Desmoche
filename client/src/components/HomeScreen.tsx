@@ -8,8 +8,8 @@ import ProfilePanel from "./ProfilePanel";
 import Spinner from "./Spinner";
 
 export default function HomeScreen() {
-  const { user, token, logout } = useAuth();
-  const { createTable, joinTable, spectateTable } = useGame();
+  const { user, token, isGuest, logout } = useAuth();
+  const { createTable, joinTable, spectateTable, startInstantDemo } = useGame();
   // A shared join link (?mesa=CODE) lands here pre-filled on the "join" tab
   // instead of "create" — read once on mount, since the URL doesn't change
   // while this screen is up.
@@ -61,6 +61,18 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleInstantDemo() {
+    setError(null);
+    setBusy(true);
+    try {
+      await startInstantDemo();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="screen-fade min-h-screen bg-felt-dark px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -68,21 +80,35 @@ export default function HomeScreen() {
           <div>
             <h1 className="font-display text-2xl text-gold">Desmoche</h1>
             <p className="text-sm text-stone-300">
-              Hola, {user?.displayName} · {user?.chipBalance} fichas
+              Hola, {user?.displayName}
+              {isGuest ? " · invitado (sin fichas persistentes)" : ` · ${user?.chipBalance} fichas`}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <button onClick={() => setShowProfile(true)} className="text-xs text-stone-400 underline">
-              Perfil
-            </button>
+            {!isGuest && (
+              <button onClick={() => setShowProfile(true)} className="text-xs text-stone-400 underline">
+                Perfil
+              </button>
+            )}
             <button onClick={logout} className="text-xs text-stone-400 underline">
               Salir
             </button>
           </div>
         </div>
 
-        {showProfile && token && (
+        {showProfile && token && !isGuest && (
           <ProfilePanel token={token} displayName={user?.displayName ?? ""} onClose={() => setShowProfile(false)} />
+        )}
+
+        {isGuest && (
+          <button
+            onClick={handleInstantDemo}
+            disabled={busy}
+            className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gold/60 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-50"
+          >
+            {busy && <Spinner size="sm" tone="gold" />}
+            🎮 Jugar ya contra bots (mesa instantánea)
+          </button>
         )}
 
         <div className="mb-4 flex rounded-lg border border-wood bg-felt p-1">

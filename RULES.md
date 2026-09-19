@@ -155,18 +155,30 @@ actualiza en el mismo commit que el código y sus tests.
   queda ninguna fila en la base de datos, y no sobrevive a un refresco de
   página (a propósito — reforzar que no se guarda nada es parte del incentivo
   para registrarse).
-- Al entrar, se crea automáticamente una mesa privada en modo Fichas con 3
-  bots ya agregados y al invitado marcado "listo" — sin pasar por sala de
-  espera, sin configurar nada. La primera mano ya está repartida en
-  segundos.
-- Un invitado participa exactamente igual que cualquier jugador (mismas
-  reglas, mismos bots, mismas fichas de esa mesa) — la única diferencia es
+- Un invitado ve exactamente la misma pantalla de inicio que una cuenta
+  real — crear mesa, unirse por código, o ver una mesa — y puede jugar
+  multijugador real con otros invitados o con cuentas registradas, sin
+  ninguna restricción de juego. El registro (correo + código) **no es
+  requisito para jugar una partida** — queda reservado solo para lo que se
+  guarda entre sesiones: fichas persistentes, estadísticas de perfil, y el
+  chat de voz.
+- Además, desde esa misma pantalla, un botón aparte ("🎮 Jugar ya contra
+  bots") arma al instante una mesa privada con 3 bots ya agregados y el
+  invitado marcado "listo" — sin sala de espera, sin configurar nada. Es un
+  atajo opcional, no el único camino.
+- **Chat de voz reservado a cuentas registradas**: un invitado ve el aviso
+  en vez del panel de voz — es la única función social restringida por
+  ahora (el enlace/QR para invitar a la mesa funciona igual para todos, es
+  como se arma la partida multijugador en primer lugar).
+- Un invitado participa exactamente igual que cualquier jugador en todo lo
+  demás (mismas reglas, mismas fichas de esa mesa) — la única diferencia es
   que, al terminar la sesión (botón "Salir"), si jugó al menos una mano se le
   muestra un resumen (manos jugadas, ganadas, mejor mano) junto con la
   aclaración de que ese progreso se pierde si no crea una cuenta ahí mismo.
-- Si un invitado comparte su mesa y se suma un jugador con cuenta real, la
-  mano de esa mesa se sigue guardando con normalidad para el jugador real —
-  solo el asiento del invitado queda afuera del historial persistente.
+- Si un invitado comparte su mesa y se suman jugadores con cuenta real, la
+  mano de esa mesa se sigue guardando con normalidad para cada jugador real —
+  solo el o los asientos de invitados quedan afuera del historial
+  persistente.
 - No afecta en nada el sistema de cuentas ya existente: un invitado nunca
   ocupa una fila de `User`, y la verificación de sesión (el JWT) no necesita
   consultar la base de datos para validarlo — es el mismo mecanismo que ya

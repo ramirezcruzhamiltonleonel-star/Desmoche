@@ -1,16 +1,34 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import { loadGuestNameHint } from "../lib/guestNameHint";
 import Spinner from "./Spinner";
 
 export default function LoginScreen() {
-  const { requestCode, verifyCode } = useAuth();
+  const { requestCode, verifyCode, loginAsGuest } = useAuth();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(() => loadGuestNameHint());
   const [devCode, setDevCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [guestName, setGuestName] = useState(() => loadGuestNameHint());
+  const [guestBusy, setGuestBusy] = useState(false);
+
+  async function handleGuestSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!guestName.trim()) return;
+    setError(null);
+    setGuestBusy(true);
+    try {
+      await loginAsGuest(guestName.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setGuestBusy(false);
+    }
+  }
 
   async function handleRequestCode(event: FormEvent) {
     event.preventDefault();
@@ -124,6 +142,42 @@ export default function LoginScreen() {
         )}
 
         {error && <p className="mt-4 rounded-lg bg-red-900/50 px-3 py-2 text-sm text-red-200">{error}</p>}
+
+        <div className="mt-6 border-t border-wood-dark pt-4">
+          {!showGuestForm ? (
+            <button
+              type="button"
+              onClick={() => setShowGuestForm(true)}
+              className="w-full rounded-lg border border-dashed border-gold/60 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10"
+            >
+              🎮 Jugar ahora contra bots (sin registrarte)
+            </button>
+          ) : (
+            <form onSubmit={handleGuestSubmit} className="space-y-3">
+              <p className="text-xs text-stone-400">
+                Entrás directo a una mesa con bots, sin correo ni código. Es una sesión
+                temporal — si querés que tus fichas y estadísticas se guarden, registrate
+                con tu correo arriba.
+              </p>
+              <input
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                autoFocus
+                required
+                className="w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
+                placeholder="Tu nombre"
+              />
+              <button
+                type="submit"
+                disabled={guestBusy}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold px-4 py-2 font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-50"
+              >
+                {guestBusy && <Spinner size="sm" tone="gold" />}
+                {guestBusy ? "Entrando..." : "Jugar ahora"}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { isGuestPlayerId } from "../auth/guestId";
 import type { HandOutcome } from "../game/payouts";
 import type { Room } from "../rooms/room";
 
@@ -13,6 +14,14 @@ import type { Room } from "../rooms/room";
  * still logged, with no winner and every delta at 0: the ante each player
  * "put in" for that hand only ever shows up in the eventual winning hand's
  * bigger potWon, never as its own balance movement.
+ *
+ * Guest seats are deliberately excluded from the players.create list and
+ * the chip-balance update loop — HandHistoryPlayer.userId has a hard
+ * foreign key to a real User row, and a guest never gets one (that's the
+ * whole point: nothing persists for them). Excluding just their row still
+ * lets the rest of the table's real participants get recorded normally;
+ * winnerUserId itself has no such constraint, so a guest winning is fine to
+ * record there even though they get no HandHistoryPlayer row of their own.
  */
 export async function persistHandOutcome(
   prisma: PrismaClient,
@@ -39,13 +48,15 @@ export async function persistHandOutcome(
     data: { code: room.code, stakeType: room.stakeType, ante: room.ante },
   });
 
+  const realSeats = seats.filter((seat) => !isGuestPlayerId(seat.playerId));
+
   await prisma.handHistoryRecord.create({
     data: {
       tableId: tableRecord.id,
       reason,
       winnerUserId: winnerId,
       players: {
-        create: seats.map((seat) => ({
+        create: realSeats.map((seat) => ({
           userId: seat.playerId,
           seatIndex: seat.seatIndex,
           isWinner: seat.playerId === winnerId,
@@ -58,7 +69,7 @@ export async function persistHandOutcome(
 
   if (outcome.kind === "chips") {
     for (const [userId, delta] of deltas) {
-      if (delta === 0) continue;
+      if (delta === 0 || isGuestPlayerId(userId)) continue;
       await prisma.user.update({
         where: { id: userId },
         data: { chipBalance: { increment: delta } },

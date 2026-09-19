@@ -22,6 +22,8 @@ interface GameContextValue {
   createTable: (stakeType: StakeType, ante: number, autoWinsEnabled: boolean) => Promise<void>;
   joinTable: (code: string) => Promise<void>;
   spectateTable: (code: string) => Promise<void>;
+  /** "Jugar ahora": creates a private table, fills it with 3 bots, and marks the caller ready — a full hand is dealt with no lobby/setup step at all. */
+  startInstantDemo: () => Promise<void>;
   leaveTable: () => void;
   setReady: (ready: boolean) => void;
   nextHand: () => void;
@@ -33,7 +35,7 @@ interface GameContextValue {
 const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
+  const { token, isGuest } = useAuth();
   const socketRef = useRef<AppSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [socket, setSocket] = useState<AppSocket | null>(null);
@@ -67,7 +69,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("disconnect", () => setConnected(false));
     socket.on("table:state", (nextState) => {
       setState(nextState);
-      saveTableCode(nextState.code, nextState.isSpectator ? "spectator" : "player");
+      // A guest session is meant to leave zero trace — saving their table
+      // code would risk a later session (a fresh guest run, or a real
+      // login on the same browser) getting stuck trying to silently
+      // reconnect to a table that's long gone by then.
+      if (!isGuest) saveTableCode(nextState.code, nextState.isSpectator ? "spectator" : "player");
     });
     socket.on("table:error", (err) => setLastError(err.message));
     socket.on("connect_error", (err) => setLastError(err.message));
@@ -78,7 +84,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socketRef.current = null;
       setSocket(null);
     };
-  }, [token]);
+  }, [token, isGuest]);
 
   const value = useMemo<GameContextValue>(
     () => ({
@@ -108,6 +114,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
             else resolve();
           });
         }),
+      startInstantDemo: async () => {
+        await new Promise<void>((resolve, reject) => {
+          socketRef.current?.emit(
+            "table:create",
+            { stakeType: "chips", ante: 100, autoWinsEnabled: true },
+            (result) => {
+              if ("message" in result) reject(new Error(result.message));
+              else resolve();
+            },
+          );
+        });
+        // Socket.io preserves emit order on one connection, so these are
+        // guaranteed to be handled in sequence server-side — no need to
+        // wait for individual acks before firing the next one.
+        socketRef.current?.emit("table:add-bot");
+        socketRef.current?.emit("table:add-bot");
+        socketRef.current?.emit("table:add-bot");
+        socketRef.current?.emit("table:ready", { ready: true });
+      },
       leaveTable: () => {
         clearTableCode();
         setState(null);

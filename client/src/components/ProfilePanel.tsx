@@ -74,6 +74,12 @@ export default function ProfilePanel({ token, displayName, onClose }: ProfilePan
                 {stats.netChipsAllTime}
               </dd>
             </div>
+            {stats.biggestWinChips !== null && (
+              <div className="flex items-center justify-between rounded-lg bg-stone-900/60 px-3 py-2">
+                <dt className="text-sm text-stone-300">🏆 Mejor mano</dt>
+                <dd className="text-lg font-semibold text-gold">+{stats.biggestWinChips} fichas</dd>
+              </div>
+            )}
           </dl>
         )}
       </div>

@@ -139,6 +139,30 @@ actualiza en el mismo commit que el código y sus tests.
   es una cuenta fija de la base de datos con saldo alto que se recarga solo
   si baja demasiado, así nunca es un obstáculo para que una mano se liquide.
 
+## Modo invitado ("Jugar ahora")
+
+- Desde la pantalla de login, "Jugar ahora" entra directo con solo un nombre —
+  sin correo, sin código. Es una sesión temporal: no crea ninguna cuenta, no
+  queda ninguna fila en la base de datos, y no sobrevive a un refresco de
+  página (a propósito — reforzar que no se guarda nada es parte del incentivo
+  para registrarse).
+- Al entrar, se crea automáticamente una mesa privada en modo Fichas con 3
+  bots ya agregados y al invitado marcado "listo" — sin pasar por sala de
+  espera, sin configurar nada. La primera mano ya está repartida en
+  segundos.
+- Un invitado participa exactamente igual que cualquier jugador (mismas
+  reglas, mismos bots, mismas fichas de esa mesa) — la única diferencia es
+  que, al terminar la sesión (botón "Salir"), si jugó al menos una mano se le
+  muestra un resumen (manos jugadas, ganadas, mejor mano) junto con la
+  aclaración de que ese progreso se pierde si no crea una cuenta ahí mismo.
+- Si un invitado comparte su mesa y se suma un jugador con cuenta real, la
+  mano de esa mesa se sigue guardando con normalidad para el jugador real —
+  solo el asiento del invitado queda afuera del historial persistente.
+- No afecta en nada el sistema de cuentas ya existente: un invitado nunca
+  ocupa una fila de `User`, y la verificación de sesión (el JWT) no necesita
+  consultar la base de datos para validarlo — es el mismo mecanismo que ya
+  usa cualquier cuenta real.
+
 ## Modo espectador
 
 - Cualquiera con el código (o el enlace/QR) de una mesa **que ya empezó a

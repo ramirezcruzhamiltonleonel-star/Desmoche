@@ -42,11 +42,18 @@ export function verifyOtp(email: string, code: string, displayName?: string): Pr
   return postJson<VerifyOtpResponse>("/auth/verify-code", { email, code, displayName });
 }
 
+/** "Jugar ahora": a temporary guest session — no email, no OTP, nothing saved server-side. */
+export function requestGuestSession(displayName: string): Promise<VerifyOtpResponse> {
+  return postJson<VerifyOtpResponse>("/auth/guest", { displayName });
+}
+
 export interface UserStats {
   handsPlayed: number;
   handsWon: number;
   netChipsAllTime: number;
   handsWithBonus: number;
+  /** Chips netted on this user's single best win ever. Null if they've never won a chips-mode hand. */
+  biggestWinChips: number | null;
 }
 
 export async function fetchMyStats(token: string): Promise<UserStats> {

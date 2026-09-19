@@ -6,6 +6,7 @@ import {
   type Card as CardModel,
   type ClientSeatView,
 } from "@desmoche/shared";
+import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
@@ -14,6 +15,8 @@ import { useVoiceChat } from "../hooks/useVoiceChat";
 import { arrangeHandForDisplay } from "../lib/arrangeHand";
 import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
+import { saveGuestNameHint } from "../lib/guestNameHint";
+import { computeGuestSummary } from "../lib/guestSummary";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
 import { THEME_LABELS, THEMES } from "../lib/themeStorage";
@@ -25,6 +28,7 @@ import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
 import FlyingCard, { type Point } from "./FlyingCard";
+import GuestSummaryModal from "./GuestSummaryModal";
 import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
 import PlayerMeldsCluster from "./PlayerMeldsCluster";
@@ -86,6 +90,7 @@ interface DesmocheSource {
 
 export default function GameTable() {
   const { state, sendAction, nextHand, leaveTable } = useGame();
+  const { isGuest, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const sound = useSound();
   const voice = useVoiceChat();
@@ -96,6 +101,7 @@ export default function GameTable() {
   const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showGuestSummary, setShowGuestSummary] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !hasTutorialBeenSeen());
   const [handArranged, setHandArranged] = useState(false);
   const [confirmingRetire, setConfirmingRetire] = useState(false);
@@ -291,6 +297,26 @@ export default function GameTable() {
     setConfirmingRetire(false);
   }
 
+  function handleLeaveClick() {
+    // A guest who's actually played something gets one chance to see what
+    // they'd lose before it's gone — real accounts leave immediately like
+    // always, nothing changes for them.
+    if (isGuest && state && state.handHistory.length > 0) {
+      setShowGuestSummary(true);
+      return;
+    }
+    leaveTable();
+  }
+
+  function handleCreateAccountFromSummary() {
+    if (yourSeat) saveGuestNameHint(yourSeat.displayName);
+    setShowGuestSummary(false);
+    // Unmounts <GameProvider> (which disconnects the socket in its own
+    // cleanup) and routes back to <LoginScreen/> — nothing else to tear
+    // down first, since a guest's table code was never saved to begin with.
+    logout();
+  }
+
   function handlePickDesmocheDestination(meldId: string) {
     if (!desmocheSource) return;
     const sourceEl = document.querySelector<HTMLElement>(
@@ -330,6 +356,7 @@ export default function GameTable() {
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
           {state.accumulatedPot > 0 ? ` · pozo acumulado ${state.accumulatedPot}` : ""}
           {!state.autoWinsEnabled ? " · sin automáticas" : ""}
+          {isGuest ? " · 👤 invitado (no se guarda)" : ""}
         </span>
         <div className="flex items-center gap-3">
           <select
@@ -353,7 +380,7 @@ export default function GameTable() {
           <button onClick={sound.toggle} aria-label="Sonido" className="p-1 text-base">
             {sound.enabled ? "🔊" : "🔇"}
           </button>
-          <button onClick={leaveTable} className="p-1 underline">
+          <button onClick={handleLeaveClick} className="p-1 underline">
             Salir
           </button>
         </div>
@@ -577,6 +604,17 @@ export default function GameTable() {
       )}
 
       {showTutorial && <TutorialModal onClose={handleCloseTutorial} />}
+
+      {showGuestSummary && state && (
+        <GuestSummaryModal
+          summary={computeGuestSummary(state)}
+          onCreateAccount={handleCreateAccountFromSummary}
+          onLeaveAnyway={() => {
+            setShowGuestSummary(false);
+            leaveTable();
+          }}
+        />
+      )}
 
       {dealAnim.flights.map((flight) => (
         <FlyingCard

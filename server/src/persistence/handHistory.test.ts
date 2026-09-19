@@ -154,4 +154,55 @@ describe("persistHandOutcome", () => {
     // The pot really did accumulate on the live table, ready for the next hand.
     expect(room.requireTable().state.accumulatedPot).toBe(200);
   });
+
+  it("excludes a guest seat from HandHistoryPlayer (no real User row to satisfy the foreign key), while still logging the real player normally", async () => {
+    await makeUser("real-1", "Ana", 1000);
+    // Deliberately no makeUser() call for the guest — they never get a User row.
+
+    const room = new Room("GUEST1", "chips", 100);
+    room.join("real-1", "Ana");
+    room.join("guest:abc-123", "Invitado");
+    room.setReady("real-1", true);
+    room.setReady("guest:abc-123", true);
+    forceHandOver(room, 0); // the real player wins
+
+    const outcome = room.maybeSettle();
+    await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
+
+    const ana = await prisma.user.findUniqueOrThrow({ where: { id: "real-1" } });
+    expect(ana.chipBalance).toBe(1100); // still collected the guest's ante normally
+
+    const hand = await prisma.handHistoryRecord.findFirstOrThrow({
+      where: { winnerUserId: "real-1" },
+      include: { players: true },
+    });
+    // Only the real player got a row — the guest is silently excluded, not crashed on.
+    expect(hand.players).toHaveLength(1);
+    expect(hand.players[0]!.userId).toBe("real-1");
+  });
+
+  it("records winnerUserId as the guest's id when a guest wins, even though they get no HandHistoryPlayer row", async () => {
+    await makeUser("real-2", "Beto", 1000);
+
+    const room = new Room("GUEST2", "chips", 100);
+    room.join("guest:winner-1", "Invitado");
+    room.join("real-2", "Beto");
+    room.setReady("guest:winner-1", true);
+    room.setReady("real-2", true);
+    forceHandOver(room, 0); // the guest (seat 0) wins
+
+    const outcome = room.maybeSettle();
+    await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
+
+    const beto = await prisma.user.findUniqueOrThrow({ where: { id: "real-2" } });
+    expect(beto.chipBalance).toBe(900); // still paid the ante to the guest normally
+
+    const hand = await prisma.handHistoryRecord.findFirstOrThrow({
+      where: { winnerUserId: "guest:winner-1" },
+      include: { players: true },
+    });
+    expect(hand.players).toHaveLength(1); // only Beto — the guest winner gets no row
+    expect(hand.players[0]!.userId).toBe("real-2");
+    expect(hand.players[0]!.isWinner).toBe(false);
+  });
 });

@@ -67,16 +67,35 @@ describe("getUserStats", () => {
     expect(stats.handsWithBonus).toBe(1);
     // Hand1: +100. Hand2: +200 (100 pot + 100 Mico). Hand3: -100. Net: +200.
     expect(stats.netChipsAllTime).toBe(200);
+    // The Mico hand (+200) nets more than the plain one (+100).
+    expect(stats.biggestWinChips).toBe(200);
 
     const loserStats = await getUserStats(prisma, "stats-loser-1");
     expect(loserStats.handsPlayed).toBe(2);
     expect(loserStats.handsWon).toBe(1);
     expect(loserStats.handsWithBonus).toBe(0);
+    expect(loserStats.biggestWinChips).toBe(100);
   });
 
-  it("returns all zeros for a user who has never played", async () => {
+  it("returns all zeros (and a null biggest win) for a user who has never played", async () => {
     await makeUser("stats-nobody", "Nadie");
     const stats = await getUserStats(prisma, "stats-nobody");
-    expect(stats).toEqual({ handsPlayed: 0, handsWon: 0, netChipsAllTime: 0, handsWithBonus: 0 });
+    expect(stats).toEqual({
+      handsPlayed: 0,
+      handsWon: 0,
+      netChipsAllTime: 0,
+      handsWithBonus: 0,
+      biggestWinChips: null,
+    });
+  });
+
+  it("is null for a user who has played but never won", async () => {
+    await makeUser("stats-always-loses", "Dario");
+    await makeUser("stats-always-wins", "Elena");
+    await playHand("STATS4", "stats-always-wins", "stats-always-loses");
+
+    const stats = await getUserStats(prisma, "stats-always-loses");
+    expect(stats.handsWon).toBe(0);
+    expect(stats.biggestWinChips).toBeNull();
   });
 });

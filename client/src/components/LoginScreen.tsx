@@ -150,14 +150,15 @@ export default function LoginScreen() {
               onClick={() => setShowGuestForm(true)}
               className="w-full rounded-lg border border-dashed border-gold/60 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10"
             >
-              🎮 Jugar ahora contra bots (sin registrarte)
+              🎮 Jugar ahora (sin registrarte)
             </button>
           ) : (
             <form onSubmit={handleGuestSubmit} className="space-y-3">
               <p className="text-xs text-stone-400">
-                Entrás directo a una mesa con bots, sin correo ni código. Es una sesión
-                temporal — si querés que tus fichas y estadísticas se guarden, registrate
-                con tu correo arriba.
+                Entrás directo a crear o unirte a una mesa — con amigos, con otros
+                invitados, o contra bots — sin correo ni código. Es una sesión temporal:
+                si querés que tus fichas y estadísticas se guarden, registrate con tu
+                correo arriba.
               </p>
               <input
                 value={guestName}

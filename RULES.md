@@ -40,8 +40,15 @@ actualiza en el mismo commit que el código y sus tests.
    - **Robo del mazo: siempre y únicamente 1 carta.** Confirmado en el código
      (`server/src/game/table.ts`, `drawFromStock`: `stock.slice(-1)`) — nunca hay un
      camino que saque 2 o más; varios tests (`table.test.ts`) ya lo fijan con
-     `expect(drawn).toHaveLength(1)`, incluyendo el caso límite de reciclar el
-     descarte a mitad de un robo.
+     `expect(drawn).toHaveLength(1)`.
+   - **El descarte nunca se recicla de vuelta al mazo.** Si el mazo llega a 0 cartas
+     (en un robo normal o durante el ritual de apertura) y nadie completó su mano
+     todavía, la mano termina de inmediato sin ganador — sin importar cuántas
+     cartas queden en el descarte (ver "Mano sin ganador y pozo acumulado" abajo).
+     Hubo una versión anterior de este motor que sí reciclaba el descarte (una
+     convención común en otros juegos de la familia rummy) — se eliminó por
+     completo porque no aplica a Desmoche: dejaba manos corriendo indefinidamente
+     en vez de cerrarse.
    - **Dirección de la rotación de turnos: contraria a las manecillas del reloj**,
      igual en todo el juego (turno normal, prioridad de reclamo, Cambio). El motor
      de reglas (`turnOrder.ts`) siempre lo modeló bien — el índice de asiento
@@ -103,8 +110,9 @@ actualiza en el mismo commit que el código y sus tests.
   repartidor) revela **una carta del mazo a la vez** — nunca dos para elegir. Esa
   carta se ofrece a todos de la misma forma (ventana de reclamo); si tampoco la
   reclama nadie, se entierra en el descarte y se revela la siguiente, una por una,
-  hasta que alguien reclame una o el mazo (y el descarte reciclado) se agoten por
-  completo — en cuyo caso la mano termina sin ganador (ver "Pozo acumulado" abajo).
+  hasta que alguien reclame una **o el mazo se agote** — en cuyo caso la mano termina
+  sin ganador de inmediato (ver "Pozo acumulado" abajo). El descarte **nunca** se
+  recicla de vuelta al mazo para seguir revelando cartas.
 - Cuando alguien reclama fuera de turno, el turno salta a esa persona; al terminar su
   turno, la rotación normal continúa desde el jugador siguiente a ella (se saltan los
   que quedaron en medio).
@@ -258,12 +266,19 @@ actualiza en el mismo commit que el código y sus tests.
 
 ## Mano sin ganador y pozo acumulado ("se va doble")
 
-- **Único caso de "mano sin ganador"**: el mazo (y el descarte reciclado) se agotan
-  por completo sin que ningún jugador complete su mano ni gane por otra vía. Esto
-  puede pasar durante el ritual de apertura (revelado uno a uno sin que nadie
-  reclame) o en cualquier turno normal al intentar robar del mazo. No hay otro
-  camino posible bajo las reglas actuales — Peladía, Cuatro Cuerpos y "se fue con
-  toda la mano" siempre tienen un ganador.
+- **Único caso de "mano sin ganador"**: el mazo se agota (llega a 0 cartas) sin que
+  ningún jugador complete su mano ni gane por otra vía. Esto puede pasar durante el
+  ritual de apertura (revelado uno a uno sin que nadie reclame) o en cualquier turno
+  normal al intentar robar del mazo. No hay otro camino posible bajo las reglas
+  actuales — Peladía, Cuatro Cuerpos y "se fue con toda la mano" siempre tienen un
+  ganador.
+- **El descarte NUNCA se recicla de vuelta al mazo** — a diferencia de otros juegos
+  de la familia rummy, en Desmoche el mazo agotado termina la mano ahí mismo, sin
+  importar cuántas cartas sigan en el descarte. (Bug corregido: una versión anterior
+  sí reciclaba, documentado entonces como la regla — reproducido en vivo un caso
+  real donde eso dejaba una mano contra bots corriendo indefinidamente en vez de
+  cerrarse; ver `table.test.ts`, describe "the discard pile is NEVER recycled back
+  into the stock".)
 - **Modo Fichas/Dinero real**: el pozo de esa mano (ante × cantidad de jugadores) no
   se reparte — se acumula (`accumulatedPot`) para la mano siguiente. Cada jugador
   vuelve a poner su ante completo en la mano nueva, que se suma al acumulado. Esto

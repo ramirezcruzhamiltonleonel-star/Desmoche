@@ -10,7 +10,7 @@ import {
 } from "@desmoche/shared";
 import { checkAutoWins, closestToDealerRight } from "./autoWins";
 import { calculateBonuses } from "./bonuses";
-import { buildShuffledDeck, deal, shuffle, type Rng } from "./deck";
+import { buildShuffledDeck, deal, type Rng } from "./deck";
 import { GameError } from "./errors";
 import { resolveDiscardClaimPriority } from "./discardClaim";
 import { calculateHandOutcome, type HandOutcome } from "./payouts";
@@ -228,8 +228,10 @@ export class Table {
   }
 
   /**
-   * "Se va doble": the stock (and the recycled discard pile) ran out with
-   * nobody completing their hand. Nobody wins — settleHand() grows
+   * "Se va doble": the stock ran out with nobody completing their hand — the
+   * discard pile is NEVER recycled back into the stock in Desmoche, so this
+   * fires the instant the stock alone hits 0, no matter how many cards are
+   * still sitting in the discard pile. Nobody wins — settleHand() grows
    * accumulatedPot instead of paying anyone, and the next hand's own ante
    * pot stacks on top of it.
    */
@@ -433,8 +435,9 @@ export class Table {
       // same designated first-turn player reveals ONE fresh card from the
       // stock (never two at once) for everyone to consider next. This
       // repeats, one card at a time, until someone claims one or the stock
-      // is fully exhausted.
-      this.reshuffleStockIfNeeded(1);
+      // is fully exhausted. The discard pile is NEVER recycled back into the
+      // stock — each reveal permanently consumes one stock card, so this
+      // naturally and monotonically runs out on its own.
       if (this.state.stock.length === 0) {
         // Nothing left to reveal, and nobody ever claimed anything — the
         // hand can't proceed at all. "Se va doble."
@@ -447,11 +450,8 @@ export class Table {
       if (activeSeatIndices.length === 0) {
         // Nobody left at all to consider a revealed card (e.g. every seat
         // disconnected and their reconnect grace periods all ran out around
-        // the same time) — recursing here would create a fresh empty claim
-        // window every call, forever: the "stock hits 0" exit never
-        // triggers on its own because each reveal also feeds the discard
-        // pile, which keeps getting recycled back into the stock. End the
-        // hand outright instead of looping.
+        // the same time) — end the hand outright instead of opening a claim
+        // window nobody can respond to.
         this.endHandWithNoWinner();
         return;
       }
@@ -479,23 +479,17 @@ export class Table {
     this.state.claim = null;
   }
 
-  private reshuffleStockIfNeeded(cardsNeeded: number): void {
-    if (this.state.stock.length >= cardsNeeded) return;
-    const top = this.state.discard[this.state.discard.length - 1];
-    const rest = this.state.discard.slice(0, -1);
-    this.state.stock = [...this.state.stock, ...shuffle(rest, this.rng)];
-    this.state.discard = top ? [top] : [];
-  }
-
   drawFromStock(playerId: string): Card[] {
     this.requireSeatTurn(playerId);
     if (this.state.phase !== "turn-active" || this.state.hasDrawnThisTurn) {
       throw new GameError("Ya robaste esta ronda, o no es momento de robar");
     }
 
-    this.reshuffleStockIfNeeded(1);
     if (this.state.stock.length === 0) {
-      // "Se va doble": nothing left anywhere to draw, nobody completed their hand.
+      // "Se va doble": the stock is empty and nobody completed their hand.
+      // The discard pile is NEVER recycled back into the stock in Desmoche —
+      // this ends the hand immediately, regardless of how many cards are
+      // still sitting in the discard pile.
       this.endHandWithNoWinner();
       return [];
     }

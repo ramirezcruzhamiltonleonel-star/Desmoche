@@ -715,17 +715,21 @@ describe("Table — Patona", () => {
   });
 });
 
-describe("Table — stock reshuffle mid-hand (recycling the discard pile)", () => {
-  it("reshuffles the discard pile back into the stock the moment it hits 0, conserving every card and NOT ending the hand", () => {
+describe("Table — the discard pile is NEVER recycled back into the stock (regression)", () => {
+  // A live report described a hand that "kept going indefinitely with bots"
+  // instead of ending — traced to the stock being reshuffled from the
+  // discard pile every time it hit 0, which is NOT how Desmoche works: the
+  // hand must end the instant the stock alone is empty, no matter how many
+  // cards are still sitting in the discard pile.
+
+  it("ends the hand immediately when a normal draw hits an empty stock, even with many cards still in the discard pile — never reshuffles them back in", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
     resolveCambio(table, ["p0", "p1"]);
     skipToNormalTurn(table, 0);
 
-    // Contrived but deterministic: 1 card left in stock, 9 cards sitting in
-    // the discard pile (the eventual top card + 8 to recycle).
-    table.state.stock = [c("9", "spades")];
-    table.state.discard = [
+    table.state.stock = [];
+    const discardBefore: Card[] = [
       c("2", "diamonds"),
       c("3", "diamonds"),
       c("5", "diamonds"),
@@ -734,54 +738,48 @@ describe("Table — stock reshuffle mid-hand (recycling the discard pile)", () =
       c("9", "diamonds"),
       c("10", "diamonds"),
       c("J", "diamonds"),
-      c("Q", "diamonds"), // top of discard, stays there after reshuffle
+      c("Q", "diamonds"),
     ];
+    table.state.discard = [...discardBefore];
 
-    const beforeTotal =
-      Object.values(table.state.hands).reduce((n, h) => n + h.length, 0) +
-      table.state.stock.length +
-      table.state.discard.length +
-      table.state.melds.reduce((n, m) => n + m.cards.length, 0);
+    const drawn = table.drawFromStock("p0");
 
-    // Draw #1: takes the last card in stock (9♠) — stock hits 0, but the
-    // hand does NOT end here, since the discard still has cards to recycle.
-    const firstDrawn = table.drawFromStock("p0");
-    expect(firstDrawn).toEqual([c("9", "spades")]);
-    expect(table.state.phase).not.toBe("hand-over");
-    // Must resolve this stock draw before anything else is legal.
-    table.discard("p0", c("9", "spades"));
-    table.forceResolveClaimWindow(); // nobody claims, unrelated to this test
-
-    skipToNormalTurn(table, 0);
+    expect(drawn).toEqual([]);
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+    // The discard pile is untouched — no recycling happened.
     expect(table.state.stock).toHaveLength(0);
+    expect(table.state.discard).toEqual(discardBefore);
+  });
 
-    // Draw #2: THIS is the reshuffle moment — stock is 0, so drawFromStock
-    // recycles discard-minus-top into a fresh stock before drawing. The
-    // count visibly jumps up here, same as what was reported — and that's
-    // exactly the "se va doble" rule already documented in RULES.md: stock
-    // exhaustion only ends the hand once the discard has nothing left to
-    // recycle either.
-    const stockBeforeReshuffle = table.state.stock.length; // 0
-    const discardBeforeReshuffle = table.state.discard.length; // 9 (1 was just added)
-    const secondDrawn = table.drawFromStock("p0");
+  it("ends the hand immediately when the opening ritual's reveal hits an empty stock, even with many cards still in the discard pile — never reshuffles them back in", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim?.isInitialFlip).toBe(true);
 
-    expect(secondDrawn).toHaveLength(1);
-    // 9 cards were in discard; 1 stays as the new top, 8 got shuffled into
-    // stock, then 1 of those 8 was immediately drawn — net stock count is 7.
-    expect(table.state.stock).toHaveLength(discardBeforeReshuffle - 1 - 1);
-    expect(table.state.discard).toHaveLength(1); // only the old top card remains
-    expect(table.state.stock.length).toBeGreaterThan(stockBeforeReshuffle);
-    expect(table.state.phase).not.toBe("hand-over");
+    table.state.stock = [];
+    const discardBefore = [...table.state.discard, c("2", "diamonds"), c("3", "diamonds"), c("5", "diamonds")];
+    table.state.discard = discardBefore;
 
-    const afterTotal =
-      Object.values(table.state.hands).reduce((n, h) => n + h.length, 0) +
-      table.state.stock.length +
-      table.state.discard.length +
-      table.state.melds.reduce((n, m) => n + m.cards.length, 0);
-    // No card was created or destroyed — the visible stock count going up
-    // is cards moving from the discard pile, never cards appearing from
-    // nowhere.
-    expect(afterTotal).toBe(beforeTotal);
+    // Both pass on the current reveal — the ritual tries to reveal another,
+    // finds the stock empty, and must end the hand instead of reshuffling.
+    table.respondToClaim("p0", "pass");
+    table.respondToClaim("p1", "pass");
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+    expect(table.state.stock).toHaveLength(0);
+    expect(table.state.discard).toEqual(discardBefore);
   });
 });
 
@@ -791,13 +789,11 @@ describe('Table — "se va doble": the pot carries over when a hand ends with no
     table.state.handOutcome = { reason: "stock-exhausted", winnerSeatIndex: null, winningMelds: [] };
   }
 
-  it("ends a mid-game turn with no winner when the stock (and recycled discard) are both fully depleted", () => {
+  it("ends a mid-game turn with no winner the instant the stock is empty, regardless of what's in the discard pile", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
     resolveCambio(table, ["p0", "p1"]);
     skipToNormalTurn(table, 0);
-    // Nothing left in stock, and the only discard is the single top card —
-    // reshuffling it can't produce anything either.
     table.state.stock = [];
     table.state.discard = [c("2", "diamonds")];
 

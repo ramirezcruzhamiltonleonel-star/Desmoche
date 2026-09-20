@@ -407,6 +407,25 @@ io.on("connection", (socket: AppSocket) => {
     }
   });
 
+  socket.on("table:leave", () => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      room.leave(playerId);
+      // This socket is no longer at this table — clear the association so
+      // any later event on it (there shouldn't be one before a fresh
+      // table:create/join, but just in case) doesn't resolve back into the
+      // room they just left.
+      delete socket.data.code;
+      broadcastRoom(room);
+      persistIfHandJustEnded(room);
+      scheduleClaimTimeoutIfNeeded(room);
+      driveBotsIfNeeded(room);
+      scheduleTurnIdleTimeoutIfNeeded(room);
+    } catch {
+      // Not at a table — nothing to leave.
+    }
+  });
+
   socket.on("table:ready", ({ ready }) => {
     try {
       const { room, playerId } = currentRoomAndPlayer(socket);

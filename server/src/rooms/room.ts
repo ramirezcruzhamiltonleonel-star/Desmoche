@@ -43,6 +43,25 @@ export class Room {
   private history: ClientHandHistoryEntry[] = [];
   /** Users watching the table without a seat — never counted toward playerCount, never dealt a hand, never touch settlement. */
   private spectatorIds = new Set<string>();
+  /**
+   * Players who explicitly left via leave() — excluded from allPlayerIds(),
+   * so broadcastRoom() (index.ts) simply stops sending them anything for
+   * this table, ever again. This is what actually fixes "Salir" being
+   * undone by the next broadcast: leaveTable() client-side always only
+   * cleared local state, never told the server, so the very next event at
+   * the table (a bot's turn, anything) would re-populate the client's
+   * state and silently pull the player right back in.
+   *
+   * A seat's own bookkeeping (Table.state.seats, settlement math, seat
+   * indices) is deliberately left untouched once a hand has started —
+   * Table takes its own frozen snapshot of seats at startGame() and never
+   * re-reads Room.seats afterward, so removing a row here wouldn't even
+   * reach it, and touching seat indices mid-hand would break far more
+   * (turnSeatIndex, dealerSeatIndex, meld ownerId, in-flight settlement).
+   * Only a LOBBY seat (game never started) is safe to remove outright,
+   * since nothing depends on its index yet.
+   */
+  private leftPlayerIds = new Set<string>();
 
   constructor(code: string, stakeType: StakeType, ante: number, autoWinsEnabled = true) {
     this.code = code;
@@ -61,6 +80,10 @@ export class Room {
 
   /** Joins a brand-new seat, or reactivates the caller's existing one if they were already seated. */
   join(userId: string, displayName: string): void {
+    // A deliberate rejoin (same code, same account) undoes a previous
+    // leave() — they're back, so broadcasts should resume.
+    this.leftPlayerIds.delete(userId);
+
     const existing = this.seats.find((s) => s.playerId === userId);
     if (existing) {
       this.setConnected(userId, true);
@@ -77,6 +100,33 @@ export class Room {
       connected: true,
       ready: false,
     });
+  }
+
+  /**
+   * The player has explicitly chosen to leave this table for good — not
+   * just this hand (see Table.retire() for that, which stays at the table
+   * for future hands). Stops all future broadcasts to them for this room,
+   * and — if a hand is currently underway — excludes them from the rest of
+   * it the same way a disconnect would. See the leftPlayerIds field comment
+   * for why a seat already dealt into a hand isn't removed outright.
+   */
+  leave(playerId: string): void {
+    this.leftPlayerIds.add(playerId);
+
+    if (!this.hasStarted) {
+      const index = this.seats.findIndex((s) => s.playerId === playerId);
+      if (index !== -1) {
+        this.seats.splice(index, 1);
+        this.seats.forEach((seat, i) => {
+          seat.seatIndex = i;
+        });
+      }
+      return;
+    }
+
+    // setConnected(false) already drops them from spectatorIds too.
+    this.setConnected(playerId, false);
+    this.table?.handleDisconnect(playerId);
   }
 
   private requireCreator(requesterId: string, action: string): void {
@@ -161,7 +211,7 @@ export class Room {
   }
 
   allSpectatorIds(): string[] {
-    return [...this.spectatorIds];
+    return [...this.spectatorIds].filter((id) => !this.leftPlayerIds.has(id));
   }
 
   setReady(playerId: string, ready: boolean): void {
@@ -236,7 +286,7 @@ export class Room {
   }
 
   allPlayerIds(): string[] {
-    return this.seats.map((s) => s.playerId);
+    return this.seats.map((s) => s.playerId).filter((id) => !this.leftPlayerIds.has(id));
   }
 
   viewFor(playerId: string): ClientGameState {

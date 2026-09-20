@@ -115,6 +115,13 @@ export interface ClientToServerEvents {
   /** Watch a table already in progress without taking a seat — every hand stays hidden (card counts only) exactly like an opponent's does for a seated player, until it's melded onto the table. */
   "table:spectate": (payload: JoinTablePayload, ack: (result: JoinAck | ErrorPayload) => void) => void;
   "table:ready": (payload: { ready: boolean }) => void;
+  /**
+   * Explicit, permanent departure from the current table (not just this
+   * hand — see "retire-from-hand" in GameAction for that). Stops every
+   * future broadcast to this player for this room; see Room.leave() for
+   * why a seat already dealt into a hand isn't removed outright.
+   */
+  "table:leave": () => void;
   "table:next-hand": () => void;
   "table:add-bot": () => void;
   "table:remove-bot": (payload: { playerId: string }) => void;

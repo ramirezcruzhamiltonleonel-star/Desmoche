@@ -11,6 +11,8 @@ interface PlayerSeatProps {
   /** A reaction emoji this seat just sent (hand-over only) — floats up and fades on its own; a fresh `reactionKey` re-triggers the animation even for the same repeated emoji. */
   reactionEmoji?: string | null;
   reactionKey?: number;
+  /** Used for the player's OWN seat, shown above their actual hand — the real cards are already visible right below, so a redundant card-back stack would just be clutter. */
+  hideCardBacks?: boolean;
 }
 
 export default function PlayerSeat({
@@ -21,6 +23,7 @@ export default function PlayerSeat({
   isDrawing,
   reactionEmoji,
   reactionKey,
+  hideCardBacks,
 }: PlayerSeatProps) {
   const isOutOfHand = !seat.connected || seat.inactiveThisHand;
   return (
@@ -47,11 +50,13 @@ export default function PlayerSeat({
         </span>
         {isDealer && <span className="text-[10px] text-gold">reparte</span>}
       </div>
-      <div className="flex -space-x-5">
-        {Array.from({ length: Math.min(seat.cardCount, 11) }).map((_, i) => (
-          <CardBack key={i} size="sm" />
-        ))}
-      </div>
+      {!hideCardBacks && (
+        <div className="flex -space-x-5">
+          {Array.from({ length: Math.min(seat.cardCount, 11) }).map((_, i) => (
+            <CardBack key={i} size="sm" />
+          ))}
+        </div>
+      )}
       {!seat.connected ? (
         <span className="text-[10px] text-red-400">Desconectado</span>
       ) : (

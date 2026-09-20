@@ -270,6 +270,97 @@ describe("Room — connection tracking", () => {
   });
 });
 
+describe("Room — leaving the table (regression: 'Salir' not actually leaving)", () => {
+  // A live report described tapping "Salir", landing back on the lobby, and
+  // then being silently pulled right back into the same table a few
+  // seconds later — even with the local table-code pointer already
+  // cleared. Root cause: leaving never told the SERVER anything, so the
+  // seat (and this player's place in every future broadcast) stayed fully
+  // live; the very next event at the table re-sent table:state and the
+  // client's own "save the table code on every table:state" logic quietly
+  // re-saved it. These tests lock in the actual fix: allPlayerIds() (what
+  // broadcastRoom in index.ts iterates) must never include someone again
+  // after they've left, in every phase of the table's life.
+
+  it("removes a lobby seat outright, re-indexing the rest — nothing dealt yet, so nothing depends on the slot", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.join("user-c", "Caro");
+
+    room.leave("user-b");
+
+    expect(room.allPlayerIds()).toEqual(["user-a", "user-c"]);
+    const view = room.viewFor("user-a");
+    expect(view.seats.map((s) => s.displayName)).toEqual(["Ana", "Caro"]);
+    expect(view.seats.map((s) => s.seatIndex)).toEqual([0, 1]);
+  });
+
+  it("stops ALL future broadcasts to a player who left mid-hand — this is the actual fix", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    expect(room.hasStarted).toBe(true);
+
+    room.leave("user-a");
+
+    // The core assertion: broadcastRoom (index.ts) iterates exactly this
+    // list. If "user-a" is still in it, the old bug is back.
+    expect(room.allPlayerIds()).not.toContain("user-a");
+    expect(room.allPlayerIds()).toContain("user-b");
+  });
+
+  it("excludes a mid-hand leaver from the rest of THAT hand's rotation, same as a disconnect", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    room.leave("user-a");
+
+    expect(room.requireTable().state.inactiveSeatIndices).toContain(0);
+  });
+
+  it("a genuine rejoin (table:join with the same account) after leaving undoes it — broadcasts resume", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    room.leave("user-a");
+    expect(room.allPlayerIds()).not.toContain("user-a");
+
+    room.join("user-a", "Ana");
+    expect(room.allPlayerIds()).toContain("user-a");
+  });
+
+  it("leaving as a spectator stops their broadcasts too, without touching seated players", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    room.spectate("stranger");
+    expect(room.allSpectatorIds()).toContain("stranger");
+
+    room.leave("stranger");
+
+    expect(room.allSpectatorIds()).not.toContain("stranger");
+    expect(room.allPlayerIds()).toEqual(["user-a", "user-b"]);
+  });
+
+  it("is a safe no-op for someone not actually at the table", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    expect(() => room.leave("nobody-here")).not.toThrow();
+    expect(room.allPlayerIds()).toEqual(["user-a"]);
+  });
+});
+
 describe("Room — spectating", () => {
   function startedRoom(): Room {
     const room = makeRoom();

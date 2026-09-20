@@ -402,7 +402,11 @@ export default function GameTable() {
 
   return (
     <div className="screen-fade flex min-h-screen flex-col bg-felt-dark">
-      <header className="flex items-center justify-between px-3 py-2 text-xs text-stone-300">
+      {/* relative z-[45] (above every in-table modal's z-40, below the
+          guest-exit modal's z-50) so Salir/Ayuda/Historial/Tema stay
+          reachable even while Cambio, hand-over, tutorial, or history are
+          open — getting stuck unable to leave was a real, reported bug. */}
+      <header className="relative z-[45] flex items-center justify-between px-3 py-2 text-xs text-stone-300">
         <span>
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
@@ -534,6 +538,19 @@ export default function GameTable() {
           </p>
         ) : (
           <>
+            {yourSeat && (
+              <div className="mb-2 flex justify-center">
+                <PlayerSeat
+                  seat={yourSeat}
+                  isTurn={isYourTurn && state.phase === "turn-active"}
+                  isDealer={yourSeat.seatIndex === state.dealerSeatIndex}
+                  isDrawing={yourSeat.seatIndex === drawingSeatIndex}
+                  reactionEmoji={reactionsByPlayerId[yourSeat.playerId]?.emoji}
+                  reactionKey={reactionsByPlayerId[yourSeat.playerId]?.key}
+                  hideCardBacks
+                />
+              </div>
+            )}
             {isYourTurn && state.phase === "turn-active" && (
               <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
                 ★ Tu turno ★

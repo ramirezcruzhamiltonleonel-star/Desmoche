@@ -134,6 +134,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         socketRef.current?.emit("table:ready", { ready: true });
       },
       leaveTable: () => {
+        // Must tell the server too — otherwise the seat (and this socket's
+        // subscription to broadcasts for this room) stays fully live, and
+        // the very next thing that happens at the table (a bot's turn, a
+        // timer, anything) re-sends table:state and silently pulls the
+        // player right back in a few seconds later, even though the local
+        // pointer (table code) was already cleared. Confirmed live: this
+        // was the actual cause of "Salir" not really leaving the table.
+        socketRef.current?.emit("table:leave");
         clearTableCode(isGuest);
         setState(null);
       },

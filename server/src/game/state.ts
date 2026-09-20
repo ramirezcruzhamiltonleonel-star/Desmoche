@@ -20,6 +20,16 @@ export interface TableConfig {
 }
 
 export interface ClaimWindowState {
+  /**
+   * A fresh id every time a claim window opens (Table.nextClaimWindowId),
+   * including consecutive ritual reveals that never leave phase
+   * "claim-window" in between. Exists so the transport layer's force-resolve
+   * timer (server/src/index.ts) can tell "this exact window is still open"
+   * apart from "phase is still claim-window, but it's a DIFFERENT window
+   * now" — without it, an orphaned timer from an earlier, already-resolved
+   * reveal can fire mid-ritual and slam shut a window that just opened.
+   */
+  claimWindowId: number;
   /** The card up for grabs — either a real discard, or the initial flip. */
   card: Card;
   /**

@@ -69,6 +69,7 @@ describe("decideClaimResponse", () => {
       phase: "claim-window",
       hands: { p0: [], "bot:fernando": [c("4", "hearts"), c("5", "hearts")] },
       claim: {
+        claimWindowId: 1,
         card: c("6", "hearts"),
         referenceSeatIndex: 0,
         pendingSeatIndices: [1],
@@ -85,6 +86,7 @@ describe("decideClaimResponse", () => {
       phase: "claim-window",
       hands: { p0: [], "bot:fernando": [c("4", "hearts"), c("9", "clubs")] },
       claim: {
+        claimWindowId: 1,
         card: c("K", "diamonds"),
         referenceSeatIndex: 0,
         pendingSeatIndices: [1],
@@ -272,6 +274,7 @@ describe("nextBotAction", () => {
       phase: "claim-window",
       hands: { p0: [], "bot:fernando": [c("4", "hearts"), c("9", "clubs")] },
       claim: {
+        claimWindowId: 1,
         card: c("K", "diamonds"),
         referenceSeatIndex: 0,
         pendingSeatIndices: [1],
@@ -288,6 +291,7 @@ describe("nextBotAction", () => {
     const state = baseState({
       phase: "claim-window",
       claim: {
+        claimWindowId: 1,
         card: c("K", "diamonds"),
         referenceSeatIndex: 1,
         pendingSeatIndices: [0],

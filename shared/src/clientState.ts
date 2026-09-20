@@ -34,6 +34,8 @@ export interface ClientCambioView {
 }
 
 export interface ClientClaimView {
+  /** A fresh id per claim window (including consecutive ritual reveals) — use this, not the card, as a React key/identity check: it's guaranteed unique where a repeated card is not. */
+  claimWindowId: number;
   card: Card;
   referenceSeatIndex: number;
   pendingSeatIndices: number[];

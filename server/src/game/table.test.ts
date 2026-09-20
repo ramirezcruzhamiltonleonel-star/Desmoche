@@ -247,6 +247,25 @@ describe("Table — the opening ritual reveals one stock card at a time (never t
     expect(thirdCard).not.toEqual(secondCard);
   });
 
+  it("gives every claim window a fresh, distinct claimWindowId — even consecutive ritual reveals that never leave phase claim-window (regression: this is what let a stale server-side timeout timer, scheduled for an earlier reveal, force-close a completely different, freshly-opened window)", () => {
+    const table = new Table(config(), seats(2));
+    const deck = buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds"));
+    table.startHand(0, deck);
+    resolveCambio(table, ["p0", "p1"]);
+
+    const firstId = table.state.claim!.claimWindowId;
+    table.respondToClaim("p0", "pass");
+    table.respondToClaim("p1", "pass");
+    const secondId = table.state.claim!.claimWindowId;
+    table.respondToClaim("p0", "pass");
+    table.respondToClaim("p1", "pass");
+    const thirdId = table.state.claim!.claimWindowId;
+
+    expect(new Set([firstId, secondId, thirdId]).size).toBe(3);
+    expect(secondId).toBeGreaterThan(firstId);
+    expect(thirdId).toBeGreaterThan(secondId);
+  });
+
   it("ends the ritual the instant someone claims a revealed card, starting their turn with it", () => {
     const hand0: Card[] = [c("8", "spades"), c("8", "hearts"), ...NORMAL_HAND.slice(2)];
     const table = new Table(config(), seats(2));

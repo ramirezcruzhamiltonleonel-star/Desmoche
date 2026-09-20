@@ -494,12 +494,11 @@ export default function GameTable() {
 
       {state.phase === "claim-window" && state.claim && (
         <ClaimBanner
-          // Remounts (resetting its countdown) on every distinct card offered —
-          // rank+suit is unique per window within a hand (a card can't be
-          // drawn/discarded twice before a reshuffle), so this reliably tells
-          // "still the same window" apart from "a new one just opened" without
-          // the server needing to send any extra identity field.
-          key={`${state.claim.card.rank}-${state.claim.card.suit}`}
+          // Remounts (resetting its countdown) on every distinct claim window,
+          // including consecutive ritual reveals — claimWindowId is a fresh
+          // server-assigned id per window, so this is exact (no reliance on
+          // the card itself happening to differ).
+          key={state.claim.claimWindowId}
           claim={state.claim}
           isEligible={isClaimEligible}
           canClaim={canClaim}

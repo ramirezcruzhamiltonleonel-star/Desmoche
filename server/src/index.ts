@@ -168,14 +168,46 @@ function persistIfHandJustEnded(room: Room): void {
   });
 }
 
+/**
+ * Tracks which claimWindowId each room's currently-scheduled force-resolve
+ * timer targets, so a timer from an EARLIER, already-resolved window can
+ * never fire against whatever DIFFERENT window happens to be open by then.
+ *
+ * This mirrors a real bug found and reproduced live in production: during
+ * the hand-opening ritual, phase stays "claim-window" continuously across
+ * many consecutive single-card reveals (each its own distinct window) —
+ * unlike a normal in-hand discard, which always leaves "claim-window" once
+ * resolved. The old code's only guard was `phase !== "claim-window"`, which
+ * that continuous-phase ritual never trips: a 30s timer scheduled for
+ * reveal #1 would still fire at its original T+30s mark even after reveals
+ * #2, #3, #4... had each opened and closed legitimately in the meantime,
+ * and it would force-resolve WHATEVER reveal happened to be open right
+ * then — sometimes only a second or two after IT opened. Reproduced live
+ * (zero clicks, human seat always pending): windows closing at 648ms,
+ * 2215ms, and 24533ms instead of the intended 30000ms.
+ */
+const claimWindowTimerFor = new Map<string, number>();
+
 /** If a discard just opened a claim window, force-resolve it (treating silence as a pass) after a grace period. */
 function scheduleClaimTimeoutIfNeeded(room: Room): void {
   if (!room.hasStarted) return;
   const table = room.requireTable();
-  if (table.state.phase !== "claim-window") return;
+  if (table.state.phase !== "claim-window" || !table.state.claim) return;
+  const claimWindowId = table.state.claim.claimWindowId;
+  // Already have a live timer targeting this exact window — no need for a
+  // second one (this also stops MULTIPLE humans each responding to the same
+  // still-open window from stacking up redundant duplicate timers).
+  if (claimWindowTimerFor.get(room.code) === claimWindowId) return;
+  claimWindowTimerFor.set(room.code, claimWindowId);
 
   setTimeout(() => {
-    if (table.state.phase !== "claim-window") return;
+    if (
+      table.state.phase !== "claim-window" ||
+      !table.state.claim ||
+      table.state.claim.claimWindowId !== claimWindowId
+    ) {
+      return;
+    }
     table.forceResolveClaimWindow();
     broadcastRoom(room);
     persistIfHandJustEnded(room);

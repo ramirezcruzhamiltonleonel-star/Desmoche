@@ -74,15 +74,28 @@ actualiza en el mismo commit que el código y sus tests.
 
 - Todo descarte — incluida la carta que se voltea al inicio de la mano — se ofrece a
   reclamo. Quien reclama debe poder usar la carta de inmediato en un grupo.
-- La ventana dura 30 segundos exactos (`CLAIM_WINDOW_MS` en `server/src/index.ts`) —
-  medido en vivo de nuevo esta ronda sin ninguna intervención humana: 30006ms de
-  apertura a cierre. La carta ofrecida se resalta en dorado (mismo efecto que ya se
-  usaba para "estás robando") en el mazo de descarte, visible para TODA la mesa —
-  no solo dentro del aviso de reclamo — para que a nadie se le pase la oportunidad
-  de reclamarla. El aviso de reclamo también muestra ahora una cuenta regresiva
-  visible (segundos + barra), ya que la queja repetida de "las cartas se sienten
-  rápidas" resultó ser más de percepción (no había ninguna señal de cuánto tiempo
-  quedaba) que de que el tiempo real fuera corto.
+- La ventana dura 30 segundos exactos (`CLAIM_WINDOW_MS` en `server/src/index.ts`).
+  La carta ofrecida se resalta en dorado (mismo efecto que ya se usaba para "estás
+  robando") en el mazo de descarte, visible para TODA la mesa — no solo dentro del
+  aviso de reclamo — para que a nadie se le pase la oportunidad de reclamarla. El
+  aviso de reclamo también muestra una cuenta regresiva visible (segundos + barra).
+- **Bug real encontrado y corregido (no solo percepción): durante el ritual de
+  apertura, una ventana podía cerrarse en menos de 1 segundo en vez de los 30.**
+  Reproducido en vivo jugando totalmente pasivo (cero clics) durante 90 segundos
+  seguidos: ventanas cerrándose a los 648ms, 2215ms y 24533ms mientras el asiento
+  seguía pendiente sin haber respondido nunca. Causa raíz: el temporizador de
+  cierre forzado de 30s (`scheduleClaimTimeoutIfNeeded` en `server/src/index.ts`)
+  solo comprobaba que la fase siguiera siendo `"claim-window"` — pero durante el
+  ritual, la fase se queda en `"claim-window"` de corrido a través de varias
+  revelaciones consecutivas del mazo, cada una una ventana DISTINTA. Un temporizador
+  "huérfano" programado para una revelación ya resuelta podía disparar 30 segundos
+  después de SU propio origen y cerrar de golpe la que fuera la ventana abierta en
+  ese momento, sin importar hace cuánto había abierto ella. Corregido dándole a
+  cada ventana un `claimWindowId` propio (incrementado en `Table`, nunca reutilizado)
+  y validando en el disparo del temporizador que sigue siendo exactamente esa misma
+  ventana antes de forzar el cierre — mismo patrón ya usado para el timeout de turno
+  inactivo. Re-verificado en vivo tras el fix: 90 segundos pasivos sin ningún cierre
+  temprano.
 - Si varios reclaman la misma carta, tiene prioridad el más cercano en la rotación
   (hacia adelante, mismo sentido que el orden de turno) al jugador de referencia
   (quien descartó, o el repartidor para la carta inicial).

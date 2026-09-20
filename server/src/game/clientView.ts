@@ -63,6 +63,7 @@ export function toClientView(
     yourCambioSubmitted: Boolean(state.cambio && state.cambio.submitted[viewerPlayerId]),
     claim: state.claim
       ? {
+          claimWindowId: state.claim.claimWindowId,
           card: state.claim.card,
           referenceSeatIndex: state.claim.referenceSeatIndex,
           pendingSeatIndices: state.claim.pendingSeatIndices,

@@ -53,6 +53,8 @@ export class Table {
   state: GameState;
   readonly config: TableConfig;
   private readonly rng: Rng;
+  /** See ClaimWindowState.claimWindowId — incremented every time a new claim window opens, never reused. */
+  private nextClaimWindowId = 1;
 
   constructor(config: TableConfig, seats: Seat[], rng: Rng = Math.random) {
     if (seats.length < 2 || seats.length > 4) {
@@ -358,6 +360,7 @@ export class Table {
     const initialCard = this.state.discard[this.state.discard.length - 1]!;
     this.state.phase = "claim-window";
     this.state.claim = {
+      claimWindowId: this.nextClaimWindowId++,
       card: initialCard,
       referenceSeatIndex: this.state.dealerSeatIndex,
       pendingSeatIndices: activeSeatIndices,
@@ -456,6 +459,7 @@ export class Table {
       this.state.stock = this.state.stock.slice(0, -1);
       this.state.discard.push(revealedCard);
       this.state.claim = {
+        claimWindowId: this.nextClaimWindowId++,
         card: revealedCard,
         referenceSeatIndex: claim.referenceSeatIndex,
         pendingSeatIndices: activeSeatIndices,
@@ -640,6 +644,7 @@ export class Table {
     this.state.hasDrawnThisTurn = false;
     this.state.phase = "claim-window";
     this.state.claim = {
+      claimWindowId: this.nextClaimWindowId++,
       card,
       referenceSeatIndex: seat.seatIndex,
       pendingSeatIndices: this.state.seats

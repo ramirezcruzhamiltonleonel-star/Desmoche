@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   canDesmocharFrom,
   canUseDiscardImmediately,
+  findPlayableCardIds,
   isValidMeld,
   type Card as CardModel,
   type ClientSeatView,
@@ -245,6 +246,14 @@ export default function GameTable() {
       ? myMelds.filter((meld) => isValidMeld([...meld.cards, ...selectedCards])).map((meld) => meld.id)
       : [],
   );
+  // Every hand card that's part of AT LEAST ONE currently-legal move right
+  // now (extends an own meld alone, or joins other hand cards into a
+  // brand-new one) — used to highlight real options instead of leaving the
+  // whole hand looking equally clickable until something gets rejected.
+  // Only meaningful once it's actually your turn to act.
+  const playableCardKeys = canAct
+    ? findPlayableCardIds(state.yourHand, myMelds, requiredCard)
+    : new Set<string>();
   const canDiscardSelection =
     selectedCards.length === 1 &&
     !state.mustPlaceCard &&
@@ -581,6 +590,7 @@ export default function GameTable() {
                     pendingDraw={Boolean(
                       state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card),
                     )}
+                    playable={playableCardKeys.has(cardKey(card))}
                     onClick={() => toggleHandCard(card)}
                   />
                 ),

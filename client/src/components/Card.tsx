@@ -33,6 +33,8 @@ interface CardProps {
   pendingDraw?: boolean;
   /** The top-of-discard card while a claim window is open — same gold glow as pendingDraw, but shown to EVERY player/spectator (not just whoever drew it), so nobody misses their chance to claim it. */
   claimable?: boolean;
+  /** This hand card, on its own or combined with others, is part of at least one legal move right now (extends an own meld, or forms a new one) — a quiet green cue so real options stand out instead of the whole hand looking equally clickable. Never overrides selected/pendingDraw/claimable, which are all more urgent states. */
+  playable?: boolean;
   onClick?: () => void;
   size?: keyof typeof SIZE_CLASSES;
 }
@@ -42,6 +44,7 @@ export default function Card({
   selected = false,
   pendingDraw = false,
   claimable = false,
+  playable = false,
   onClick,
   size = "md",
 }: CardProps) {
@@ -64,7 +67,9 @@ export default function Card({
               ? "pending-draw-glow z-10 border-gold ring-4 ring-gold"
               : selected
                 ? "-translate-y-2 border-gold ring-2 ring-gold"
-                : "border-stone-300"
+                : playable
+                  ? "border-green-500 ring-2 ring-green-500/70"
+                  : "border-stone-300"
         }
         ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}

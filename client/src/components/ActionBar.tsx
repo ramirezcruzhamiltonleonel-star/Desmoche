@@ -91,7 +91,7 @@ export default function ActionBar({
       {canDraw && (
         <button
           onClick={onDraw}
-          className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light"
+          className="pending-draw-glow w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 shadow-lg ring-2 ring-gold transition hover:bg-gold-light"
         >
           Robar del mazo
         </button>

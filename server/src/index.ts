@@ -352,7 +352,7 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
       table.respondToClaim(playerId, action.response);
       return;
     case "place-meld":
-      table.placeMeld(playerId, action.cards);
+      table.placeMeld(playerId, action.cards, action.desmoche);
       return;
     case "extend-meld":
       table.extendMeld(playerId, action.meldId, action.cards);

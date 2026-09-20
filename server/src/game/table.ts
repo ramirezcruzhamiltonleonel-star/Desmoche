@@ -549,19 +549,62 @@ export class Table {
     this.finishHand("meld-out", seat.seatIndex, winningMelds);
   }
 
-  /** Places a brand-new meld built entirely from the player's hand. */
-  placeMeld(playerId: string, cards: Card[]): void {
+  /**
+   * Places a brand-new meld built from the player's hand — optionally
+   * combined with ONE card desmoched from an existing own meld in the same
+   * move (e.g. a stock-drawn card + a hand card + a card pulled from an
+   * already-placed group). Without this, "resolve the drawn/claimed card"
+   * and "desmoche" were two strictly sequential actions, which made a
+   * genuinely legal play (build a NEW group using a desmoched card to
+   * satisfy the pending card) impossible — you'd be told to resolve the
+   * pending card first, but the only way to resolve it WAS the desmoche.
+   */
+  placeMeld(playerId: string, cards: Card[], desmoche?: { fromMeldId: string; card: Card }): void {
     this.assertCanAct(playerId);
     this.assertPendingDrawnCardIncluded(cards);
+
+    let sourceMeld: Meld | undefined;
+    if (desmoche) {
+      if (!cards.some((c) => cardId(c) === cardId(desmoche.card))) {
+        throw new GameError("La carta desmochada debe ser parte del grupo nuevo");
+      }
+      sourceMeld = meldById(this.state, desmoche.fromMeldId);
+      if (sourceMeld.ownerId !== playerId) {
+        throw new GameError("Solo puedes desmochar tus propios grupos");
+      }
+      if (!sourceMeld.cards.some((c) => cardId(c) === cardId(desmoche.card))) {
+        throw new GameError("Esa carta no está en el grupo de origen");
+      }
+      if (!canDesmocharFrom(sourceMeld.cards)) {
+        throw new GameError("Ese grupo quedaría con menos de 3 cartas");
+      }
+    }
+
     if (!isValidMeld(cards)) {
       throw new GameError("Ese grupo no es válido");
     }
+
     let hand = handOf(this.state, playerId);
-    for (const card of cards) hand = removeCard(hand, card);
+    for (const card of cards) {
+      if (desmoche && cardId(card) === cardId(desmoche.card)) continue; // comes from sourceMeld, not the hand
+      hand = removeCard(hand, card);
+    }
     this.state.hands[playerId] = hand;
+
+    if (desmoche && sourceMeld) {
+      sourceMeld.cards = removeCard(sourceMeld.cards, desmoche.card);
+    }
 
     const meldType = isValidSet(cards) ? "set" : "run";
     this.state.melds.push({ id: newMeldId(), type: meldType, ownerId: playerId, cards });
+
+    if (desmoche) {
+      this.state.eventLog.push({
+        type: "desmocho",
+        seatIndex: seatOf(this.state, playerId).seatIndex,
+        card: desmoche.card,
+      });
+    }
 
     this.clearPendingDrawnCardIfSatisfied(cards);
     this.clearMustPlaceIfSatisfied(playerId, cards);

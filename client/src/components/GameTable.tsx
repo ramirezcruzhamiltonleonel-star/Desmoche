@@ -257,6 +257,16 @@ export default function GameTable() {
           .map((meld) => meld.id)
       : [],
   );
+  // A desmoched card can ALSO be combined with the current hand selection
+  // into a brand-new meld (rather than only moved into an existing one) —
+  // this is what makes it possible to resolve a pending drawn/claimed card
+  // via desmoche, since placeMeld's own selection-must-include-it rule
+  // still applies. See table.ts placeMeld's `desmoche` parameter.
+  const canPlaceMeldWithDesmoche = Boolean(
+    desmocheSource &&
+      selectionIncludesRequired &&
+      isValidMeld([...selectedCards, desmocheSource.card]),
+  );
 
   // Available any time after Cambio (claim window or your turn) — Cambio
   // itself is mandatory, blind, and simultaneous, so retiring mid-Cambio
@@ -278,6 +288,19 @@ export default function GameTable() {
   function handlePlaceMeld() {
     sendAction({ type: "place-meld", cards: selectedCards });
     setSelectedCards([]);
+    sound.playMeld();
+  }
+
+  function handlePlaceMeldWithDesmoche() {
+    if (!desmocheSource) return;
+    sendAction({
+      type: "place-meld",
+      cards: [...selectedCards, desmocheSource.card],
+      desmoche: { fromMeldId: desmocheSource.meldId, card: desmocheSource.card },
+    });
+    setSelectedCards([]);
+    setDesmocheMode(false);
+    setDesmocheSource(null);
     sound.playMeld();
   }
 
@@ -594,6 +617,8 @@ export default function GameTable() {
                 desmocheSource={desmocheSource}
                 validDesmocheDestinationIds={validDesmocheDestinationIds}
                 onPickDestination={handlePickDesmocheDestination}
+                canPlaceMeldWithDesmoche={canPlaceMeldWithDesmoche}
+                onPlaceMeldWithDesmoche={handlePlaceMeldWithDesmoche}
               />
             )}
           </>

@@ -538,6 +538,79 @@ describe("Table — desmoche", () => {
   });
 });
 
+describe("Table — placeMeld combined with a desmoched card (regression)", () => {
+  // Exact reported scenario: drew a 4♥ from the stock; already had a 4-card
+  // set of 5s on the table (5♠-5♥-5♦-5♣); hand had 6♠ and 6♥. The only legal
+  // play was to pull the 5♥ out of the existing set (leaving it at 3 cards,
+  // still valid) and combine it with the drawn 4♥ and the hand's 6♥ into a
+  // BRAND NEW run (4♥-5♥-6♥) — resolving the pending drawn card and
+  // desmoching in the very same move. Before this fix, placeMeld only ever
+  // pulled cards from the hand, and desmochar only ever moved a card into
+  // an EXISTING meld — there was no way to do both at once, so the server
+  // rejected this entirely legal play with "resuelve primero la carta que
+  // robaste", even though desmoche WAS how the player intended to resolve it.
+  it("lets a new meld combine the pending stock-drawn card, a hand card, AND a card desmoched from an existing own meld", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("5", "spades"), c("5", "hearts"), c("5", "diamonds"), c("5", "clubs")],
+    });
+    // Just drew the 4♥ — already added to hand, exactly like drawFromStock does.
+    table.state.hands["p1"] = [c("6", "spades"), c("6", "hearts"), c("4", "hearts")];
+    table.state.pendingDrawnCard = c("4", "hearts");
+
+    table.placeMeld("p1", [c("4", "hearts"), c("5", "hearts"), c("6", "hearts")], {
+      fromMeldId: "m1",
+      card: c("5", "hearts"),
+    });
+
+    const originalSet = table.state.melds.find((m) => m.id === "m1")!;
+    expect(originalSet.cards).toEqual([c("5", "spades"), c("5", "diamonds"), c("5", "clubs")]);
+
+    const newRun = table.state.melds.find((m) => m.id !== "m1")!;
+    expect(newRun.type).toBe("run");
+    expect(newRun.ownerId).toBe("p1");
+    expect(newRun.cards).toEqual([c("4", "hearts"), c("5", "hearts"), c("6", "hearts")]);
+
+    // The 4♥ and 6♥ left the hand (one via the meld, the other from hand);
+    // the 6♠ was never part of the play and stays put, ready to discard.
+    expect(table.state.hands["p1"]).toEqual([c("6", "spades")]);
+    // Drawing is now fully resolved — nothing left forcing a specific card.
+    expect(table.state.pendingDrawnCard).toBeNull();
+    // Logged as a desmoche, same as moving into an existing meld would be.
+    expect(table.state.eventLog).toContainEqual({ type: "desmocho", seatIndex: 1, card: c("5", "hearts") });
+  });
+
+  it("still refuses the desmoche source if it would shrink below 3 cards, even when combined into a new meld", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("5", "spades"), c("5", "hearts"), c("5", "diamonds")],
+    });
+    table.state.hands["p1"] = [c("6", "spades"), c("6", "hearts"), c("4", "hearts")];
+    table.state.pendingDrawnCard = c("4", "hearts");
+
+    expect(() =>
+      table.placeMeld("p1", [c("4", "hearts"), c("5", "hearts"), c("6", "hearts")], {
+        fromMeldId: "m1",
+        card: c("5", "hearts"),
+      }),
+    ).toThrow(GameError);
+  });
+});
+
 describe("Table — meld-out win and settlement", () => {
   it("ends the hand the instant the hand is emptied, without a discard", () => {
     const table = new Table(config({ ante: 100 }), seats(2));

@@ -33,6 +33,9 @@ interface ActionBarProps {
   /** Which of myMelds (other than the source) the picked-up card would validly land in. */
   validDesmocheDestinationIds: Set<string>;
   onPickDestination: (meldId: string) => void;
+  /** Whether the picked-up desmoche card, combined with the current hand selection, forms a valid brand-new meld. */
+  canPlaceMeldWithDesmoche: boolean;
+  onPlaceMeldWithDesmoche: () => void;
 }
 
 export default function ActionBar({
@@ -57,6 +60,8 @@ export default function ActionBar({
   desmocheSource,
   validDesmocheDestinationIds,
   onPickDestination,
+  canPlaceMeldWithDesmoche,
+  onPlaceMeldWithDesmoche,
 }: ActionBarProps) {
   if (!isTurnActivePhase) {
     // Cambio, the claim window, the first-turn choice, and the hand-over
@@ -77,8 +82,9 @@ export default function ActionBar({
 
       {pendingDrawnCard && (
         <p className="text-center text-xs text-gold">
-          Robaste esta carta del mazo — úsala en un grupo o descártala ahora mismo. No puedes
-          descartar ninguna otra en su lugar.
+          Robaste esta carta del mazo — úsala en un grupo (podés combinarla con una carta
+          desmochada de uno de tus grupos para armar uno nuevo) o descártala ahora mismo. No
+          puedes descartar ninguna otra en su lugar.
         </p>
       )}
 
@@ -135,11 +141,7 @@ export default function ActionBar({
             </div>
           )}
 
-          {pendingDrawnCard ? (
-            <p className="text-center text-xs text-stone-500">
-              Resuelve primero la carta que robaste para poder desmochar.
-            </p>
-          ) : myMelds.length >= 2 ? (
+          {myMelds.length > 0 ? (
             <button
               onClick={onToggleDesmoche}
               disabled={!desmocheMode && !canDesmoche}
@@ -152,7 +154,7 @@ export default function ActionBar({
             </button>
           ) : (
             <p className="text-center text-xs text-stone-500">
-              Necesitas al menos 2 grupos propios en la mesa para desmochar (tienes {myMelds.length}).
+              Necesitas al menos 1 grupo propio en la mesa para desmochar.
             </p>
           )}
 
@@ -163,27 +165,52 @@ export default function ActionBar({
           )}
 
           {desmocheMode && desmocheSource && (
-            <div className="rounded-lg bg-stone-900/60 p-2">
-              <p className="mb-1 text-center text-[10px] uppercase tracking-wide text-stone-400">
-                Mueve la carta a otro de tus grupos
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {myMelds
-                  .filter((meld) => meld.id !== desmocheSource.meldId)
-                  .map((meld) => {
-                    const legal = validDesmocheDestinationIds.has(meld.id);
-                    return (
-                      <button
-                        key={meld.id}
-                        onClick={() => onPickDestination(meld.id)}
-                        disabled={!legal}
-                        title={legal ? undefined : "Esa carta no encaja en este grupo"}
-                        className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                      >
-                        {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
-                      </button>
-                    );
-                  })}
+            <div className="space-y-2">
+              {/* Moving into an EXISTING group doesn't touch the pending
+                  drawn/claimed card, so it's only offered once that's already
+                  resolved — otherwise the button would be a dead end. */}
+              {!pendingDrawnCard && myMelds.length > 1 && (
+                <div className="rounded-lg bg-stone-900/60 p-2">
+                  <p className="mb-1 text-center text-[10px] uppercase tracking-wide text-stone-400">
+                    Mueve la carta a otro de tus grupos
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {myMelds
+                      .filter((meld) => meld.id !== desmocheSource.meldId)
+                      .map((meld) => {
+                        const legal = validDesmocheDestinationIds.has(meld.id);
+                        return (
+                          <button
+                            key={meld.id}
+                            onClick={() => onPickDestination(meld.id)}
+                            disabled={!legal}
+                            title={legal ? undefined : "Esa carta no encaja en este grupo"}
+                            className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                          >
+                            {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg bg-stone-900/60 p-2">
+                <p className="mb-1 text-center text-[10px] uppercase tracking-wide text-stone-400">
+                  O combinala con cartas de tu mano en un grupo nuevo
+                </p>
+                <button
+                  onClick={onPlaceMeldWithDesmoche}
+                  disabled={!canPlaceMeldWithDesmoche}
+                  title={
+                    canPlaceMeldWithDesmoche
+                      ? undefined
+                      : "Selecciona en tu mano las cartas que, junto con esta, formen un grupo válido"
+                  }
+                  className="w-full rounded-lg border border-gold px-3 py-2 text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Bajar grupo nuevo con esta carta
+                </button>
               </div>
             </div>
           )}

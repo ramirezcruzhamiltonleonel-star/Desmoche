@@ -62,16 +62,28 @@ actualiza en el mismo commit que el código y sus tests.
      libremente qué descartar.** Se resuelve de inmediato, en el mismo momento en
      que se roba: o se usa ahí mismo en un grupo (nuevo o propio ya existente), o
      se descarta directamente — sin pasar por una elección entre las 9 cartas
-     originales. Mientras esa carta no se resuelva, no se puede desmochar ni
-     descartar ninguna otra carta.
+     originales. Mientras esa carta no se resuelva, no se puede descartar ninguna
+     otra carta — pero **sí se puede desmochar**, siempre que la carta desmochada
+     se combine con la recién robada (y, si hace falta, cartas de la mano) para
+     armar el grupo nuevo que la resuelve (ver punto 3, bug corregido: antes esto
+     estaba bloqueado por completo, con un mensaje de "resuelve primero la carta
+     que robaste" incluso cuando desmochar era justamente la única forma de
+     resolverla).
 2. Colocar grupos nuevos y/o agregar cartas a grupos propios ya en mesa — **siempre
    opcional**, nunca automático. El sistema únicamente ofrece el botón; el jugador
    decide cuándo y qué bajar, incluyendo guardarse grupos completos en la mano para
    bajarlos todos juntos más tarde.
-3. Desmoche: mover una carta de un grupo propio ya en mesa a **otro grupo propio**
-   ya en mesa, sin dejar al grupo origen en menos de 3 cartas. Esto requiere tener
-   **al menos 2 grupos propios ya colocados** — si solo tienes 0 o 1, no hay a dónde
-   mover la carta todavía (la interfaz lo indica en vez de fallar en silencio).
+3. Desmoche: mover una carta de un grupo propio ya en mesa hacia otro lado. Dos
+   destinos válidos, ambos sin dejar al grupo origen en menos de 3 cartas:
+   - **Otro grupo propio ya en mesa** — requiere tener al menos 2 grupos propios
+     ya colocados (si solo tienes 0 o 1, no hay a dónde moverla todavía).
+   - **Un grupo NUEVO**, combinada con cartas de la mano (y, si corresponde, la
+     carta recién robada o reclamada) — requiere solo 1 grupo propio ya
+     colocado, ya que el destino se crea en el momento. Esta es la única forma
+     de resolver una carta robada/reclamada pendiente mediante desmoche, y es
+     lo que permite jugadas como: grupo de 4 cartas del mismo valor ya bajado +
+     una carta de ese grupo desmochada + la carta recién robada + una carta de
+     la mano, combinadas en una escalera nueva.
 4. Descartar para terminar el turno — cualquier carta de la mano actual, incluida la
    que se acaba de robar del mazo si no sirve. Excepción: si las 10 cartas quedan
    colocadas en grupos válidos sin sobrante, se gana la mano de inmediato sin

@@ -21,7 +21,18 @@ export type GameAction =
   | { type: "submit-cambio-card"; card: Card }
   | { type: "draw-stock" }
   | { type: "respond-claim"; response: "claim" | "pass" }
-  | { type: "place-meld"; cards: Card[] }
+  | {
+      type: "place-meld";
+      cards: Card[];
+      /**
+       * Optional: one of `cards` is sourced from an existing own meld
+       * (desmoche) rather than the hand — e.g. a stock-drawn card + a hand
+       * card + a card pulled from an already-placed group, combined into a
+       * brand-new group in one move. `card` must be one of `cards`, and
+       * must actually be in the meld `fromMeldId` refers to.
+       */
+      desmoche?: { fromMeldId: string; card: Card };
+    }
   | { type: "extend-meld"; meldId: string; cards: Card[] }
   | { type: "desmochar"; fromMeldId: string; toMeldId: string; card: Card }
   | { type: "discard"; card: Card }

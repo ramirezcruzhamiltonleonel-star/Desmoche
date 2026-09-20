@@ -50,10 +50,21 @@ interface StockFlip {
 
 type Slot = "top" | "left" | "right";
 
+/**
+ * Verified live (screenshot + turnSeatIndex trace) that the OLD mapping
+ * (["left","top","right"] for offsets 1,2,3) rendered turns moving
+ * CLOCKWISE on screen (bottom -> left -> top -> right -> bottom), the
+ * opposite of turnOrder.ts's documented counter-clockwise convention. The
+ * underlying seat-index rotation logic (nextSeat, closestInRotation) was
+ * never wrong — only this screen-position assignment was inverted. Putting
+ * the next-to-act seat (offset 1) on the RIGHT instead of the left flips
+ * the visible rotation to bottom -> right -> top -> left -> bottom, which
+ * is counter-clockwise.
+ */
 function seatSlots(count: number): Slot[] {
   if (count <= 1) return ["top"];
-  if (count === 2) return ["left", "right"];
-  return ["left", "top", "right"];
+  if (count === 2) return ["right", "left"];
+  return ["right", "top", "left"];
 }
 
 /**
@@ -461,7 +472,12 @@ export default function GameTable() {
             </div>
             <div className="flex flex-col items-center gap-1">
               {state.topDiscard ? (
-                <Card card={state.topDiscard} size="md" />
+                // The top discard IS the card a claim window offers (initial
+                // flip, every ritual reveal, and every normal in-hand
+                // discard) — highlighting it here, not just inside
+                // ClaimBanner's own copy, means every player/spectator sees
+                // it glow, not only whoever's eligible to respond right now.
+                <Card card={state.topDiscard} size="md" claimable={state.phase === "claim-window"} />
               ) : (
                 <div className="h-20 w-14 rounded-md border-2 border-dashed border-stone-600" />
               )}
@@ -478,6 +494,12 @@ export default function GameTable() {
 
       {state.phase === "claim-window" && state.claim && (
         <ClaimBanner
+          // Remounts (resetting its countdown) on every distinct card offered —
+          // rank+suit is unique per window within a hand (a card can't be
+          // drawn/discarded twice before a reshuffle), so this reliably tells
+          // "still the same window" apart from "a new one just opened" without
+          // the server needing to send any extra identity field.
+          key={`${state.claim.card.rank}-${state.claim.card.suit}`}
           claim={state.claim}
           isEligible={isClaimEligible}
           canClaim={canClaim}

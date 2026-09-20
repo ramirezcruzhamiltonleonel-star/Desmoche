@@ -29,13 +29,22 @@ const SUIT_SYMBOL_SIZE = {
 interface CardProps {
   card: CardModel;
   selected?: boolean;
-  /** The card just drawn from the stock this turn, still pending a decision (meld or discard) — bigger and gold-lit so it's unmistakable among the other 9. */
+  /** The card just drawn from the stock this turn, still pending a decision (meld or discard) — bigger and gold-lit so it's unmistakable among the other 9. Only ever true in the drawing player's own hand. */
   pendingDraw?: boolean;
+  /** The top-of-discard card while a claim window is open — same gold glow as pendingDraw, but shown to EVERY player/spectator (not just whoever drew it), so nobody misses their chance to claim it. */
+  claimable?: boolean;
   onClick?: () => void;
   size?: keyof typeof SIZE_CLASSES;
 }
 
-export default function Card({ card, selected = false, pendingDraw = false, onClick, size = "md" }: CardProps) {
+export default function Card({
+  card,
+  selected = false,
+  pendingDraw = false,
+  claimable = false,
+  onClick,
+  size = "md",
+}: CardProps) {
   const isRed = RED_SUITS.has(card.suit);
 
   return (
@@ -51,9 +60,11 @@ export default function Card({ card, selected = false, pendingDraw = false, onCl
         ${
           pendingDraw
             ? "pending-draw-glow z-10 scale-110 -translate-y-2 border-gold ring-4 ring-gold"
-            : selected
-              ? "-translate-y-2 border-gold ring-2 ring-gold"
-              : "border-stone-300"
+            : claimable
+              ? "pending-draw-glow z-10 border-gold ring-4 ring-gold"
+              : selected
+                ? "-translate-y-2 border-gold ring-2 ring-gold"
+                : "border-stone-300"
         }
         ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}

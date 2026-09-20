@@ -37,6 +37,20 @@ actualiza en el mismo commit que el código y sus tests.
 
 1. Robar: del mazo (libre) o del descarte (solo si la carta se puede usar de inmediato
    en un grupo — ver "Reclamo de descarte" abajo).
+   - **Robo del mazo: siempre y únicamente 1 carta.** Confirmado en el código
+     (`server/src/game/table.ts`, `drawFromStock`: `stock.slice(-1)`) — nunca hay un
+     camino que saque 2 o más; varios tests (`table.test.ts`) ya lo fijan con
+     `expect(drawn).toHaveLength(1)`, incluyendo el caso límite de reciclar el
+     descarte a mitad de un robo.
+   - **Dirección de la rotación de turnos: contraria a las manecillas del reloj**,
+     igual en todo el juego (turno normal, prioridad de reclamo, Cambio). El motor
+     de reglas (`turnOrder.ts`) siempre lo modeló bien — el índice de asiento
+     avanza en ese sentido — pero se encontró y corrigió un desajuste puramente
+     visual: el cliente dibujaba al siguiente jugador en pantalla a la IZQUIERDA,
+     lo que en realidad se ve como sentido HORARIO al mirar la mesa (verificado con
+     capturas en vivo). Corregido en `seatSlots()` (`GameTable.tsx`): el siguiente
+     jugador en turno ahora se dibuja a la DERECHA, para que lo que se ve en
+     pantalla coincida con la regla.
    - **La carta robada del mazo nunca se mezcla con las 9 originales para elegir
      libremente qué descartar.** Se resuelve de inmediato, en el mismo momento en
      que se roba: o se usa ahí mismo en un grupo (nuevo o propio ya existente), o
@@ -60,6 +74,15 @@ actualiza en el mismo commit que el código y sus tests.
 
 - Todo descarte — incluida la carta que se voltea al inicio de la mano — se ofrece a
   reclamo. Quien reclama debe poder usar la carta de inmediato en un grupo.
+- La ventana dura 30 segundos exactos (`CLAIM_WINDOW_MS` en `server/src/index.ts`) —
+  medido en vivo de nuevo esta ronda sin ninguna intervención humana: 30006ms de
+  apertura a cierre. La carta ofrecida se resalta en dorado (mismo efecto que ya se
+  usaba para "estás robando") en el mazo de descarte, visible para TODA la mesa —
+  no solo dentro del aviso de reclamo — para que a nadie se le pase la oportunidad
+  de reclamarla. El aviso de reclamo también muestra ahora una cuenta regresiva
+  visible (segundos + barra), ya que la queja repetida de "las cartas se sienten
+  rápidas" resultó ser más de percepción (no había ninguna señal de cuánto tiempo
+  quedaba) que de que el tiempo real fuera corto.
 - Si varios reclaman la misma carta, tiene prioridad el más cercano en la rotación
   (hacia adelante, mismo sentido que el orden de turno) al jugador de referencia
   (quien descartó, o el repartidor para la carta inicial).

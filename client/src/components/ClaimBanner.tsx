@@ -1,5 +1,16 @@
+import { useEffect, useState } from "react";
 import type { ClientClaimView } from "@desmoche/shared";
 import Card from "./Card";
+
+/**
+ * Must match CLAIM_WINDOW_MS in server/src/index.ts — the server is the
+ * actual authority (this is purely a visual countdown, force-resolved
+ * server-side regardless of what this shows), but keeping the number in
+ * sync avoids the countdown hitting zero while the window is still open,
+ * or vice versa. Confirmed live in production this round: a window with
+ * zero input stayed open for exactly 30006ms.
+ */
+const CLAIM_WINDOW_MS = 30_000;
 
 interface ClaimBannerProps {
   claim: ClientClaimView;
@@ -10,11 +21,34 @@ interface ClaimBannerProps {
 }
 
 export default function ClaimBanner({ claim, isEligible, canClaim, onRespond }: ClaimBannerProps) {
+  // This component remounts (see the `key` on it in GameTable.tsx) every time
+  // a genuinely new card is offered, so a plain mount-time timestamp is
+  // enough — no need to track the previous card here at all.
+  const [remainingMs, setRemainingMs] = useState(CLAIM_WINDOW_MS);
+  useEffect(() => {
+    const openedAt = Date.now();
+    const tick = () => setRemainingMs(Math.max(0, CLAIM_WINDOW_MS - (Date.now() - openedAt)));
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, []);
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  const fractionLeft = remainingMs / CLAIM_WINDOW_MS;
+
   return (
     <div className="mx-3 mb-3 rounded-xl border-2 border-gold bg-stone-900/90 p-3">
       <div className="mb-2 flex items-center justify-center gap-3">
         <span className="text-sm text-stone-200">¿Alguien quiere esta carta?</span>
         <Card card={claim.card} size="sm" />
+        <span className="min-w-[2ch] text-right font-mono text-sm text-gold" aria-label="Segundos restantes">
+          {remainingSeconds}s
+        </span>
+      </div>
+      <div className="mb-2 h-1 w-full overflow-hidden rounded-full bg-stone-700">
+        <div
+          className="h-full rounded-full bg-gold transition-[width] duration-200 ease-linear"
+          style={{ width: `${Math.max(0, Math.min(1, fractionLeft)) * 100}%` }}
+        />
       </div>
       {isEligible ? (
         <div className="flex flex-col items-center gap-2">

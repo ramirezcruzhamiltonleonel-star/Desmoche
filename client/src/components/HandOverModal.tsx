@@ -72,9 +72,13 @@ export default function HandOverModal({
 
         {settlement && settlement.kind === "dare" && settlement.playersWhoOweADare.length > 0 && (
           <div className="mb-4 space-y-1 text-sm text-stone-300">
-            <p className="text-[10px] uppercase tracking-wide text-stone-400">Deben cumplir su reto</p>
+            <p className="text-[10px] uppercase tracking-wide text-stone-400">
+              Deben cumplir el reto que acordaron entre ustedes
+            </p>
             {settlement.playersWhoOweADare.map((playerId) => (
-              <p key={playerId}>{nameByPlayerId[playerId] ?? playerId}</p>
+              <p key={playerId} className="font-semibold text-stone-100">
+                {nameByPlayerId[playerId] ?? playerId}
+              </p>
             ))}
           </div>
         )}

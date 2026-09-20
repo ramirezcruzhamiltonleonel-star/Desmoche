@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { DISPLAY_NAME_MAX_LENGTH } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { loadGuestNameHint } from "../lib/guestNameHint";
 import Spinner from "./Spinner";
@@ -65,11 +66,12 @@ export default function LoginScreen() {
         <p className="mb-6 text-center text-sm text-stone-300">Mesa de cartas nicaragüense</p>
 
         {step === "email" ? (
-          <form onSubmit={handleRequestCode} className="space-y-4">
+          <form onSubmit={handleRequestCode} className="space-y-4" noValidate>
             <label className="block text-sm text-stone-200">
               Correo electrónico
               <input
                 type="email"
+                inputMode="email"
                 required
                 autoFocus
                 value={email}
@@ -118,6 +120,7 @@ export default function LoginScreen() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
                 placeholder="Ej. Ana"
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
               />
             </label>
             <button
@@ -165,6 +168,7 @@ export default function LoginScreen() {
                 onChange={(e) => setGuestName(e.target.value)}
                 autoFocus
                 required
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 className="w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
                 placeholder="Tu nombre"
               />

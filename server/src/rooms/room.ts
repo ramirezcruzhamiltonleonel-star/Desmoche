@@ -140,6 +140,8 @@ export class Room {
     if (this.hasStarted) throw new GameError("La mesa ya empezó a jugar");
     this.requireCreator(requesterId, "agregar bots");
     if (this.seats.length >= 4) throw new GameError("La mesa ya está llena");
+    // A bot can't owe or complete a dare — nonsensical at a Retos table.
+    if (this.stakeType === "dare") throw new GameError("No se pueden agregar bots a una mesa de Retos");
 
     const used = new Set(this.seats.map((s) => s.playerId));
     const persona = BOT_PERSONAS.find((p) => !used.has(p.id));

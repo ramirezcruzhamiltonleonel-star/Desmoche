@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { PrismaClient } from "@prisma/client";
+import { DISPLAY_NAME_MAX_LENGTH } from "@desmoche/shared";
 import { AuthError } from "../auth/errors";
 import { requestOtp, verifyOtp } from "../auth/authService";
 import { createGuestPlayerId } from "../auth/guestId";
@@ -23,7 +24,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post("/guest", (req, res) => {
     const { displayName } = req.body as { displayName?: string };
-    const trimmed = displayName?.trim();
+    const trimmed = displayName?.trim().slice(0, DISPLAY_NAME_MAX_LENGTH);
     if (!trimmed) {
       res.status(400).json({ message: "Nombre requerido" });
       return;

@@ -61,6 +61,15 @@ export default function HomeScreen() {
     }
   }
 
+  function handleModeChange(next: "create" | "join" | "spectate") {
+    setMode(next);
+    // Leftover error text and a typed code from one tab bleeding into
+    // another (e.g. "No existe una mesa con ese código" still showing
+    // after switching from Unirse to Ver mesa) was a reported bug.
+    setCode("");
+    setError(null);
+  }
+
   async function handleInstantDemo() {
     setError(null);
     setBusy(true);
@@ -116,7 +125,7 @@ export default function HomeScreen() {
             className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
               mode === "create" ? "bg-gold text-stone-900" : "text-stone-300"
             }`}
-            onClick={() => setMode("create")}
+            onClick={() => handleModeChange("create")}
           >
             Crear mesa
           </button>
@@ -124,7 +133,7 @@ export default function HomeScreen() {
             className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
               mode === "join" ? "bg-gold text-stone-900" : "text-stone-300"
             }`}
-            onClick={() => setMode("join")}
+            onClick={() => handleModeChange("join")}
           >
             Unirse
           </button>
@@ -132,7 +141,7 @@ export default function HomeScreen() {
             className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
               mode === "spectate" ? "bg-gold text-stone-900" : "text-stone-300"
             }`}
-            onClick={() => setMode("spectate")}
+            onClick={() => handleModeChange("spectate")}
           >
             Ver mesa
           </button>
@@ -155,6 +164,14 @@ export default function HomeScreen() {
                   </option>
                 </select>
               </label>
+              {stakeType === "dare" && (
+                <p className="rounded-lg bg-stone-900/60 px-3 py-2 text-xs text-stone-300">
+                  Sin fichas ni ante — quien no gana la mano cumple un reto. El reto
+                  específico no lo define la app: lo acuerdan entre ustedes antes de jugar.
+                  Por eso no tiene sentido agregar bots a una mesa de Retos (un bot no puede
+                  cumplir nada) — no vas a poder agregarlos aquí.
+                </p>
+              )}
               {stakeType === "chips" && (
                 <label className="block text-sm text-stone-200">
                   Ante por mano

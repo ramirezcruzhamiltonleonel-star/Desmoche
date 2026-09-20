@@ -38,7 +38,13 @@ export default function PlayerSeat({
         <span
           key={reactionKey}
           aria-hidden
-          className="reaction-float pointer-events-none absolute left-1/2 top-0 z-20 text-2xl"
+          // z-[65]: reactions can ONLY be sent during hand-over, which means
+          // HandOverModal (z-40, bg-black/70) is covering the whole felt
+          // the entire time one is playing — at the old z-20 the animation
+          // ran, but entirely hidden behind that overlay, so nobody but the
+          // sender (via the button's own ring) ever saw anything (reported
+          // bug). Above the header's z-[60] too, for the same reason.
+          className="reaction-float pointer-events-none absolute left-1/2 top-0 z-[65] text-2xl"
         >
           {reactionEmoji}
         </span>

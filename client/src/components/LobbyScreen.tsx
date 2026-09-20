@@ -20,7 +20,10 @@ export default function LobbyScreen() {
   if (!state) return null;
   const me = state.seats.find((s) => s.seatIndex === state.yourSeatIndex);
   const isCreator = state.yourSeatIndex === 0;
-  const canAddBot = isCreator && state.seats.length < 4;
+  // A bot can't actually owe/complete a dare — nonsensical to seat one at a
+  // Retos table (reported: the hand-over summary would show a bot "owing"
+  // a reto with no way to acknowledge it). Server also enforces this.
+  const canAddBot = isCreator && state.seats.length < 4 && state.stakeType !== "dare";
 
   async function handleCopyLink() {
     if (!state) return;
@@ -43,6 +46,12 @@ export default function LobbyScreen() {
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
           {!state.autoWinsEnabled ? " · sin automáticas" : ""}
         </p>
+        {state.stakeType === "dare" && (
+          <p className="mb-3 rounded-lg bg-stone-900/60 px-3 py-2 text-center text-xs text-stone-300">
+            Sin fichas ni ante — quien no gana la mano cumple un reto que ustedes acuerden
+            entre sí (la app no lo define).
+          </p>
+        )}
         <p className="mb-3 text-center text-sm text-stone-300">
           Código: <span className="font-mono text-lg tracking-widest text-gold">{state.code}</span>
         </p>

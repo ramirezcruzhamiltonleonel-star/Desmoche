@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   canDesmocharFrom,
   canUseDiscardImmediately,
+  computeGuestSummary,
   findPlayableCardIds,
   isAutoWinReason,
   isValidMeld,
@@ -20,7 +21,6 @@ import { arrangeHandForDisplay } from "../lib/arrangeHand";
 import { buildDealOrder } from "../lib/dealOrder";
 import { cardKey } from "../lib/cardKey";
 import { saveGuestNameHint } from "../lib/guestNameHint";
-import { computeGuestSummary } from "../lib/guestSummary";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
 import { THEME_LABELS, THEMES } from "../lib/themeStorage";
@@ -402,11 +402,13 @@ export default function GameTable() {
 
   return (
     <div className="screen-fade flex min-h-screen flex-col bg-felt-dark">
-      {/* relative z-[45] (above every in-table modal's z-40, below the
-          guest-exit modal's z-50) so Salir/Ayuda/Historial/Tema stay
-          reachable even while Cambio, hand-over, tutorial, or history are
-          open — getting stuck unable to leave was a real, reported bug. */}
-      <header className="relative z-[45] flex items-center justify-between px-3 py-2 text-xs text-stone-300">
+      {/* relative z-[60] — above EVERY in-table modal (Cambio/hand-over at
+          z-40, tutorial/history/guest-exit at z-50) — so Salir/Ayuda/
+          Historial/Tema stay reachable no matter what's open. Safe even
+          over the guest-exit summary: handleLeaveClick() just re-shows
+          that same modal if it's already up, never bypasses it. Getting
+          stuck unable to leave in time was a real, reported bug. */}
+      <header className="relative z-[60] flex items-center justify-between px-3 py-2 text-xs text-stone-300">
         <span>
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
@@ -433,7 +435,12 @@ export default function GameTable() {
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
             📜
           </button>
-          <button onClick={sound.toggle} aria-label="Sonido" className="p-1 text-base">
+          <button
+            onClick={sound.toggle}
+            aria-label="Sonido"
+            aria-pressed={sound.enabled}
+            className="p-1 text-base"
+          >
             {sound.enabled ? "🔊" : "🔇"}
           </button>
           <button onClick={handleLeaveClick} className="p-1 underline">
@@ -688,7 +695,12 @@ export default function GameTable() {
         <HandHistoryPanel state={state} nameByPlayerId={nameByPlayerId} onClose={() => setShowHistory(false)} />
       )}
 
-      {showTutorial && <TutorialModal onClose={handleCloseTutorial} />}
+      {/* Deferred while Cambio's own modal needs the screen — a brand-new
+          player's very first hand always opens on "cambio", so without this
+          the two modals stacked on first load (reported bug). Still shows
+          automatically the moment Cambio resolves; the ❓ button re-opens it
+          any time regardless of phase. */}
+      {showTutorial && state.phase !== "cambio" && <TutorialModal onClose={handleCloseTutorial} />}
 
       {showGuestSummary && state && (
         <GuestSummaryModal
@@ -698,6 +710,7 @@ export default function GameTable() {
             setShowGuestSummary(false);
             leaveTable();
           }}
+          onCancel={() => setShowGuestSummary(false)}
         />
       )}
 

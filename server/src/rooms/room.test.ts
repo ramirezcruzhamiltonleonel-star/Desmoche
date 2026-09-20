@@ -173,6 +173,12 @@ describe("Room — bots", () => {
     room.join("user-b", "Beto");
     expect(() => room.removeBot("user-a", "user-b")).toThrow(GameError);
   });
+
+  it("refuses to add a bot to a Retos (dare) table — a bot can't owe or complete a dare", () => {
+    const room = new Room("DARE1", "dare", 0);
+    room.join("user-a", "Ana");
+    expect(() => room.addBot("user-a")).toThrow(GameError);
+  });
 });
 
 describe("Room — connection tracking", () => {

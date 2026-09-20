@@ -1,4 +1,4 @@
-import type { Card as CardModel, Meld } from "@desmoche/shared";
+import { meldLabel, type Card as CardModel, type Meld } from "@desmoche/shared";
 
 interface DesmocheSource {
   meldId: string;
@@ -133,7 +133,7 @@ export default function ActionBar({
                       title={legal ? undefined : "Esa carta no encaja en este grupo"}
                       className="rounded-md border border-stone-500 px-2 py-1 text-xs text-stone-200 hover:border-gold disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-stone-500"
                     >
-                      {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
+                      {meldLabel(meld)}
                     </button>
                   );
                 })}
@@ -187,7 +187,7 @@ export default function ActionBar({
                             title={legal ? undefined : "Esa carta no encaja en este grupo"}
                             className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                           >
-                            {meld.type === "run" ? "Escalera" : "Tercia"} ({meld.cards.length})
+                            {meldLabel(meld)}
                           </button>
                         );
                       })}

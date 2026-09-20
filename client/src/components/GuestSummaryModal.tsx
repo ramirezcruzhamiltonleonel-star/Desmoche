@@ -1,14 +1,30 @@
-import type { GuestSessionSummary } from "../lib/guestSummary";
+import { useEffect } from "react";
+import type { GuestSessionSummary } from "@desmoche/shared";
 
 interface GuestSummaryModalProps {
   summary: GuestSessionSummary;
   onCreateAccount: () => void;
   onLeaveAnyway: () => void;
+  /** Closes the modal and returns to the game without leaving — was previously impossible (no Esc, no click-outside, no button), a reported bug. */
+  onCancel: () => void;
 }
 
-export default function GuestSummaryModal({ summary, onCreateAccount, onLeaveAnyway }: GuestSummaryModalProps) {
+export default function GuestSummaryModal({ summary, onCreateAccount, onLeaveAnyway, onCancel }: GuestSummaryModalProps) {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 text-center shadow-2xl">
         <h2 className="mb-1 font-display text-xl text-gold">Tu sesión como invitado</h2>
         <p className="mb-4 text-xs text-stone-400">Esto fue lo que hiciste jugando sin cuenta:</p>
@@ -42,8 +58,14 @@ export default function GuestSummaryModal({ summary, onCreateAccount, onLeaveAny
         >
           Crear cuenta gratis
         </button>
-        <button onClick={onLeaveAnyway} className="w-full text-center text-xs text-stone-400 underline">
+        <button onClick={onLeaveAnyway} className="mb-2 w-full text-center text-xs text-stone-400 underline">
           Salir de todas formas
+        </button>
+        <button
+          onClick={onCancel}
+          className="w-full rounded-lg border border-stone-600 px-4 py-2 text-sm text-stone-300 transition hover:border-stone-400"
+        >
+          Volver al juego
         </button>
       </div>
     </div>

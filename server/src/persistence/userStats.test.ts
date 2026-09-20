@@ -33,7 +33,7 @@ async function playHand(
   winnerId: string,
   loserId: string,
   winningMelds: Meld[] = [],
-) {
+): Promise<Room> {
   const room = new Room(code, "chips", 100);
   room.join(winnerId, "W");
   room.join(loserId, "L");
@@ -42,6 +42,18 @@ async function playHand(
   const table = room.requireTable();
   (table.state as { phase: string }).phase = "hand-over";
   table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds };
+  const outcome = room.maybeSettle();
+  await persistHandOutcome(prisma, room, outcome!);
+  return room;
+}
+
+/** Like playHand, but plays a SECOND hand at the exact same table code, in
+ * the SAME Room instance — mirrors multiple hands at one real table. */
+async function playSecondHandAtSameTable(room: Room): Promise<void> {
+  room.nextHand();
+  const table = room.requireTable();
+  (table.state as { phase: string }).phase = "hand-over";
+  table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
   const outcome = room.maybeSettle();
   await persistHandOutcome(prisma, room, outcome!);
 }
@@ -69,12 +81,16 @@ describe("getUserStats", () => {
     expect(stats.netChipsAllTime).toBe(200);
     // The Mico hand (+200) nets more than the plain one (+100).
     expect(stats.biggestWinChips).toBe(200);
+    // 3 hands at 3 different table codes (STATS1/2/3).
+    expect(stats.tablesPlayed).toBe(3);
 
     const loserStats = await getUserStats(prisma, "stats-loser-1");
     expect(loserStats.handsPlayed).toBe(2);
     expect(loserStats.handsWon).toBe(1);
     expect(loserStats.handsWithBonus).toBe(0);
     expect(loserStats.biggestWinChips).toBe(100);
+    // STATS1 and STATS3 — 2 distinct tables.
+    expect(loserStats.tablesPlayed).toBe(2);
   });
 
   it("returns all zeros (and a null biggest win) for a user who has never played", async () => {
@@ -86,7 +102,21 @@ describe("getUserStats", () => {
       netChipsAllTime: 0,
       handsWithBonus: 0,
       biggestWinChips: null,
+      tablesPlayed: 0,
     });
+  });
+
+  it("counts a table only once no matter how many hands were played there (a fresh TableRecord row is created per hand, but the CODE is what identifies a real table)", async () => {
+    await makeUser("stats-regular-winner", "Fabio");
+    await makeUser("stats-regular-loser", "Gina");
+
+    const room = await playHand("STATSAME", "stats-regular-winner", "stats-regular-loser");
+    await playSecondHandAtSameTable(room);
+    await playSecondHandAtSameTable(room);
+
+    const stats = await getUserStats(prisma, "stats-regular-winner");
+    expect(stats.handsPlayed).toBe(3);
+    expect(stats.tablesPlayed).toBe(1);
   });
 
   it("is null for a user who has played but never won", async () => {

@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
 import { Server, type Socket } from "socket.io";
+import { isReactionEmoji } from "@desmoche/shared";
 import type {
   ClientToServerEvents,
   ErrorPayload,
@@ -502,6 +503,24 @@ io.on("connection", (socket: AppSocket) => {
       io.sockets.sockets.get(socketId)?.emit("voice:signal", { fromPlayerId: playerId, data });
     } catch {
       // Not at a table — drop the signal silently, it's not gameplay-critical.
+    }
+  });
+
+  socket.on("reaction:send", ({ emoji }) => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      // Never trust the client's emoji — only ever relay one of the fixed
+      // allowlisted reactions, and only right after a hand ends (this is a
+      // reaction to the outcome, not a general-purpose chat channel).
+      if (!isReactionEmoji(emoji)) return;
+      if (!room.hasStarted || room.requireTable().state.phase !== "hand-over") return;
+      for (const recipientId of [...room.allPlayerIds(), ...room.allSpectatorIds()]) {
+        const socketId = socketIdByUserId.get(recipientId);
+        if (!socketId) continue;
+        io.sockets.sockets.get(socketId)?.emit("reaction:received", { playerId, emoji });
+      }
+    } catch {
+      // Not at a table — nothing to react to.
     }
   });
 

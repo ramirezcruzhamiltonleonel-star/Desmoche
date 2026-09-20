@@ -84,6 +84,25 @@ export interface VoiceJoinAck {
 }
 
 /**
+ * The only reactions a player can ever send — a fixed allowlist, never free
+ * text, so there's no moderation surface. The server rejects anything not
+ * in this exact list (see index.ts's "reaction:send" handler), regardless
+ * of what the client sends.
+ */
+export const REACTION_EMOJIS = ["👏", "😅", "🔥", "😂", "😮"] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+/** Type guard for REACTION_EMOJIS — the ONLY thing that decides whether a client-sent value is relayed at all, never trusting the client's own TS types (a hand-crafted socket message bypasses those entirely). */
+export function isReactionEmoji(value: string): value is ReactionEmoji {
+  return (REACTION_EMOJIS as readonly string[]).includes(value);
+}
+
+export interface ReactionSentEvent {
+  playerId: string;
+  emoji: ReactionEmoji;
+}
+
+/**
  * Client -> server event names and their payload/ack shapes. The socket
  * connection itself must carry a valid auth JWT (in the Socket.io `auth`
  * handshake field) — there is no anonymous session or reconnect token here;
@@ -103,6 +122,8 @@ export interface ClientToServerEvents {
   "voice:join": (ack: (result: VoiceJoinAck) => void) => void;
   "voice:leave": () => void;
   "voice:signal": (payload: VoiceSignalPayload) => void;
+  /** Only legal right after a hand ends ("hand-over" phase) — a quick, moderation-free reaction, not a chat message. Anything outside REACTION_EMOJIS is silently dropped server-side. */
+  "reaction:send": (payload: { emoji: ReactionEmoji }) => void;
 }
 
 /** Server -> client event names. */
@@ -112,4 +133,5 @@ export interface ServerToClientEvents {
   "voice:peer-joined": (event: VoicePeerEvent) => void;
   "voice:peer-left": (event: VoicePeerEvent) => void;
   "voice:signal": (event: VoiceSignalReceived) => void;
+  "reaction:received": (event: ReactionSentEvent) => void;
 }

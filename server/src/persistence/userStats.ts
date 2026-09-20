@@ -14,10 +14,19 @@ export interface UserStats {
    * existing columns, no schema change needed.
    */
   biggestWinChips: number | null;
+  /**
+   * Distinct real tables (by table CODE, not TableRecord row — a fresh
+   * TableRecord is created per hand persisted, even across hands at the
+   * same code, so counting tableId would just equal handsPlayed) this user
+   * has played at least one hand at, ever. A deliberately simple running
+   * count, not a breakable day-streak (which would need date tracking and
+   * a definition of what breaks it) — no schema change needed either way.
+   */
+  tablesPlayed: number;
 }
 
 export async function getUserStats(prisma: PrismaClient, userId: string): Promise<UserStats> {
-  const [handsPlayed, handsWon, netChipsAgg, handsWithBonus, biggestWin] = await Promise.all([
+  const [handsPlayed, handsWon, netChipsAgg, handsWithBonus, biggestWin, handsWithTable] = await Promise.all([
     prisma.handHistoryPlayer.count({ where: { userId } }),
     prisma.handHistoryPlayer.count({ where: { userId, isWinner: true } }),
     prisma.handHistoryPlayer.aggregate({ where: { userId }, _sum: { chipsDelta: true } }),
@@ -25,6 +34,10 @@ export async function getUserStats(prisma: PrismaClient, userId: string): Promis
     prisma.handHistoryPlayer.findFirst({
       where: { userId, isWinner: true },
       orderBy: { chipsDelta: "desc" },
+    }),
+    prisma.handHistoryPlayer.findMany({
+      where: { userId },
+      select: { hand: { select: { table: { select: { code: true } } } } },
     }),
   ]);
 
@@ -34,5 +47,6 @@ export async function getUserStats(prisma: PrismaClient, userId: string): Promis
     netChipsAllTime: netChipsAgg._sum.chipsDelta ?? 0,
     handsWithBonus,
     biggestWinChips: biggestWin?.chipsDelta ?? null,
+    tablesPlayed: new Set(handsWithTable.map((h) => h.hand.table.code)).size,
   };
 }

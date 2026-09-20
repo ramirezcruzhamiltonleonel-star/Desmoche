@@ -67,5 +67,14 @@ export function useSound() {
     playMeld: () => play(600, 140),
     playDesmochar: () => playSequence([420, 560], 90, 70),
     playDeal: () => playSequence([380, 440, 500, 560], 60, 50),
+    /**
+     * Peladía / Cuatro Cuerpos — won on the deal alone, the most dramatic
+     * moments in the game. A fanfare distinct from the plain playWin():
+     * a quick rising run into a sustained high note, not just one beep.
+     */
+    playAutoWin: () => {
+      playSequence([440, 550, 660, 880], 70, 65);
+      setTimeout(() => play(1100, 500), 300);
+    },
   };
 }

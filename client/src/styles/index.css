@@ -84,3 +84,27 @@ body {
 .pending-draw-glow {
   animation: gold-glow-pulse 1.6s ease-in-out infinite;
 }
+
+@keyframes reaction-float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.15);
+  }
+  30% {
+    transform: translate(-50%, -10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -46px) scale(1);
+  }
+}
+
+/* A quick emoji reaction after a hand ends — floats up and fades over the
+   sender's seat, gone on its own so it never needs manual dismissal. */
+.reaction-float {
+  animation: reaction-float-up 2.2s ease-out forwards;
+}

@@ -1,4 +1,11 @@
-import type { ClientHandOutcome, ClientHandSettlement } from "@desmoche/shared";
+import { useState } from "react";
+import {
+  isAutoWinReason,
+  REACTION_EMOJIS,
+  type ClientHandOutcome,
+  type ClientHandSettlement,
+  type ReactionEmoji,
+} from "@desmoche/shared";
 import { REASON_LABELS } from "../lib/labels";
 
 interface HandOverModalProps {
@@ -7,6 +14,8 @@ interface HandOverModalProps {
   nameByPlayerId: Record<string, string>;
   winnerName: string;
   onNextHand: () => void;
+  /** Omitted for spectators — reacting to a hand you didn't play doesn't make sense here. */
+  onReact?: (emoji: ReactionEmoji) => void;
 }
 
 export default function HandOverModal({
@@ -15,13 +24,25 @@ export default function HandOverModal({
   nameByPlayerId,
   winnerName,
   onNextHand,
+  onReact,
 }: HandOverModalProps) {
+  const [justSent, setJustSent] = useState<ReactionEmoji | null>(null);
+  const isAutoWin = isAutoWinReason(outcome.reason);
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-sm rounded-2xl border-4 border-gold bg-felt p-6 text-center shadow-2xl">
-        <h3 className="mb-2 font-display text-2xl text-gold">
+      <div
+        className={`w-full max-w-sm rounded-2xl border-4 bg-felt p-6 text-center shadow-2xl ${
+          isAutoWin ? "pending-draw-glow border-gold" : "border-gold"
+        }`}
+      >
+        <h3 className={`mb-2 font-display text-gold ${isAutoWin ? "text-3xl" : "text-2xl"}`}>
+          {isAutoWin && "⚡ "}
           {REASON_LABELS[outcome.reason] ?? "Mano terminada"}
+          {isAutoWin && " ⚡"}
         </h3>
+        {isAutoWin && (
+          <p className="mb-2 text-xs uppercase tracking-widest text-gold/80">¡Victoria automática al reparto!</p>
+        )}
         {outcome.winnerSeatIndex !== null ? (
           <p className="mb-4 text-sm text-stone-200">
             Gana <span className="font-semibold text-gold">{winnerName}</span>
@@ -75,6 +96,28 @@ export default function HandOverModal({
                   ))}
               </div>
             )}
+          </div>
+        )}
+
+        {onReact && (
+          <div className="mb-4 flex justify-center gap-2">
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  onReact(emoji);
+                  setJustSent(emoji);
+                }}
+                aria-label={`Reaccionar con ${emoji}`}
+                className={`rounded-full border px-2.5 py-1.5 text-lg transition ${
+                  justSent === emoji
+                    ? "border-gold bg-gold/20"
+                    : "border-stone-600 hover:border-gold hover:bg-gold/10"
+                }`}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         )}
 

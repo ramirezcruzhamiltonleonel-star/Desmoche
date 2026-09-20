@@ -49,11 +49,18 @@ export interface ClientClaimView {
   isInitialFlip: boolean;
 }
 
+export type HandOutcomeReason = "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out" | "stock-exhausted";
+
 export interface ClientHandOutcome {
-  reason: "peladia" | "cuatro-cuerpos" | "meld-out" | "discard-out" | "stock-exhausted";
+  reason: HandOutcomeReason;
   /** Null only for "stock-exhausted" — nobody won that hand, so there's no winning seat. */
   winnerSeatIndex: number | null;
   winningMelds: Meld[];
+}
+
+/** Peladía and Cuatro Cuerpos are the two auto-win hands (won on the deal alone, no turn ever played) — the game's most dramatic moments, worth their own sound/visual treatment instead of the generic win. */
+export function isAutoWinReason(reason: HandOutcomeReason): boolean {
+  return reason === "peladia" || reason === "cuatro-cuerpos";
 }
 
 /** The actual payout once a hand ends — null until settlement is computed (immediately after hand-over). */

@@ -3,7 +3,9 @@ import {
   canDesmocharFrom,
   canUseDiscardImmediately,
   findPlayableCardIds,
+  isAutoWinReason,
   isValidMeld,
+  REACTION_EMOJIS,
   type Card as CardModel,
   type ClientSeatView,
 } from "@desmoche/shared";
@@ -12,6 +14,7 @@ import { useGame } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import { useSound } from "../hooks/useSound";
+import { useReactions } from "../hooks/useReactions";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 import { arrangeHandForDisplay } from "../lib/arrangeHand";
 import { buildDealOrder } from "../lib/dealOrder";
@@ -106,6 +109,7 @@ export default function GameTable() {
   const { theme, setTheme } = useTheme();
   const sound = useSound();
   const voice = useVoiceChat();
+  const { reactionsByPlayerId, sendReaction } = useReactions();
   const dealAnim = useDealAnimation();
   const [selectedCards, setSelectedCards] = useState<CardModel[]>([]);
   const [desmocheMode, setDesmocheMode] = useState(false);
@@ -125,7 +129,11 @@ export default function GameTable() {
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
-      sound.playWin();
+      if (state.handOutcome && isAutoWinReason(state.handOutcome.reason)) {
+        sound.playAutoWin();
+      } else {
+        sound.playWin();
+      }
       wonAlreadyRef.current = true;
     }
     if (state?.phase !== "hand-over") {
@@ -468,6 +476,8 @@ export default function GameTable() {
               isDealer={seat.seatIndex === state.dealerSeatIndex}
               isSpeaking={voice.speakingPlayerIds.has(seat.playerId)}
               isDrawing={seat.seatIndex === drawingSeatIndex}
+              reactionEmoji={reactionsByPlayerId[seat.playerId]?.emoji}
+              reactionKey={reactionsByPlayerId[seat.playerId]?.key}
             />
             <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
           </div>
@@ -653,6 +663,7 @@ export default function GameTable() {
           nameByPlayerId={nameByPlayerId}
           winnerName={winnerName}
           onNextHand={nextHand}
+          onReact={state.isSpectator ? undefined : sendReaction}
         />
       )}
 

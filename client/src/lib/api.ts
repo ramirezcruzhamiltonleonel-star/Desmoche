@@ -54,6 +54,8 @@ export interface UserStats {
   handsWithBonus: number;
   /** Chips netted on this user's single best win ever. Null if they've never won a chips-mode hand. */
   biggestWinChips: number | null;
+  /** Distinct tables (by code) this user has ever played at least one hand at — a simple running total, not a breakable streak. */
+  tablesPlayed: number;
 }
 
 export async function fetchMyStats(token: string): Promise<UserStats> {

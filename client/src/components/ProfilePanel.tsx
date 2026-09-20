@@ -47,6 +47,10 @@ export default function ProfilePanel({ token, displayName, onClose }: ProfilePan
 
         {stats && (
           <dl className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-gold/40 bg-gold/10 px-3 py-2">
+              <dt className="text-sm text-stone-200">🃏 Mesas jugadas</dt>
+              <dd className="text-lg font-semibold text-gold">{stats.tablesPlayed}</dd>
+            </div>
             <div className="flex items-center justify-between rounded-lg bg-stone-900/60 px-3 py-2">
               <dt className="text-sm text-stone-300">Manos jugadas</dt>
               <dd className="text-lg font-semibold text-stone-100">{stats.handsPlayed}</dd>

@@ -11,6 +11,8 @@ interface PlayerMeldsClusterProps {
   pickInProgress?: boolean;
   onPickSourceCard?: (meldId: string, card: CardModel) => void;
   sourceCardKey?: string | null;
+  /** Meld id to briefly pulse right after it just grew — see GameTable's meld-success effect. */
+  highlightMeldId?: string | null;
 }
 
 /**
@@ -26,6 +28,7 @@ export default function PlayerMeldsCluster({
   pickInProgress = false,
   onPickSourceCard,
   sourceCardKey,
+  highlightMeldId = null,
 }: PlayerMeldsClusterProps) {
   if (melds.length === 0) return null;
 
@@ -44,6 +47,7 @@ export default function PlayerMeldsCluster({
             size={size}
             pickable={legal}
             dimmed={pickInProgress && !legal}
+            justSucceeded={meld.id === highlightMeldId}
             onPickSourceCard={onPickSourceCard}
             sourceCardKey={sourceCardKey}
           />

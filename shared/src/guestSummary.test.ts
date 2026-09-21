@@ -43,7 +43,7 @@ describe("computeGuestSummary", () => {
     const entry: ClientHandHistoryEntry = {
       reason: "meld-out",
       winnerSeatIndex: 0,
-      settlement: { kind: "chips", winnerId: "me", potWon: 400, extraPerLoser: {} },
+      settlement: { kind: "chips", winnerId: "me", potWon: 400, extraPerLoser: {}, patonaLoserIds: [] },
       playedAt: Date.now(),
     };
     const state = baseState({ ante: 100, yourSeatIndex: 0, handHistory: [entry] });
@@ -62,6 +62,7 @@ describe("computeGuestSummary", () => {
         winnerId: "me",
         potWon: 400,
         extraPerLoser: { p1: 50, p2: 50, p3: 50 },
+        patonaLoserIds: [],
       },
       playedAt: Date.now(),
     };
@@ -74,19 +75,19 @@ describe("computeGuestSummary", () => {
     const won: ClientHandHistoryEntry = {
       reason: "meld-out",
       winnerSeatIndex: 0,
-      settlement: { kind: "chips", winnerId: "me", potWon: 300, extraPerLoser: {} },
+      settlement: { kind: "chips", winnerId: "me", potWon: 300, extraPerLoser: {}, patonaLoserIds: [] },
       playedAt: 1,
     };
     const biggerWin: ClientHandHistoryEntry = {
       reason: "meld-out",
       winnerSeatIndex: 0,
-      settlement: { kind: "chips", winnerId: "me", potWon: 500, extraPerLoser: {} },
+      settlement: { kind: "chips", winnerId: "me", potWon: 500, extraPerLoser: {}, patonaLoserIds: [] },
       playedAt: 2,
     };
     const someoneElseWon: ClientHandHistoryEntry = {
       reason: "meld-out",
       winnerSeatIndex: 1,
-      settlement: { kind: "chips", winnerId: "someone-else", potWon: 900, extraPerLoser: {} },
+      settlement: { kind: "chips", winnerId: "someone-else", potWon: 900, extraPerLoser: {}, patonaLoserIds: [] },
       playedAt: 3,
     };
     const state = baseState({

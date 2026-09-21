@@ -646,6 +646,7 @@ describe("Table — meld-out win and settlement", () => {
       potWon: 200,
       // p0 never placed a single meld this hand: Mico abajo (100) + Patona (100).
       extraPerLoser: { p0: 200 },
+      patonaLoserIds: ["p0"],
     });
   });
 });

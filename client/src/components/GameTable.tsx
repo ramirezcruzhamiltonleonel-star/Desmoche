@@ -3,6 +3,7 @@ import {
   canDesmocharFrom,
   canUseDiscardImmediately,
   computeGuestSummary,
+  computeMeldProgress,
   findPlayableCardIds,
   isAutoWinReason,
   isValidMeld,
@@ -31,6 +32,7 @@ import CambioModal from "./CambioModal";
 import Card from "./Card";
 import CardBack from "./CardBack";
 import ClaimBanner from "./ClaimBanner";
+import ContextualHelpModal from "./ContextualHelpModal";
 import FlyingCard, { type Point } from "./FlyingCard";
 import GuestSummaryModal from "./GuestSummaryModal";
 import HandHistoryPanel from "./HandHistoryPanel";
@@ -119,13 +121,17 @@ export default function GameTable() {
   const [showHistory, setShowHistory] = useState(false);
   const [showGuestSummary, setShowGuestSummary] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !hasTutorialBeenSeen());
+  const [showContextualHelp, setShowContextualHelp] = useState(false);
   const [handArranged, setHandArranged] = useState(false);
   const [confirmingRetire, setConfirmingRetire] = useState(false);
   const [drawingSeatIndex, setDrawingSeatIndex] = useState<number | null>(null);
+  const [justSucceededMeldId, setJustSucceededMeldId] = useState<string | null>(null);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
   const prevCardCountsRef = useRef<Record<number, number>>({});
+  const prevOwnMeldSizesRef = useRef<Record<string, number>>({});
+  const meldSizeInitRef = useRef(false);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -208,6 +214,29 @@ export default function GameTable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.pendingDrawnCard && cardKey(state.pendingDrawnCard)]);
 
+  useEffect(() => {
+    // A meld the player owns growing (a new meld appearing, an extend, or a
+    // desmoche landing a card on it) means their last action was confirmed
+    // by the server — pulse that exact meld. Skip the very first run so a
+    // page load / reconnect with existing melds already on the table doesn't
+    // falsely celebrate.
+    if (!state) return;
+    const ownPlayerId = state.seats.find((s) => s.seatIndex === state.yourSeatIndex)?.playerId ?? null;
+    const ownMelds = state.melds.filter((m) => m.ownerId === ownPlayerId);
+    const prev = prevOwnMeldSizesRef.current;
+    const isFirstRun = !meldSizeInitRef.current;
+    meldSizeInitRef.current = true;
+    const grownMeld = isFirstRun ? undefined : ownMelds.find((meld) => (prev[meld.id] ?? 0) < meld.cards.length);
+    prevOwnMeldSizesRef.current = Object.fromEntries(ownMelds.map((m) => [m.id, m.cards.length]));
+    if (grownMeld) {
+      setJustSucceededMeldId(grownMeld.id);
+      const timer = setTimeout(() => setJustSucceededMeldId(null), 900);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.melds.map((m) => `${m.id}:${m.cards.length}`).join(",")]);
+
   if (!state) return null;
 
   const yourSeat = state.seats.find((s) => s.seatIndex === state.yourSeatIndex);
@@ -221,6 +250,7 @@ export default function GameTable() {
   const canAct = isYourTurn && state.phase === "turn-active" && state.hasDrawnThisTurn;
   const canDraw = isYourTurn && state.phase === "turn-active" && !state.hasDrawnThisTurn;
   const myMelds = state.melds.filter((m) => m.ownerId === yourPlayerId);
+  const meldProgress = computeMeldProgress(state.yourHand, myMelds);
   const nameByPlayerId = Object.fromEntries(state.seats.map((s) => [s.playerId, s.displayName]));
 
   const yourIndexSafe = state.yourSeatIndex ?? 0;
@@ -429,7 +459,7 @@ export default function GameTable() {
               </option>
             ))}
           </select>
-          <button onClick={() => setShowTutorial(true)} aria-label="Cómo se juega" className="p-1 text-base">
+          <button onClick={() => setShowContextualHelp(true)} aria-label="Ayuda — qué está pasando ahora" className="p-1 text-base">
             ❓
           </button>
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
@@ -582,6 +612,26 @@ export default function GameTable() {
                 />
               </div>
             )}
+            {(state.phase === "turn-active" || state.phase === "claim-window") && (
+              <div className="mb-2">
+                <div className="mb-0.5 flex items-center justify-between text-[10px] text-stone-400">
+                  <span>
+                    {meldProgress.fraction >= 1
+                      ? "¡Mano completa!"
+                      : `${meldProgress.meldedCount} de ${meldProgress.totalCount} cartas en grupos`}
+                  </span>
+                  {meldProgress.fraction >= 0.8 && meldProgress.fraction < 1 && (
+                    <span className="font-semibold text-gold">¡Ya casi ganás!</span>
+                  )}
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-800">
+                  <div
+                    className="h-full rounded-full bg-gold transition-[width] duration-300 ease-out"
+                    style={{ width: `${Math.round(Math.min(1, meldProgress.fraction) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {isYourTurn && state.phase === "turn-active" && (
               <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
                 ★ Tu turno ★
@@ -635,6 +685,7 @@ export default function GameTable() {
                   pickInProgress={desmocheMode && !desmocheSource}
                   onPickSourceCard={handlePickDesmocheSource}
                   sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}
+                  highlightMeldId={justSucceededMeldId}
                 />
               </div>
             )}
@@ -725,6 +776,25 @@ export default function GameTable() {
           automatically the moment Cambio resolves; the ❓ button re-opens it
           any time regardless of phase. */}
       {showTutorial && state.phase !== "cambio" && <TutorialModal onClose={handleCloseTutorial} />}
+
+      {showContextualHelp && (
+        <ContextualHelpModal
+          state={state}
+          isYourTurn={isYourTurn}
+          canDraw={canDraw}
+          canAct={canAct}
+          isClaimEligible={isClaimEligible}
+          canClaim={canClaim}
+          turnPlayerName={
+            state.seats.find((s) => s.seatIndex === state.turnSeatIndex)?.displayName ?? "otro jugador"
+          }
+          onClose={() => setShowContextualHelp(false)}
+          onShowFullTutorial={() => {
+            setShowContextualHelp(false);
+            setShowTutorial(true);
+          }}
+        />
+      )}
 
       {showGuestSummary && state && (
         <GuestSummaryModal

@@ -32,6 +32,7 @@ describe("calculateHandOutcome", () => {
       winnerId: "p1",
       potWon: 150,
       extraPerLoser: { p2: 50, p3: 50 },
+      patonaLoserIds: [],
     });
   });
 
@@ -48,6 +49,7 @@ describe("calculateHandOutcome", () => {
       winnerId: "p1",
       potWon: 20,
       extraPerLoser: { p2: 0 },
+      patonaLoserIds: [],
     });
   });
 
@@ -65,7 +67,23 @@ describe("calculateHandOutcome", () => {
       winnerId: "p1",
       potWon: 300,
       extraPerLoser: { p2: 150, p3: 50 }, // p2: Mico + Patona, p3: Mico only
+      // Broken out separately so the client can explain Patona and Mico as
+      // the distinct bonuses they are, instead of only one opaque number.
+      patonaLoserIds: ["p2"],
     });
+  });
+
+  it("patonaLoserIds only ever lists actual losers, never a stray id that wasn't passed in loserIds", () => {
+    const outcome = calculateHandOutcome({
+      stakeType: "chips",
+      ante: 100,
+      winnerId: "p1",
+      loserIds: ["p2"],
+      bonuses: noBonus,
+      patonaLoserIds: ["p2", "not-a-real-loser"],
+    });
+    if (outcome.kind !== "chips") throw new Error("expected chips outcome");
+    expect(outcome.patonaLoserIds).toEqual(["p2"]);
   });
 
   it("ignores Patona entirely in dare mode", () => {

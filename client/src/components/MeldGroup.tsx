@@ -9,6 +9,8 @@ interface MeldGroupProps {
   pickable?: boolean;
   /** True when a pick is in progress elsewhere in this cluster and THIS meld isn't a legal option — dims it instead of leaving it looking just as inviting as the legal ones. */
   dimmed?: boolean;
+  /** True for a brief moment right after this meld grew (placed, extended, or received a desmoche) — plays a one-shot success pulse. */
+  justSucceeded?: boolean;
   onPickSourceCard?: (meldId: string, card: CardModel) => void;
   sourceCardKey?: string | null;
 }
@@ -19,13 +21,14 @@ export default function MeldGroup({
   size = "xs",
   pickable = false,
   dimmed = false,
+  justSucceeded = false,
   onPickSourceCard,
   sourceCardKey,
 }: MeldGroupProps) {
   return (
     <div
       data-meld-id={meld.id}
-      className={`flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1 transition-opacity ${dimmed ? "opacity-40" : ""}`}
+      className={`flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-md border-2 border-stone-600/40 bg-black/20 p-1 transition-opacity ${dimmed ? "opacity-40" : ""} ${justSucceeded ? "meld-success-pulse" : ""}`}
     >
       {sortMeldCardsForDisplay(meld).map((card) => (
         <div key={cardKey(card)} data-card-key={cardKey(card)}>

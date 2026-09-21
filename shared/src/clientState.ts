@@ -65,7 +65,15 @@ export function isAutoWinReason(reason: HandOutcomeReason): boolean {
 
 /** The actual payout once a hand ends — null until settlement is computed (immediately after hand-over). */
 export type ClientHandSettlement =
-  | { kind: "chips" | "money"; winnerId: string; potWon: number; extraPerLoser: Record<string, number> }
+  | {
+      kind: "chips" | "money";
+      winnerId: string;
+      potWon: number;
+      /** Extra each loser owes the winner — Mico (flat per loser) plus their own Patona if it applies, combined. */
+      extraPerLoser: Record<string, number>;
+      /** Which losers specifically owe Patona (placed zero melds all hand) — see patonaLoserIds on the server's ChipsOrMoneyPayout for why this is broken out from extraPerLoser. */
+      patonaLoserIds: string[];
+    }
   | { kind: "dare"; winnerId: string; playersWhoOweADare: string[] }
   | {
       /**

@@ -104,14 +104,22 @@ export default function ActionBar({
               onClick={onPlaceMeld}
               disabled={!canPlaceMeld}
               title={selectedCount >= 3 && !canPlaceMeld ? "Esas cartas no forman un grupo válido" : undefined}
-              className="flex-1 rounded-lg border border-gold px-3 py-2 text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40"
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                canPlaceMeld
+                  ? "border-2 border-gold bg-gold/15 text-gold shadow-[0_0_12px_-2px_rgba(212,175,55,0.6)] hover:bg-gold/25"
+                  : "border border-stone-600 text-stone-500 opacity-60"
+              }`}
             >
               Bajar grupo nuevo
             </button>
             <button
               onClick={onDiscard}
               disabled={!canDiscardSelection}
-              className="flex-1 rounded-lg border border-stone-500 px-3 py-2 text-sm text-stone-200 disabled:cursor-not-allowed disabled:opacity-40"
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                canDiscardSelection
+                  ? "border-2 border-stone-200 bg-stone-200/10 text-stone-100 shadow-[0_0_10px_-2px_rgba(230,230,230,0.35)] hover:bg-stone-200/20"
+                  : "border border-stone-600 text-stone-500 opacity-60"
+              }`}
             >
               Descartar
             </button>
@@ -131,7 +139,11 @@ export default function ActionBar({
                       onClick={() => onExtend(meld.id)}
                       disabled={!legal}
                       title={legal ? undefined : "Esa carta no encaja en este grupo"}
-                      className="rounded-md border border-stone-500 px-2 py-1 text-xs text-stone-200 hover:border-gold disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-stone-500"
+                      className={`rounded-md px-2 py-1 text-xs font-semibold transition disabled:cursor-not-allowed ${
+                        legal
+                          ? "border-2 border-gold bg-gold/15 text-gold shadow-[0_0_8px_-2px_rgba(212,175,55,0.6)] hover:bg-gold/25"
+                          : "border border-stone-600 text-stone-500 opacity-50"
+                      }`}
                     >
                       {meldLabel(meld)}
                     </button>
@@ -146,8 +158,12 @@ export default function ActionBar({
               onClick={onToggleDesmoche}
               disabled={!desmocheMode && !canDesmoche}
               title={canDesmoche ? undefined : "Ninguno de tus grupos tiene una carta de sobra para mover"}
-              className={`w-full rounded-lg border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                desmocheMode ? "border-gold bg-gold/10 text-gold" : "border-stone-500 text-stone-200"
+              className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                desmocheMode
+                  ? "border-2 border-gold bg-gold/20 text-gold"
+                  : canDesmoche
+                    ? "border-2 border-gold bg-gold/15 text-gold shadow-[0_0_12px_-2px_rgba(212,175,55,0.6)] hover:bg-gold/25"
+                    : "border border-stone-600 text-stone-500 opacity-60"
               }`}
             >
               {desmocheMode ? "Cancelar desmoche" : "Te toca desmochar"}
@@ -185,7 +201,11 @@ export default function ActionBar({
                             onClick={() => onPickDestination(meld.id)}
                             disabled={!legal}
                             title={legal ? undefined : "Esa carta no encaja en este grupo"}
-                            className="rounded-md border border-green-500 px-2 py-1 text-xs text-green-300 hover:bg-green-900/30 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                            className={`rounded-md px-2 py-1 text-xs font-semibold transition disabled:cursor-not-allowed ${
+                              legal
+                                ? "border-2 border-green-400 bg-green-500/15 text-green-200 shadow-[0_0_8px_-2px_rgba(74,222,128,0.6)] hover:bg-green-500/25"
+                                : "border border-stone-600 text-stone-500 opacity-50"
+                            }`}
                           >
                             {meldLabel(meld)}
                           </button>
@@ -207,7 +227,11 @@ export default function ActionBar({
                       ? undefined
                       : "Selecciona en tu mano las cartas que, junto con esta, formen un grupo válido"
                   }
-                  className="w-full rounded-lg border border-gold px-3 py-2 text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40"
+                  className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                    canPlaceMeldWithDesmoche
+                      ? "border-2 border-gold bg-gold/15 text-gold shadow-[0_0_12px_-2px_rgba(212,175,55,0.6)] hover:bg-gold/25"
+                      : "border border-stone-600 text-stone-500 opacity-60"
+                  }`}
                 >
                   Bajar grupo nuevo con esta carta
                 </button>

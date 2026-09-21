@@ -1,12 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  bonusesAppliedThisHand,
   isAutoWinReason,
   REACTION_EMOJIS,
+  type BonusKind,
   type ClientHandOutcome,
   type ClientHandSettlement,
   type ReactionEmoji,
 } from "@desmoche/shared";
+import { hasSeenBonus, markBonusSeen } from "../lib/bonusSeenTracker";
 import { REASON_LABELS } from "../lib/labels";
+
+const BONUS_TITLES: Record<BonusKind, string> = {
+  peladia: "¿Qué es una Peladía?",
+  "cuatro-cuerpos": "¿Qué es Cuatro Cuerpos?",
+  mico: "¿Qué es el bono Mico?",
+  patona: "¿Qué es el bono Patona?",
+};
+
+const BONUS_EXPLANATIONS: Record<BonusKind, string> = {
+  peladia:
+    'Ganaste de inmediato porque tu mano recién repartida no tenía ni pares ni 2 o más cartas seguidas del mismo palo — una mano "pelada" así gana en el acto, antes de que nadie juegue.',
+  "cuatro-cuerpos":
+    "Te repartieron las 4 cartas del mismo valor (por ejemplo, los cuatro 8) — eso gana la mano de inmediato, igual que una Peladía.",
+  mico: 'Tu jugada ganadora incluye una escalera A-2-3 o Q-K-A del mismo palo (un "Mico") — por eso cada perdedor te paga un ante extra, además del pozo normal.',
+  patona:
+    'Quien no bajó ningún grupo en toda la mano debe un ante extra por "Patona", además de lo que ya debía por el pozo — se acumula con el Mico si también aplica.',
+};
 
 interface HandOverModalProps {
   outcome: ClientHandOutcome;
@@ -28,6 +48,18 @@ export default function HandOverModal({
 }: HandOverModalProps) {
   const [justSent, setJustSent] = useState<ReactionEmoji | null>(null);
   const isAutoWin = isAutoWinReason(outcome.reason);
+  const appliedBonuses = bonusesAppliedThisHand(outcome, settlement);
+  const micoApplies = appliedBonuses.includes("mico");
+  // Captured once, at the moment this modal first appears for this hand —
+  // "first time" is evaluated exactly once per hand-over, not re-checked on
+  // every re-render (which would flicker back to "already seen" the instant
+  // markBonusSeen runs).
+  const [firstTimeBonuses] = useState<BonusKind[]>(() => appliedBonuses.filter((kind) => !hasSeenBonus(kind)));
+  useEffect(() => {
+    for (const kind of firstTimeBonuses) markBonusSeen(kind);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div
@@ -49,6 +81,17 @@ export default function HandOverModal({
           </p>
         ) : (
           <p className="mb-4 text-sm text-stone-300">Nadie completó su mano — se reparte otra vez.</p>
+        )}
+
+        {firstTimeBonuses.length > 0 && (
+          <div className="mb-4 space-y-2 rounded-lg border border-gold/40 bg-gold/5 p-3 text-left">
+            {firstTimeBonuses.map((kind) => (
+              <div key={kind}>
+                <p className="text-xs font-semibold text-gold">{BONUS_TITLES[kind]}</p>
+                <p className="text-xs text-stone-300">{BONUS_EXPLANATIONS[kind]}</p>
+              </div>
+            ))}
+          </div>
         )}
 
         {settlement && settlement.kind === "carry-over" && (
@@ -90,14 +133,19 @@ export default function HandOverModal({
             </p>
             {Object.entries(settlement.extraPerLoser).some(([, extra]) => extra > 0) && (
               <div className="text-xs">
-                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-400">Bono Mico</p>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-400">Bono extra</p>
                 {Object.entries(settlement.extraPerLoser)
                   .filter(([, extra]) => extra > 0)
-                  .map(([playerId, extra]) => (
-                    <p key={playerId}>
-                      {nameByPlayerId[playerId] ?? playerId} paga {extra} extra
-                    </p>
-                  ))}
+                  .map(([playerId, extra]) => {
+                    const isPatona = settlement.patonaLoserIds.includes(playerId);
+                    const reason = isPatona && micoApplies ? "Mico + Patona" : isPatona ? "Patona" : "Mico";
+                    return (
+                      <p key={playerId}>
+                        {nameByPlayerId[playerId] ?? playerId} paga {extra} extra
+                        <span className="text-stone-500"> ({reason})</span>
+                      </p>
+                    );
+                  })}
               </div>
             )}
           </div>

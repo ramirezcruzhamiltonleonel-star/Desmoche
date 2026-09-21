@@ -85,6 +85,28 @@ body {
   animation: gold-glow-pulse 1.6s ease-in-out infinite;
 }
 
+@keyframes meld-success-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+    transform: scale(1);
+  }
+  30% {
+    box-shadow: 0 0 18px 6px rgba(74, 222, 128, 0.85);
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+    transform: scale(1);
+  }
+}
+
+/* A meld that just grew (new group placed, extended, or received a
+   desmoche) — plays once, not a repeating glow, so it reads as "that just
+   worked" rather than an ongoing prompt to act. */
+.meld-success-pulse {
+  animation: meld-success-pulse 0.9s ease-out;
+}
+
 @keyframes reaction-float-up {
   0% {
     opacity: 0;

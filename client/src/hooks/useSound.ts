@@ -64,8 +64,15 @@ export function useSound() {
     playDiscard: () => play(280, 90),
     playWin: () => play(660, 320),
     playTurn: () => play(520, 140),
-    playMeld: () => play(600, 140),
-    playDesmochar: () => playSequence([420, 560], 90, 70),
+    /**
+     * A meld landing successfully — a short bright rising chime, more
+     * "that's right!" than the plain single beep it used to be, since this
+     * is the main positive-reinforcement moment for someone still learning
+     * which combinations are valid.
+     */
+    playMeld: () => playSequence([600, 760, 920], 70, 55),
+    /** Desmoche succeeding — a rising two-note chime, brighter than the old flat pair. */
+    playDesmochar: () => playSequence([500, 700], 80, 65),
     playDeal: () => playSequence([380, 440, 500, 560], 60, 50),
     /**
      * Peladía / Cuatro Cuerpos — won on the deal alone, the most dramatic

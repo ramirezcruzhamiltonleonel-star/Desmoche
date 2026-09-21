@@ -25,8 +25,16 @@ export interface ChipsOrMoneyPayout {
   winnerId: string;
   /** Total collected pot (ante * total players) awarded to the winner. */
   potWon: number;
-  /** Extra each loser individually owes the winner from Mico bonuses. */
+  /** Extra each loser individually owes the winner — Mico (flat per loser) plus their own Patona if it applies, combined. */
   extraPerLoser: Record<string, number>;
+  /**
+   * Which losers specifically owe Patona (placed zero melds all hand) —
+   * broken out separately from extraPerLoser so the client can explain
+   * Patona and Mico as the distinct bonuses they are, instead of only
+   * ever seeing one opaque combined number. A loser can appear here AND
+   * still owe extra from Mico on top — the two stack.
+   */
+  patonaLoserIds: string[];
 }
 
 export interface DarePayout {
@@ -73,5 +81,6 @@ export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
     winnerId,
     potWon: ante * totalPlayers + carriedOverPot,
     extraPerLoser,
+    patonaLoserIds: loserIds.filter((id) => patonaLoserIds.includes(id)),
   };
 }

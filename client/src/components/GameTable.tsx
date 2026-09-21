@@ -497,8 +497,32 @@ export default function GameTable() {
         <div style={{ gridArea: "center" }} className="flex w-full min-w-0 flex-col items-center gap-3">
           <div className="flex items-center gap-4 sm:gap-6">
             <div ref={dealAnim.deckRef} className="flex flex-col items-center gap-1">
-              <CardBack size="md" />
-              <span className="text-[10px] text-stone-400">Mazo ({state.stockCount})</span>
+              {canDraw ? (
+                // The deck itself IS the action, not just a decoration next
+                // to a separate "Robar del mazo" button — same handler,
+                // same pending-draw-glow language already used elsewhere
+                // for "this is the thing to do right now". Clicking it
+                // triggers drawFromStock exactly like the ActionBar button;
+                // the flip animation already reacts to pendingDrawnCard on
+                // its own, so nothing extra is needed here for that part.
+                <button
+                  type="button"
+                  onClick={handleDraw}
+                  aria-label="Robar del mazo — es tu turno"
+                  className="pending-draw-glow relative rounded-md ring-2 ring-gold transition hover:scale-105 active:scale-95"
+                >
+                  <CardBack size="md" />
+                  <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center rounded-md bg-black/60 px-1 text-center leading-tight">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-gold">Tu turno</span>
+                    <span className="text-[7.5px] text-gold-light">toca para robar</span>
+                  </span>
+                </button>
+              ) : (
+                <CardBack size="md" />
+              )}
+              <span className={`text-[10px] ${canDraw ? "font-semibold text-gold" : "text-stone-400"}`}>
+                {canDraw ? "Mazo — toca para robar" : `Mazo (${state.stockCount})`}
+              </span>
             </div>
             <div className="flex flex-col items-center gap-1">
               {state.topDiscard ? (

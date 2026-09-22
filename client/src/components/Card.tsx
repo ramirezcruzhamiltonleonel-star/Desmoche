@@ -58,8 +58,8 @@ export default function Card({
         onClick?.();
       }}
       disabled={!onClick}
-      className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 font-semibold shadow-md transition
-        ${isRed ? "text-red-600" : "text-stone-900"}
+      className={`flex shrink-0 flex-col items-center justify-between rounded-md border-2 bg-stone-50 font-card font-extrabold shadow-md transition
+        ${isRed ? "text-red-700" : "text-stone-900"}
         ${
           pendingDraw
             ? "pending-draw-glow z-10 scale-110 -translate-y-2 border-gold ring-4 ring-gold"
@@ -74,9 +74,15 @@ export default function Card({
         ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}
     >
-      <span className="self-start leading-none">{card.rank}</span>
+      {/* Both indices are drawn the SAME way up, deliberately not the
+          traditional 180°-rotated bottom index — rotating "6"/"9" or the
+          two-character "10" as a block reads back as "9"/"6" or "01" (a
+          reported legibility bug), and nothing in this digital table is
+          ever viewed from the "other end" the way a real fanned-out card
+          would be, so the rotation bought us a confusion with no upside. */}
+      <span className="self-start tabular-nums leading-none">{card.rank}</span>
       <span className={`${SUIT_SYMBOL_SIZE[size]} leading-none`}>{SUIT_SYMBOL[card.suit]}</span>
-      <span className="self-end rotate-180 leading-none">{card.rank}</span>
+      <span className="self-end tabular-nums leading-none">{card.rank}</span>
     </button>
   );
 }

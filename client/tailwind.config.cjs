@@ -25,6 +25,12 @@ module.exports = {
       },
       fontFamily: {
         display: ['"Playfair Display"', "serif"],
+        // Inter's digits are drawn to stay distinct at small sizes — a 2
+        // keeps a curved hook (not an angular Z-like stroke), 6/9 keep
+        // clearly different bowls, 0/1 don't get lost in "10" — chosen
+        // specifically to fix a reported card-legibility bug, not just for
+        // looks.
+        card: ['"Inter"', "system-ui", "sans-serif"],
       },
     },
   },

@@ -587,6 +587,76 @@ describe("Table — placeMeld combined with a desmoched card (regression)", () =
     expect(table.state.eventLog).toContainEqual({ type: "desmocho", seatIndex: 1, card: c("5", "hearts") });
   });
 
+  // Re-reported as a live regression after the fix above had already shipped
+  // — same shape, different suit, to prove the rule isn't accidentally tied
+  // to hearts specifically. Exact scenario: a complete 4-card set of 5s
+  // (5♠-5♥-5♦-5♣) already down, drew a 6♣, hand had a 7♣ — desmoche the 5♣
+  // out and combine it with the drawn 6♣ and hand's 7♣ into a new 5-6-7♣ run.
+  it("still works for a different suit (bastos/clubs) — the exact re-reported scenario", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("5", "spades"), c("5", "hearts"), c("5", "diamonds"), c("5", "clubs")],
+    });
+    table.state.hands["p1"] = [c("2", "spades"), c("7", "clubs"), c("6", "clubs")];
+    table.state.pendingDrawnCard = c("6", "clubs");
+
+    table.placeMeld("p1", [c("6", "clubs"), c("7", "clubs"), c("5", "clubs")], {
+      fromMeldId: "m1",
+      card: c("5", "clubs"),
+    });
+
+    const originalSet = table.state.melds.find((m) => m.id === "m1")!;
+    expect(originalSet.cards).toEqual([c("5", "spades"), c("5", "hearts"), c("5", "diamonds")]);
+
+    const newRun = table.state.melds.find((m) => m.id !== "m1")!;
+    expect(newRun.type).toBe("run");
+    expect(newRun.cards).toEqual([c("6", "clubs"), c("7", "clubs"), c("5", "clubs")]);
+    expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
+    expect(table.state.pendingDrawnCard).toBeNull();
+  });
+
+  // Generalizes further: a different rank (Kings, not 5s), the required
+  // drawn card landing at the TOP of the run rather than the bottom, and a
+  // 4-card new meld (desmoche + drawn card + 2 hand cards) instead of 3 —
+  // confirms the pattern isn't narrowly tied to the one reported shape.
+  it("generalizes to a different rank, a descending run, and a 4-card new meld", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("K", "spades"), c("K", "hearts"), c("K", "diamonds"), c("K", "clubs")],
+    });
+    table.state.hands["p1"] = [c("2", "spades"), c("Q", "diamonds"), c("J", "diamonds"), c("10", "diamonds")];
+    table.state.pendingDrawnCard = c("10", "diamonds");
+
+    table.placeMeld(
+      "p1",
+      [c("10", "diamonds"), c("J", "diamonds"), c("Q", "diamonds"), c("K", "diamonds")],
+      { fromMeldId: "m1", card: c("K", "diamonds") },
+    );
+
+    const originalSet = table.state.melds.find((m) => m.id === "m1")!;
+    expect(originalSet.cards).toEqual([c("K", "spades"), c("K", "hearts"), c("K", "clubs")]);
+
+    const newRun = table.state.melds.find((m) => m.id !== "m1")!;
+    expect(newRun.type).toBe("run");
+    expect(newRun.cards).toEqual([c("10", "diamonds"), c("J", "diamonds"), c("Q", "diamonds"), c("K", "diamonds")]);
+    expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
+    expect(table.state.pendingDrawnCard).toBeNull();
+  });
+
   it("still refuses the desmoche source if it would shrink below 3 cards, even when combined into a new meld", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));

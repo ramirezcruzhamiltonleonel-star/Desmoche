@@ -83,5 +83,19 @@ export function useSound() {
       playSequence([440, 550, 660, 880], 70, 65);
       setTimeout(() => play(1100, 500), 300);
     },
+    /**
+     * Closing the hand in one real play (meld-out/discard-out) — the
+     * biggest, most "you earned this" celebration in the game, distinct
+     * from both the plain playWin() (used elsewhere) and playAutoWin()
+     * (a deal-luck win, not a played one): a longer rising run into a
+     * two-note triumphant flourish at the top.
+     */
+    playCloseWin: () => {
+      playSequence([440, 523, 587, 659, 784, 880], 65, 60);
+      setTimeout(() => play(1047, 150), 420);
+      setTimeout(() => play(1319, 600), 540);
+    },
+    /** A short, bright multi-tone "clink" for chips changing hands at settlement — distinct timbre (shorter, higher, more clustered) from every other cue so it reads as "money", not another meld/turn/win beep. */
+    playChipsPay: () => playSequence([1400, 1600, 1800], 40, 35),
   };
 }

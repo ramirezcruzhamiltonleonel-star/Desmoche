@@ -35,6 +35,8 @@ interface CardProps {
   claimable?: boolean;
   /** This hand card, on its own or combined with others, is part of at least one legal move right now (extends an own meld, or forms a new one) — a quiet green cue so real options stand out instead of the whole hand looking equally clickable. Never overrides selected/pendingDraw/claimable, which are all more urgent states. */
   playable?: boolean;
+  /** Claim-window only: this hand card would combine with the currently offered discard if claimed — a subtle gold cue, quieter than the offered card's own pulsing glow, so it's obvious at a glance whether claiming is even worth considering. Never overrides selected/pendingDraw/claimable/playable. */
+  connectsToOffer?: boolean;
   onClick?: () => void;
   size?: keyof typeof SIZE_CLASSES;
 }
@@ -45,6 +47,7 @@ export default function Card({
   pendingDraw = false,
   claimable = false,
   playable = false,
+  connectsToOffer = false,
   onClick,
   size = "md",
 }: CardProps) {
@@ -69,7 +72,9 @@ export default function Card({
                 ? "-translate-y-2 border-gold ring-2 ring-gold"
                 : playable
                   ? "border-green-500 ring-2 ring-green-500/70"
-                  : "border-stone-300"
+                  : connectsToOffer
+                    ? "border-gold/70 shadow-[0_0_8px_-1px_rgba(212,175,55,0.65)]"
+                    : "border-stone-300"
         }
         ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : "cursor-default"}
         ${SIZE_CLASSES[size]}`}

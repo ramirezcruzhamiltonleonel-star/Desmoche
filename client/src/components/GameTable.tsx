@@ -146,8 +146,19 @@ export default function GameTable() {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
       if (state.handOutcome && isAutoWinReason(state.handOutcome.reason)) {
         sound.playAutoWin();
+      } else if (
+        state.handOutcome &&
+        (state.handOutcome.reason === "meld-out" || state.handOutcome.reason === "discard-out")
+      ) {
+        sound.playCloseWin();
       } else {
         sound.playWin();
+      }
+      // A bigger buzz specifically for the winner — same "cuts through a
+      // distracted moment" reasoning as the turn-notification vibration,
+      // but longer/distinct so it doesn't feel like just another turn.
+      if (sound.enabled && state.handOutcome?.winnerSeatIndex === state.yourSeatIndex) {
+        vibrate([120, 60, 120]);
       }
       wonAlreadyRef.current = true;
     }
@@ -354,6 +365,15 @@ export default function GameTable() {
   const playableCardKeys = canAct
     ? findPlayableCardIds(state.yourHand, myMelds, requiredCard)
     : new Set<string>();
+  // A quieter, gold cue distinct from playableCardKeys above (which is
+  // green, and only ever populated during your own turn) — during a claim
+  // window, this highlights which of YOUR hand cards would combine with
+  // the offered discard if you claimed it, a passive hint for "is this
+  // worth claiming" without reading any text.
+  const claimConnectionKeys =
+    isClaimEligible && state.claim
+      ? findPlayableCardIds(state.yourHand, myMelds, state.claim.card)
+      : new Set<string>();
   // Deliberately NOT gated on requiredCard/allowMeldsBeforeResolvingDraw —
   // the house rule only ever relaxes WHEN other melds can be placed, never
   // discard's own "must be exactly the pending card" rule, which the
@@ -784,6 +804,7 @@ export default function GameTable() {
                       state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card),
                     )}
                     playable={playableCardKeys.has(cardKey(card))}
+                    connectsToOffer={claimConnectionKeys.has(cardKey(card))}
                     onClick={() => toggleHandCard(card)}
                   />
                 ),

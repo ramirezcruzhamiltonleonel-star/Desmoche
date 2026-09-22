@@ -8,8 +8,34 @@ import {
   type ClientHandSettlement,
   type ReactionEmoji,
 } from "@desmoche/shared";
+import { useSound } from "../hooks/useSound";
 import { hasSeenBonus, markBonusSeen } from "../lib/bonusSeenTracker";
 import { REASON_LABELS } from "../lib/labels";
+import Confetti from "./Confetti";
+
+/** Animates from 0 up to `value` over ~1.1s — used for the pot-won number on a real close, so it reads as "you just earned this" instead of a static line of text. */
+function useCountUp(value: number, active: boolean): number {
+  const [display, setDisplay] = useState(active ? 0 : value);
+  useEffect(() => {
+    if (!active) {
+      setDisplay(value);
+      return undefined;
+    }
+    const durationMs = 1100;
+    const startedAt = performance.now();
+    let frame: number;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startedAt) / durationMs);
+      const eased = 1 - (1 - t) * (1 - t); // ease-out
+      setDisplay(Math.round(eased * value));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, active]);
+  return display;
+}
 
 const BONUS_TITLES: Record<BonusKind, string> = {
   peladia: "¿Qué es una Peladía?",
@@ -48,6 +74,18 @@ export default function HandOverModal({
 }: HandOverModalProps) {
   const [justSent, setJustSent] = useState<ReactionEmoji | null>(null);
   const isAutoWin = isAutoWinReason(outcome.reason);
+  // "Efecto Desmoche": closing the hand in one real play (not a deal-luck
+  // auto-win, not the no-winner stock-exhausted case) is the single biggest
+  // moment a player can have — confetti + a bigger sound + a counting-up
+  // pot, distinct from the calmer auto-win and plain treatments.
+  const isCloseWin = outcome.reason === "meld-out" || outcome.reason === "discard-out";
+  const potWon = settlement && (settlement.kind === "chips" || settlement.kind === "money") ? settlement.potWon : 0;
+  const animatedPot = useCountUp(potWon, isCloseWin);
+  const sound = useSound();
+  useEffect(() => {
+    if (potWon > 0) sound.playChipsPay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const appliedBonuses = bonusesAppliedThisHand(outcome, settlement);
   const micoApplies = appliedBonuses.includes("mico");
   // Captured once, at the moment this modal first appears for this hand —
@@ -62,18 +100,22 @@ export default function HandOverModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+      {isCloseWin && <Confetti />}
       <div
         className={`w-full max-w-sm rounded-2xl border-4 bg-felt p-6 text-center shadow-2xl ${
-          isAutoWin ? "pending-draw-glow border-gold" : "border-gold"
+          isAutoWin || isCloseWin ? "pending-draw-glow border-gold" : "border-gold"
         }`}
       >
-        <h3 className={`mb-2 font-display text-gold ${isAutoWin ? "text-3xl" : "text-2xl"}`}>
-          {isAutoWin && "⚡ "}
+        <h3 className={`mb-2 font-display text-gold ${isAutoWin || isCloseWin ? "text-3xl" : "text-2xl"}`}>
+          {(isAutoWin || isCloseWin) && "⚡ "}
           {REASON_LABELS[outcome.reason] ?? "Mano terminada"}
-          {isAutoWin && " ⚡"}
+          {(isAutoWin || isCloseWin) && " ⚡"}
         </h3>
         {isAutoWin && (
           <p className="mb-2 text-xs uppercase tracking-widest text-gold/80">¡Victoria automática al reparto!</p>
+        )}
+        {isCloseWin && (
+          <p className="mb-2 text-xs uppercase tracking-widest text-gold/80">¡Se la comió completa!</p>
         )}
         {outcome.winnerSeatIndex !== null ? (
           <p className="mb-4 text-sm text-stone-200">
@@ -129,7 +171,10 @@ export default function HandOverModal({
         {settlement && (settlement.kind === "chips" || settlement.kind === "money") && (
           <div className="mb-4 space-y-1 text-sm text-stone-300">
             <p>
-              Pozo ganado: <span className="font-semibold text-gold">{settlement.potWon}</span>
+              Pozo ganado:{" "}
+              <span className={`font-semibold text-gold ${isCloseWin ? "text-lg tabular-nums" : ""}`}>
+                {isCloseWin ? animatedPot : settlement.potWon}
+              </span>
             </p>
             {Object.entries(settlement.extraPerLoser).some(([, extra]) => extra > 0) && (
               <div className="text-xs">

@@ -130,3 +130,21 @@ body {
 .reaction-float {
   animation: reaction-float-up 2.2s ease-out forwards;
 }
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, 0) rotate(var(--rotate-start));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--drift), 105vh) rotate(calc(var(--rotate-start) + 540deg));
+    opacity: 0.9;
+  }
+}
+
+.confetti-piece {
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+  border-radius: 1px;
+}

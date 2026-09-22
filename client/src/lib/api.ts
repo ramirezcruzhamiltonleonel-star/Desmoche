@@ -69,3 +69,40 @@ export async function fetchMyStats(token: string): Promise<UserStats> {
   }
   return data as UserStats;
 }
+
+export interface DailyProgress {
+  currentStreak: number;
+  longestStreak: number;
+  mission: { description: string; target: number; progress: number; completed: boolean };
+  canClaim: boolean;
+}
+
+export async function fetchDailyProgress(token: string): Promise<DailyProgress> {
+  const res = await fetch(`${SERVER_URL}/users/me/daily`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data: unknown = await res.json();
+  if (!res.ok) {
+    const message = (data as Partial<ErrorBody>).message ?? "Error de red";
+    throw new Error(message);
+  }
+  return data as DailyProgress;
+}
+
+export interface ClaimDailyMissionResponse {
+  chipsAwarded: number;
+  newChipBalance: number;
+}
+
+export async function claimDailyMission(token: string): Promise<ClaimDailyMissionResponse> {
+  const res = await fetch(`${SERVER_URL}/users/me/daily/claim`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data: unknown = await res.json();
+  if (!res.ok) {
+    const message = (data as Partial<ErrorBody>).message ?? "Error de red";
+    throw new Error(message);
+  }
+  return data as ClaimDailyMissionResponse;
+}

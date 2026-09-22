@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { isGuestPlayerId } from "../auth/guestId";
 import type { HandOutcome } from "../game/payouts";
 import type { Room } from "../rooms/room";
+import { updateStreakForPlay } from "./streak";
 
 /**
  * Persists one finished hand's result: a row per seated player (for
@@ -16,12 +17,17 @@ import type { Room } from "../rooms/room";
  * bigger potWon, never as its own balance movement.
  *
  * Guest seats are deliberately excluded from the players.create list and
- * the chip-balance update loop — HandHistoryPlayer.userId has a hard
+ * the chip-balance/streak update loops — HandHistoryPlayer.userId has a hard
  * foreign key to a real User row, and a guest never gets one (that's the
- * whole point: nothing persists for them). Excluding just their row still
- * lets the rest of the table's real participants get recorded normally;
- * winnerUserId itself has no such constraint, so a guest winning is fine to
- * record there even though they get no HandHistoryPlayer row of their own.
+ * whole point: nothing persists for them). Bots are NOT excluded here: per
+ * game/bot.ts and db/seedBots.ts, every bot persona is a real, permanently
+ * seeded User row (huge fixed chip balance, topped up if it ever runs low),
+ * specifically so a table with a bot seated settles exactly like an
+ * all-human one with zero bot-specific branching anywhere in persistence.
+ * Excluding guests still lets the rest of the table's real participants get
+ * recorded normally; winnerUserId itself has no such constraint, so a guest
+ * winning is fine to record there even though they get no HandHistoryPlayer
+ * row of their own.
  */
 export async function persistHandOutcome(
   prisma: PrismaClient,
@@ -75,5 +81,28 @@ export async function persistHandOutcome(
         data: { chipBalance: { increment: delta } },
       });
     }
+  }
+
+  // Streak: every real participant just played a hand, win or lose — update
+  // each one's running streak independently (sequentially, not in
+  // parallel, so a transient failure on one user's row can't race with
+  // another's read-then-write against the same connection pool).
+  const now = new Date();
+  for (const seat of realSeats) {
+    const user = await prisma.user.findUnique({
+      where: { id: seat.playerId },
+      select: { currentStreak: true, longestStreak: true, lastPlayedDate: true },
+    });
+    if (!user) continue;
+    const next = updateStreakForPlay(user, now);
+    if (next === user) continue; // already played today, nothing to write
+    await prisma.user.update({
+      where: { id: seat.playerId },
+      data: {
+        currentStreak: next.currentStreak,
+        longestStreak: next.longestStreak,
+        lastPlayedDate: next.lastPlayedDate,
+      },
+    });
   }
 }

@@ -19,6 +19,20 @@ model User {
   chipBalance Int      @default(1000)
   createdAt   DateTime @default(now())
 
+  /// Consecutive UTC calendar days with at least one hand played, most recent streak.
+  currentStreak Int @default(0)
+  /// Highest currentStreak this user has ever reached — never decreases.
+  longestStreak Int @default(0)
+  /// UTC-midnight-normalized date of the last hand this user played — the
+  /// only state needed to tell "continues the streak" (exactly 1 day later)
+  /// from "streak broke" (anything more) on their next hand. Null before
+  /// their first ever recorded hand.
+  lastPlayedDate DateTime?
+  /// UTC-midnight-normalized date the daily-mission chip reward was last
+  /// claimed — guards against claiming twice in the same day. Null until
+  /// the first ever claim.
+  dailyMissionClaimedDate DateTime?
+
   handAppearances HandHistoryPlayer[]
 }
 

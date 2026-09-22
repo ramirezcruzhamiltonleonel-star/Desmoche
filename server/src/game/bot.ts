@@ -19,12 +19,19 @@ import { handOf } from "./state";
  * human one anywhere in the server; there's no separate "isBot" flag to keep
  * in sync. Also used as-is as the bots' `User.id` in Postgres (see
  * `db/seedBots.ts`) so hand history/chip balance need zero bot-specific
- * branching — they're just three more real Users.
+ * branching — they're just more real Users. `avatar` is a plain emoji
+ * (never an image asset), shown instead of a generic 🤖 so bots read as
+ * distinct characters rather than one interchangeable "the bot".
  */
-export const BOT_PERSONAS: { id: string; displayName: string }[] = [
-  { id: "bot:fernando", displayName: "🤖 Fernando" },
-  { id: "bot:carla", displayName: "🤖 Carla" },
-  { id: "bot:mateo", displayName: "🤖 Mateo" },
+export const BOT_PERSONAS: { id: string; displayName: string; avatar: string }[] = [
+  { id: "bot:chepe", displayName: "El Chepe", avatar: "🤠" },
+  { id: "bot:chilo", displayName: "La Chilo", avatar: "💁‍♀️" },
+  { id: "bot:pedro", displayName: "Don Pedro", avatar: "🧔" },
+  { id: "bot:rosa", displayName: "Doña Rosa", avatar: "👵" },
+  { id: "bot:negro", displayName: "El Negro", avatar: "🧑🏾" },
+  { id: "bot:flaca", displayName: "La Flaca", avatar: "💃" },
+  { id: "bot:chepito", displayName: "Chepito", avatar: "👦" },
+  { id: "bot:colocha", displayName: "La Colocha", avatar: "👩‍🦱" },
 ];
 
 export function isBotPlayerId(playerId: string): boolean {

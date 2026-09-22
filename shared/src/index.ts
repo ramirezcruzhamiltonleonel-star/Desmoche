@@ -12,3 +12,5 @@ export * from "./meldLabel";
 export * from "./meldProgress";
 export * from "./bonuses";
 export * from "./bonusesApplied";
+export * from "./botCommentary";
+export * from "./claimHint";

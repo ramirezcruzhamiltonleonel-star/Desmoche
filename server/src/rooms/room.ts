@@ -144,13 +144,17 @@ export class Room {
     if (this.stakeType === "dare") throw new GameError("No se pueden agregar bots a una mesa de Retos");
 
     const used = new Set(this.seats.map((s) => s.playerId));
-    const persona = BOT_PERSONAS.find((p) => !used.has(p.id));
-    if (!persona) throw new GameError("No hay más bots disponibles");
+    const available = BOT_PERSONAS.filter((p) => !used.has(p.id));
+    if (available.length === 0) throw new GameError("No hay más bots disponibles");
+    // Random, not "first unused" — with 8 personas and a 4-seat table cap,
+    // always picking in array order would mean the last 4 never show up in
+    // practice. Random keeps the roster actually rotating across tables.
+    const persona = available[Math.floor(Math.random() * available.length)]!;
 
     this.seats.push({
       seatIndex: this.seats.length,
       playerId: persona.id,
-      displayName: persona.displayName,
+      displayName: `${persona.avatar} ${persona.displayName}`,
       connected: true,
       // Bots have no "listo" UI of their own — they're always ready, so the
       // table only ever waits on the humans still seated.

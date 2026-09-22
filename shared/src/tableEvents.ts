@@ -1,4 +1,5 @@
 import type { Card } from "./cards";
+import type { MeldType } from "./melds";
 
 /**
  * A filterable log of notable in-hand moments, accumulated for the whole
@@ -10,6 +11,8 @@ export type TableEvent =
   | { type: "claimed-discard"; seatIndex: number; card: Card }
   | { type: "desmocho"; seatIndex: number; card: Card }
   | { type: "peladia"; seatIndex: number }
-  | { type: "cuatro-cuerpos"; seatIndex: number };
+  | { type: "cuatro-cuerpos"; seatIndex: number }
+  | { type: "meld-placed"; seatIndex: number; meldType: MeldType; cards: Card[] }
+  | { type: "retired"; seatIndex: number };
 
 export type TableEventType = TableEvent["type"];

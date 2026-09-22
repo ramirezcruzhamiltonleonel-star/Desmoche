@@ -4,7 +4,9 @@ import {
   canUseDiscardImmediately,
   computeGuestSummary,
   computeMeldProgress,
+  explainClaimUsefulness,
   findPlayableCardIds,
+  formatMeldCommentary,
   isAutoWinReason,
   isValidMeld,
   REACTION_EMOJIS,
@@ -25,6 +27,7 @@ import { saveGuestNameHint } from "../lib/guestNameHint";
 import { STAKE_LABELS } from "../lib/labels";
 import { sortHandForDisplay } from "../lib/sortHand";
 import { THEME_LABELS, THEMES } from "../lib/themeStorage";
+import { hasFirstClaimHintBeenSeen, markFirstClaimHintSeen } from "../lib/claimHintStorage";
 import { hasTutorialBeenSeen, markTutorialSeen } from "../lib/tutorialStorage";
 import { vibrate } from "../lib/vibration";
 import ActionBar from "./ActionBar";
@@ -39,6 +42,7 @@ import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
 import PlayerMeldsCluster from "./PlayerMeldsCluster";
 import PlayerSeat from "./PlayerSeat";
+import RulesPage from "./RulesPage";
 import StockFlipCard from "./StockFlipCard";
 import TutorialModal from "./TutorialModal";
 import VoiceChatPanel from "./VoiceChatPanel";
@@ -119,6 +123,7 @@ export default function GameTable() {
   const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [showGuestSummary, setShowGuestSummary] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !hasTutorialBeenSeen());
   const [showContextualHelp, setShowContextualHelp] = useState(false);
@@ -126,12 +131,16 @@ export default function GameTable() {
   const [confirmingRetire, setConfirmingRetire] = useState(false);
   const [drawingSeatIndex, setDrawingSeatIndex] = useState<number | null>(null);
   const [justSucceededMeldId, setJustSucceededMeldId] = useState<string | null>(null);
+  const [botSpeech, setBotSpeech] = useState<{ seatIndex: number; text: string; key: number } | null>(null);
+  const [firstClaimHint, setFirstClaimHint] = useState<string | null>(null);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
   const prevCardCountsRef = useRef<Record<number, number>>({});
   const prevOwnMeldSizesRef = useRef<Record<string, number>>({});
   const meldSizeInitRef = useRef(false);
+  const prevEventLogLengthRef = useRef(0);
+  const botSpeechKeyRef = useRef(0);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -236,6 +245,56 @@ export default function GameTable() {
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.melds.map((m) => `${m.id}:${m.cards.length}`).join(",")]);
+
+  useEffect(() => {
+    // Bot commentary: only the newest entries since last render, and only
+    // for a bot seat — a human's own meld/retire is already obvious from
+    // their own screen, this is specifically to make bots feel alive.
+    if (!state) return;
+    const prevLength = prevEventLogLengthRef.current;
+    const newEntries = state.eventLog.slice(prevLength);
+    prevEventLogLengthRef.current = state.eventLog.length;
+    if (prevLength === 0) return; // skip whatever already happened before this player joined/reconnected
+
+    for (const entry of newEntries) {
+      if (entry.type !== "meld-placed" && entry.type !== "retired") continue;
+      const seat = state.seats.find((s) => s.seatIndex === entry.seatIndex);
+      if (!seat || !seat.isBot) continue;
+      const text =
+        entry.type === "retired"
+          ? `${seat.displayName} se retiró de la mano`
+          : `${seat.displayName} bajó ${formatMeldCommentary(entry.meldType, entry.cards)}`;
+      botSpeechKeyRef.current += 1;
+      setBotSpeech({ seatIndex: entry.seatIndex, text, key: botSpeechKeyRef.current });
+      const timer = setTimeout(() => setBotSpeech(null), 2300); // matches .reaction-float's 2.2s animation
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.eventLog.length]);
+
+  useEffect(() => {
+    // Only the very first genuinely-useful claim, ever, for this browser —
+    // explains WHY once, then gets out of the way permanently. Keyed on
+    // claimWindowId so this runs once per NEW window, not once per render.
+    if (!state || state.phase !== "claim-window" || !state.claim) return;
+    if (state.yourSeatIndex === null || !state.claim.pendingSeatIndices.includes(state.yourSeatIndex)) return;
+    if (hasFirstClaimHintBeenSeen()) {
+      // Already shown (maybe even earlier THIS window, before a re-render)
+      // — never let a stale hint from an earlier window linger and
+      // reappear on a later, unrelated claim.
+      setFirstClaimHint(null);
+      return;
+    }
+    const ownPlayerId = state.seats.find((s) => s.seatIndex === state.yourSeatIndex)?.playerId ?? null;
+    const ownMelds = state.melds.filter((m) => m.ownerId === ownPlayerId);
+    const hint = explainClaimUsefulness(state.yourHand, state.claim.card, ownMelds);
+    if (hint) {
+      setFirstClaimHint(hint);
+      markFirstClaimHintSeen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.claim?.claimWindowId]);
 
   if (!state) return null;
 
@@ -462,6 +521,9 @@ export default function GameTable() {
           <button onClick={() => setShowContextualHelp(true)} aria-label="Ayuda — qué está pasando ahora" className="p-1 text-base">
             ❓
           </button>
+          <button onClick={() => setShowRules(true)} aria-label="Reglas completas del juego" className="p-1 text-base">
+            📖
+          </button>
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
             📜
           </button>
@@ -509,8 +571,16 @@ export default function GameTable() {
             // below content size" — without it, a wide meld cluster ignores
             // the track width entirely and spills into the neighboring
             // area instead of scrolling within its own box.
-            className="flex w-full min-w-0 flex-col items-center gap-1 justify-self-center"
+            className="relative flex w-full min-w-0 flex-col items-center gap-1 justify-self-center"
           >
+            {botSpeech?.seatIndex === seat.seatIndex && (
+              <div
+                key={botSpeech.key}
+                className="reaction-float pointer-events-none absolute left-1/2 top-0 z-20 w-max max-w-[9rem] rounded-lg border border-gold/60 bg-stone-900/95 px-2 py-1 text-center text-[10px] leading-tight text-stone-100 shadow-lg"
+              >
+                {botSpeech.text}
+              </div>
+            )}
             <PlayerSeat
               seat={seat}
               isTurn={seat.seatIndex === state.turnSeatIndex}
@@ -586,6 +656,7 @@ export default function GameTable() {
           claim={state.claim}
           isEligible={isClaimEligible}
           canClaim={canClaim}
+          firstClaimHint={firstClaimHint}
           onRespond={(response) => sendAction({ type: "respond-claim", response })}
         />
       )}
@@ -775,6 +846,8 @@ export default function GameTable() {
       {showHistory && (
         <HandHistoryPanel state={state} nameByPlayerId={nameByPlayerId} onClose={() => setShowHistory(false)} />
       )}
+
+      {showRules && <RulesPage onClose={() => setShowRules(false)} />}
 
       {/* Deferred while Cambio's own modal needs the screen — a brand-new
           player's very first hand always opens on "cambio", so without this

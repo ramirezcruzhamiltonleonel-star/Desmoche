@@ -18,9 +18,11 @@ interface ClaimBannerProps {
   /** Whether the card would genuinely fit right now — checked with the exact same rule the server enforces, so "Sí me sirve" is never clickable only to get rejected. */
   canClaim: boolean;
   onRespond: (response: "claim" | "pass") => void;
+  /** Set only the very first time in this session/account a claim is genuinely useful — explains WHY, then never shows again once the player's seen it. */
+  firstClaimHint?: string | null;
 }
 
-export default function ClaimBanner({ claim, isEligible, canClaim, onRespond }: ClaimBannerProps) {
+export default function ClaimBanner({ claim, isEligible, canClaim, onRespond, firstClaimHint }: ClaimBannerProps) {
   // This component remounts (see the `key` on it in GameTable.tsx) every time
   // a genuinely new card is offered, so a plain mount-time timestamp is
   // enough — no need to track the previous card here at all.
@@ -58,6 +60,11 @@ export default function ClaimBanner({ claim, isEligible, canClaim, onRespond }: 
       </div>
       {isEligible ? (
         <div className="flex flex-col items-center gap-2">
+          {firstClaimHint && canClaim && (
+            <p className="rounded-lg border border-gold/40 bg-gold/10 px-2 py-1.5 text-center text-xs text-gold">
+              💡 {firstClaimHint}
+            </p>
+          )}
           <div className="flex justify-center gap-3">
             <button
               onClick={() => onRespond("claim")}

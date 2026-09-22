@@ -217,6 +217,7 @@ export class Table {
       throw new GameError("Ya estás fuera de esta mano");
     }
     this.markSeatInactive(seat.seatIndex);
+    this.state.eventLog.push({ type: "retired", seatIndex: seat.seatIndex });
   }
 
   private finishHand(
@@ -598,6 +599,12 @@ export class Table {
 
     const meldType = isValidSet(cards) ? "set" : "run";
     this.state.melds.push({ id: newMeldId(), type: meldType, ownerId: playerId, cards });
+    this.state.eventLog.push({
+      type: "meld-placed",
+      seatIndex: seatOf(this.state, playerId).seatIndex,
+      meldType,
+      cards,
+    });
 
     if (desmoche) {
       this.state.eventLog.push({

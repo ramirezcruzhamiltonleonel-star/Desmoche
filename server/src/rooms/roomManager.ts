@@ -5,12 +5,17 @@ import { generateTableCode, Room } from "./room";
 export class RoomManager {
   private readonly rooms = new Map<string, Room>();
 
-  createRoom(stakeType: StakeType, ante: number, autoWinsEnabled = true): Room {
+  createRoom(
+    stakeType: StakeType,
+    ante: number,
+    autoWinsEnabled = true,
+    allowMeldsBeforeResolvingDraw = false,
+  ): Room {
     let code = generateTableCode();
     while (this.rooms.has(code)) {
       code = generateTableCode();
     }
-    const room = new Room(code, stakeType, ante, autoWinsEnabled);
+    const room = new Room(code, stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw);
     this.rooms.set(code, room);
     return room;
   }

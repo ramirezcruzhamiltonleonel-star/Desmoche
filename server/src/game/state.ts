@@ -17,6 +17,17 @@ export interface TableConfig {
   ante: number;
   /** false = "modo sin automáticas": Peladía/Cuatro Cuerpos never end a hand early, every deal is played out normally. Defaults to true (classic) wherever a config is built without specifying it. */
   autoWinsEnabled: boolean;
+  /**
+   * House-rule variant some tables play in Nicaragua: place/extend OTHER
+   * melds (ones that don't involve the card) before resolving a
+   * stock-drawn pending card, instead of being forced to use-or-discard it
+   * before anything else. The pending card still eventually needs
+   * resolving the same way (use it in a meld, or discard exactly it) —
+   * this only relaxes WHEN that has to happen, not whether it does.
+   * Defaults to false (classic: resolve immediately) wherever a config is
+   * built without specifying it.
+   */
+  allowMeldsBeforeResolvingDraw: boolean;
 }
 
 export interface ClaimWindowState {

@@ -514,8 +514,16 @@ export class Table {
     }
   }
 
-  /** Throws unless the pending stock-drawn card (if any) is among the cards being placed. */
+  /**
+   * Throws unless the pending stock-drawn card (if any) is among the cards
+   * being placed — skipped entirely under the allowMeldsBeforeResolvingDraw
+   * house rule, which lets a player place/extend OTHER melds first. Either
+   * way, discard() still separately refuses to end the turn until the
+   * pending card is actually resolved — this only ever relaxes WHEN that
+   * has to happen, never whether it does.
+   */
   private assertPendingDrawnCardIncluded(cards: Card[]): void {
+    if (this.config.allowMeldsBeforeResolvingDraw) return;
     const pending = this.state.pendingDrawnCard;
     if (pending && !cards.some((c) => cardId(c) === cardId(pending))) {
       throw new GameError(

@@ -18,6 +18,7 @@ export default function HomeScreen() {
   const [stakeType, setStakeType] = useState<StakeType>("chips");
   const [ante, setAnte] = useState(100);
   const [autoWinsEnabled, setAutoWinsEnabled] = useState(true);
+  const [allowMeldsBeforeResolvingDraw, setAllowMeldsBeforeResolvingDraw] = useState(false);
   const [code, setCode] = useState(sharedCode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,7 +28,7 @@ export default function HomeScreen() {
     setError(null);
     setBusy(true);
     try {
-      await createTable(stakeType, stakeType === "chips" ? ante : 0, autoWinsEnabled);
+      await createTable(stakeType, stakeType === "chips" ? ante : 0, autoWinsEnabled, allowMeldsBeforeResolvingDraw);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -195,6 +196,21 @@ export default function HomeScreen() {
                   Modo sin automáticas
                   <span className="block text-xs text-stone-400">
                     Peladía y Cuatro Cuerpos no aplican — cada mano se juega completa.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-stone-200">
+                <input
+                  type="checkbox"
+                  checked={allowMeldsBeforeResolvingDraw}
+                  onChange={(e) => setAllowMeldsBeforeResolvingDraw(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Regla de casa: bajar otros grupos antes de resolver la carta robada
+                  <span className="block text-xs text-stone-400">
+                    Podés bajar o extender grupos que no usan la carta que acabás de robar, antes de
+                    usarla o descartarla. Variante que se juega en algunas mesas.
                   </span>
                 </span>
               </label>

@@ -7,6 +7,7 @@ export interface TableIdentity {
   stakeType: ClientGameState["stakeType"];
   ante: number;
   autoWinsEnabled: boolean;
+  allowMeldsBeforeResolvingDraw: boolean;
 }
 
 /**
@@ -27,6 +28,7 @@ export function toClientView(
     stakeType: identity.stakeType,
     ante: identity.ante,
     autoWinsEnabled: identity.autoWinsEnabled,
+    allowMeldsBeforeResolvingDraw: identity.allowMeldsBeforeResolvingDraw,
     phase: state.phase,
     seats: state.seats.map((seat) => ({
       seatIndex: seat.seatIndex,

@@ -332,9 +332,12 @@ export default function GameTable() {
 
   // A stock draw is never a free choice — whatever's selected must include it
   // before placing/extending is allowed to go through (mirrors the server's
-  // assertPendingDrawnCardIncluded). A claimed discard (mustPlaceCard) works
-  // the same way but doesn't force a specific selection beyond "place it".
-  const requiredCard = state.pendingDrawnCard;
+  // assertPendingDrawnCardIncluded) — UNLESS the table's house rule allows
+  // other melds first, in which case the server doesn't enforce this at all
+  // and the UI shouldn't either. A claimed discard (mustPlaceCard) works the
+  // pending-card way but doesn't force a specific selection beyond "place it",
+  // and isn't affected by this house rule (it's about stock draws only).
+  const requiredCard = state.allowMeldsBeforeResolvingDraw ? null : state.pendingDrawnCard;
   const selectionIncludesRequired =
     !requiredCard || selectedCards.some((c) => cardKey(c) === cardKey(requiredCard));
   const canPlaceMeld = selectionIncludesRequired && isValidMeld(selectedCards);
@@ -351,10 +354,14 @@ export default function GameTable() {
   const playableCardKeys = canAct
     ? findPlayableCardIds(state.yourHand, myMelds, requiredCard)
     : new Set<string>();
+  // Deliberately NOT gated on requiredCard/allowMeldsBeforeResolvingDraw —
+  // the house rule only ever relaxes WHEN other melds can be placed, never
+  // discard's own "must be exactly the pending card" rule, which the
+  // server enforces unconditionally either way.
   const canDiscardSelection =
     selectedCards.length === 1 &&
     !state.mustPlaceCard &&
-    (!requiredCard || cardKey(selectedCards[0]!) === cardKey(requiredCard));
+    (!state.pendingDrawnCard || cardKey(selectedCards[0]!) === cardKey(state.pendingDrawnCard));
   const canDesmoche = myMelds.some((meld) => canDesmocharFrom(meld.cards));
   const validDesmocheDestinationIds = new Set(
     desmocheSource

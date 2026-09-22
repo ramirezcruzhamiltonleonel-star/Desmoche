@@ -106,6 +106,8 @@ export interface ClientGameState {
   ante: number;
   /** "Modo sin automáticas": when false, Peladía/Cuatro Cuerpos never end a hand early — every deal is played out normally. Fixed for the table's lifetime. */
   autoWinsEnabled: boolean;
+  /** House rule: when true, other melds can be placed/extended before resolving a stock-drawn pending card (it still eventually has to be used or discarded). Fixed for the table's lifetime. */
+  allowMeldsBeforeResolvingDraw: boolean;
   phase: Phase;
   seats: ClientSeatView[];
   yourSeatIndex: number | null;

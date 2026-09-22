@@ -33,6 +33,8 @@ export class Room {
   readonly ante: number;
   /** "Modo sin automáticas": Peladía/Cuatro Cuerpos never end a hand early when false. Fixed for the table's lifetime, chosen at creation. */
   readonly autoWinsEnabled: boolean;
+  /** House rule: place/extend other melds before resolving a stock-drawn pending card. Fixed for the table's lifetime, chosen at creation. */
+  readonly allowMeldsBeforeResolvingDraw: boolean;
 
   private seats: Seat[] = [];
   private table: Table | null = null;
@@ -63,11 +65,18 @@ export class Room {
    */
   private leftPlayerIds = new Set<string>();
 
-  constructor(code: string, stakeType: StakeType, ante: number, autoWinsEnabled = true) {
+  constructor(
+    code: string,
+    stakeType: StakeType,
+    ante: number,
+    autoWinsEnabled = true,
+    allowMeldsBeforeResolvingDraw = false,
+  ) {
     this.code = code;
     this.stakeType = stakeType;
     this.ante = ante;
     this.autoWinsEnabled = autoWinsEnabled;
+    this.allowMeldsBeforeResolvingDraw = allowMeldsBeforeResolvingDraw;
   }
 
   get hasStarted(): boolean {
@@ -237,6 +246,7 @@ export class Room {
       stakeType: this.stakeType,
       ante: this.ante,
       autoWinsEnabled: this.autoWinsEnabled,
+      allowMeldsBeforeResolvingDraw: this.allowMeldsBeforeResolvingDraw,
     };
     this.dealerSeatIndex = 0;
     this.handSettled = false;
@@ -302,7 +312,13 @@ export class Room {
       return {
         ...toClientView(
           this.table.state,
-          { code: this.code, stakeType: this.stakeType, ante: this.ante, autoWinsEnabled: this.autoWinsEnabled },
+          {
+            code: this.code,
+            stakeType: this.stakeType,
+            ante: this.ante,
+            autoWinsEnabled: this.autoWinsEnabled,
+            allowMeldsBeforeResolvingDraw: this.allowMeldsBeforeResolvingDraw,
+          },
           playerId,
         ),
         handSettlement: this.settlementCache,
@@ -316,6 +332,7 @@ export class Room {
       stakeType: this.stakeType,
       ante: this.ante,
       autoWinsEnabled: this.autoWinsEnabled,
+      allowMeldsBeforeResolvingDraw: this.allowMeldsBeforeResolvingDraw,
       phase: "lobby",
       seats: this.seats.map((s) => ({
         seatIndex: s.seatIndex,

@@ -23,7 +23,13 @@ function botSeats(count: number): Seat[] {
 }
 
 function config(): TableConfig {
-  return { code: "ABCD", stakeType: "chips", ante: 100, autoWinsEnabled: true };
+  return {
+    code: "ABCD",
+    stakeType: "chips",
+    ante: 100,
+    autoWinsEnabled: true,
+    allowMeldsBeforeResolvingDraw: false,
+  };
 }
 
 function applyAction(table: Table, playerId: string, action: GameAction): void {

@@ -37,7 +37,13 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
   };
 }
 
-const identity = { code: "ABCD", stakeType: "chips" as const, ante: 100, autoWinsEnabled: true };
+const identity = {
+  code: "ABCD",
+  stakeType: "chips" as const,
+  ante: 100,
+  autoWinsEnabled: true,
+  allowMeldsBeforeResolvingDraw: false,
+};
 
 describe("toClientView", () => {
   it("shows the viewer their own hand in full", () => {

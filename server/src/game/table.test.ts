@@ -18,7 +18,14 @@ function seats(count: number): Seat[] {
 }
 
 function config(overrides: Partial<TableConfig> = {}): TableConfig {
-  return { code: "ABCD", stakeType: "chips", ante: 100, autoWinsEnabled: true, ...overrides };
+  return {
+    code: "ABCD",
+    stakeType: "chips",
+    ante: 100,
+    autoWinsEnabled: true,
+    allowMeldsBeforeResolvingDraw: false,
+    ...overrides,
+  };
 }
 
 /**
@@ -1243,6 +1250,52 @@ describe("Table — a stock draw is resolved immediately, never joining the orig
     expect(table.state.phase).toBe("hand-over");
     expect(table.state.handOutcome?.reason).toBe("meld-out");
     expect(table.state.handOutcome?.winnerSeatIndex).toBe(0);
+  });
+});
+
+describe("Table — allowMeldsBeforeResolvingDraw house rule", () => {
+  function reachP0NormalDrawWithHouseRule(): Table {
+    const table = new Table(config({ allowMeldsBeforeResolvingDraw: true }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0);
+    return table;
+  }
+
+  it("lets a meld that omits the pending drawn card go through when the house rule is on", () => {
+    const table = reachP0NormalDrawWithHouseRule();
+    table.state.hands["p0"] = [c("9", "spades"), c("9", "hearts"), c("9", "clubs"), c("2", "diamonds")];
+    table.state.stock.push(c("K", "diamonds"));
+    const drawn = table.drawFromStock("p0");
+    expect(drawn).toEqual([c("K", "diamonds")]);
+
+    table.placeMeld("p0", [c("9", "spades"), c("9", "hearts"), c("9", "clubs")]);
+
+    // The unrelated meld went down fine, but the K♦ is still unresolved.
+    expect(table.state.melds).toContainEqual(
+      expect.objectContaining({ type: "set", cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")] }),
+    );
+    expect(table.state.pendingDrawnCard).toEqual(c("K", "diamonds"));
+  });
+
+  it("still refuses to discard anything other than the pending card, even with the house rule on", () => {
+    const table = reachP0NormalDrawWithHouseRule();
+    const handBeforeDraw = [...table.state.hands["p0"]!];
+    table.drawFromStock("p0");
+
+    expect(() => table.discard("p0", handBeforeDraw[0]!)).toThrow(GameError);
+  });
+
+  it("still lets the drawn card itself be resolved normally alongside the house rule", () => {
+    const table = reachP0NormalDrawWithHouseRule();
+    table.state.hands["p0"] = [c("8", "spades"), c("8", "hearts"), c("2", "clubs")];
+    table.state.stock.push(c("8", "clubs"));
+    table.drawFromStock("p0");
+
+    table.placeMeld("p0", [c("8", "spades"), c("8", "hearts"), c("8", "clubs")]);
+
+    expect(table.state.pendingDrawnCard).toBeNull();
+    expect(table.state.hands["p0"]).toEqual([c("2", "clubs")]);
   });
 });
 

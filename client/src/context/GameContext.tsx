@@ -19,7 +19,12 @@ interface GameContextValue {
   state: ClientGameState | null;
   lastError: string | null;
   dismissError: () => void;
-  createTable: (stakeType: StakeType, ante: number, autoWinsEnabled: boolean) => Promise<void>;
+  createTable: (
+    stakeType: StakeType,
+    ante: number,
+    autoWinsEnabled: boolean,
+    allowMeldsBeforeResolvingDraw: boolean,
+  ) => Promise<void>;
   joinTable: (code: string) => Promise<void>;
   spectateTable: (code: string) => Promise<void>;
   /** "Jugar ahora": creates a private table, fills it with 3 bots, and marks the caller ready — a full hand is dealt with no lobby/setup step at all. */
@@ -93,12 +98,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       state,
       lastError,
       dismissError: () => setLastError(null),
-      createTable: (stakeType, ante, autoWinsEnabled) =>
+      createTable: (stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw) =>
         new Promise<void>((resolve, reject) => {
-          socketRef.current?.emit("table:create", { stakeType, ante, autoWinsEnabled }, (result) => {
-            if ("message" in result) reject(new Error(result.message));
-            else resolve();
-          });
+          socketRef.current?.emit(
+            "table:create",
+            { stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw },
+            (result) => {
+              if ("message" in result) reject(new Error(result.message));
+              else resolve();
+            },
+          );
         }),
       joinTable: (code) =>
         new Promise<void>((resolve, reject) => {

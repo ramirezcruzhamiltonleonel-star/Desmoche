@@ -371,17 +371,25 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
 }
 
 io.on("connection", (socket: AppSocket) => {
-  socket.on("table:create", ({ stakeType, ante, autoWinsEnabled }, ack: (r: JoinAck | ErrorPayload) => void) => {
-    try {
-      const room = roomManager.createRoom(stakeType, ante, autoWinsEnabled ?? true);
-      room.join(socket.data.userId!, socket.data.displayName!);
-      registerSocket(socket, room);
-      ack({ code: room.code });
-      broadcastRoom(room);
-    } catch (err) {
-      ack({ message: errorMessage(err) });
-    }
-  });
+  socket.on(
+    "table:create",
+    ({ stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw }, ack: (r: JoinAck | ErrorPayload) => void) => {
+      try {
+        const room = roomManager.createRoom(
+          stakeType,
+          ante,
+          autoWinsEnabled ?? true,
+          allowMeldsBeforeResolvingDraw ?? false,
+        );
+        room.join(socket.data.userId!, socket.data.displayName!);
+        registerSocket(socket, room);
+        ack({ code: room.code });
+        broadcastRoom(room);
+      } catch (err) {
+        ack({ message: errorMessage(err) });
+      }
+    },
+  );
 
   socket.on("table:join", ({ code }, ack: (r: JoinAck | ErrorPayload) => void) => {
     try {

@@ -7,6 +7,7 @@ function baseState(overrides: Partial<ClientGameState>): ClientGameState {
     stakeType: "chips",
     ante: 100,
     autoWinsEnabled: true,
+    allowMeldsBeforeResolvingDraw: false,
     phase: "hand-over",
     seats: [],
     yourSeatIndex: 0,

@@ -7,6 +7,8 @@ export interface CreateTablePayload {
   ante: number;
   /** "Modo sin automáticas" opt-out — omit or true for the classic Peladía/Cuatro Cuerpos rules. */
   autoWinsEnabled?: boolean;
+  /** House rule opt-in — omit or false for the classic "resolve the stock-drawn card immediately" rule. */
+  allowMeldsBeforeResolvingDraw?: boolean;
 }
 
 export interface JoinTablePayload {

@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { ClientGameState, GameAction, StakeType } from "@desmoche/shared";
 import { connectSocket, disconnectSocket, type AppSocket } from "../lib/socket";
+import { hasPlayedBefore, markPlayedBefore } from "../lib/firstSessionStorage";
 import { clearTableCode, loadTableCode, loadTableMode, saveTableCode } from "../lib/tableStorage";
 import { useAuth } from "./AuthContext";
 
@@ -80,7 +81,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // instead of losing it entirely.
       saveTableCode(isGuest, nextState.code, nextState.isSpectator ? "spectator" : "player");
     });
-    socket.on("table:error", (err) => setLastError(err.message));
+    socket.on("table:error", (err) => {
+      // A claim-window race, not a real mistake: the player tapped "No me
+      // sirve"/"Sí me sirve" right as the window closed on its own (someone
+      // else claimed it, or the 30s timer fired) — by the time the server
+      // processes it, there's genuinely nothing left to respond to. Showing
+      // this as a red error toast made a completely normal timing outcome
+      // look like something went wrong (reported). Silently drop just these
+      // two specific messages; every other rejection still surfaces.
+      if (
+        err.message === "No hay ninguna carta para reclamar en este momento" ||
+        err.message === "Ya respondiste, o no puedes reclamarla"
+      ) {
+        return;
+      }
+      setLastError(err.message);
+    });
     socket.on("connect_error", (err) => setLastError(err.message));
 
     return () => {
@@ -124,10 +140,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
         }),
       startInstantDemo: async () => {
+        // A brand-new player's very first bot table gets a gentler setup:
+        // 1 opponent instead of 3 (less pressure, less chance of getting
+        // closed out before they've even taken a real turn), and auto-wins
+        // off entirely for that first session so a Peladía/Cuatro Cuerpos
+        // can't end the hand before they ever see a real decision. Once
+        // they've actually played (markPlayedBefore, called from
+        // sendAction below), every later "Jugar ya" goes back to the full
+        // 3-bot classic setup.
+        const isFirstEver = !hasPlayedBefore();
         await new Promise<void>((resolve, reject) => {
           socketRef.current?.emit(
             "table:create",
-            { stakeType: "chips", ante: 100, autoWinsEnabled: true },
+            { stakeType: "chips", ante: 50, autoWinsEnabled: !isFirstEver },
             (result) => {
               if ("message" in result) reject(new Error(result.message));
               else resolve();
@@ -137,9 +162,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // Socket.io preserves emit order on one connection, so these are
         // guaranteed to be handled in sequence server-side — no need to
         // wait for individual acks before firing the next one.
-        socketRef.current?.emit("table:add-bot");
-        socketRef.current?.emit("table:add-bot");
-        socketRef.current?.emit("table:add-bot");
+        const botCount = isFirstEver ? 1 : 3;
+        for (let i = 0; i < botCount; i++) socketRef.current?.emit("table:add-bot");
         socketRef.current?.emit("table:ready", { ready: true });
       },
       leaveTable: () => {
@@ -156,7 +180,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       setReady: (ready) => socketRef.current?.emit("table:ready", { ready }),
       nextHand: () => socketRef.current?.emit("table:next-hand"),
-      sendAction: (action) => socketRef.current?.emit("game:action", action),
+      sendAction: (action) => {
+        // Any real in-game action means they've genuinely played — from
+        // here on, "Jugar ya" goes back to the normal 3-bot/auto-wins-on
+        // setup instead of the softened first-timer one.
+        markPlayedBefore();
+        socketRef.current?.emit("game:action", action);
+      },
       addBot: () => socketRef.current?.emit("table:add-bot"),
       removeBot: (playerId) => socketRef.current?.emit("table:remove-bot", { playerId }),
     }),

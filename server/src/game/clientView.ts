@@ -37,6 +37,7 @@ export function toClientView(
       cardCount: state.hands[seat.playerId]?.length ?? 0,
       inactiveThisHand: state.inactiveSeatIndices.includes(seat.seatIndex),
       isBot: isBotPlayerId(seat.playerId),
+      chipsBalance: state.chipBalances[seat.playerId] ?? 0,
     })),
     yourSeatIndex: viewerSeat?.seatIndex ?? null,
     // Room.viewFor() overrides this with the real answer — it's the one that

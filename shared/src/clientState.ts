@@ -26,6 +26,8 @@ export interface ClientSeatView {
   inactiveThisHand: boolean;
   /** A fixed bot persona filling this seat, added by the table creator — never a real account. */
   isBot: boolean;
+  /** Chips/money only: running net change for the whole table session so far — always 0 in dare mode (nothing to track). */
+  chipsBalance: number;
 }
 
 /** Who has already handed over their Cambio card — never which card, since it's blind/simultaneous. */

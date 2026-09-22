@@ -13,6 +13,8 @@ interface PlayerSeatProps {
   reactionKey?: number;
   /** Used for the player's OWN seat, shown above their actual hand — the real cards are already visible right below, so a redundant card-back stack would just be clutter. */
   hideCardBacks?: boolean;
+  /** Chips/money running total for the whole table session — omitted entirely in dare mode, where it's meaningless. */
+  chipsBalance?: number | null;
 }
 
 export default function PlayerSeat({
@@ -24,6 +26,7 @@ export default function PlayerSeat({
   reactionEmoji,
   reactionKey,
   hideCardBacks,
+  chipsBalance,
 }: PlayerSeatProps) {
   const isOutOfHand = !seat.connected || seat.inactiveThisHand;
   return (
@@ -56,6 +59,16 @@ export default function PlayerSeat({
         </span>
         {isDealer && <span className="text-[10px] text-gold">reparte</span>}
       </div>
+      {chipsBalance !== undefined && chipsBalance !== null && (
+        <span
+          className={`text-[10px] font-semibold tabular-nums ${
+            chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
+          }`}
+        >
+          {chipsBalance > 0 ? "+" : ""}
+          {chipsBalance} fichas
+        </span>
+      )}
       {!hideCardBacks && (
         <div className="flex -space-x-5">
           {Array.from({ length: Math.min(seat.cardCount, 11) }).map((_, i) => (

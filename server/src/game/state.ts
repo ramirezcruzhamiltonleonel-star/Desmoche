@@ -107,6 +107,15 @@ export interface GameState {
   handOutcome: HandOutcomeSummary | null;
   /** Notable in-hand moments for the whole table session — never reset by startHand(), only starts empty when the Table itself is created. Filterable by type in the UI. */
   eventLog: TableEvent[];
+  /**
+   * Chips/money only: each player's running net change for the whole table
+   * session (this hand's pot won minus their own ante, plus/minus any Mico/
+   * Patona extras) — 0 in dare mode, where there's no pot to track. Never
+   * reset by startHand(); only starts fresh when the Table itself is
+   * created, same lifetime as accumulatedPot. Lets every seat show "who's
+   * winning" without anyone having to open the hand history panel.
+   */
+  chipBalances: Record<string, number>;
 }
 
 export function seatOf(state: GameState, playerId: string): Seat {

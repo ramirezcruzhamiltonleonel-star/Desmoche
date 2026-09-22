@@ -763,6 +763,68 @@ describe("Table — meld-out win and settlement", () => {
       extraPerLoser: { p0: 200 },
       patonaLoserIds: ["p0"],
     });
+
+    // p1 collects the 200 pot (their own 100 ante was already part of it,
+    // so net +100) plus the 200 in Mico+Patona extras p0 owes directly =
+    // net +300. p0 loses their 100 ante plus the 200 they owe = net -300.
+    // Zero-sum, as it should be.
+    expect(table.state.chipBalances).toEqual({ p0: -300, p1: 300 });
+  });
+
+  it("accumulates chip balances across multiple hands in the same table session", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+    table.state.hands["p1"] = [
+      c("A", "clubs"),
+      c("2", "clubs"),
+      c("3", "clubs"),
+      c("5", "hearts"),
+      c("6", "hearts"),
+      c("7", "hearts"),
+      c("9", "diamonds"),
+      c("10", "diamonds"),
+      c("J", "diamonds"),
+    ];
+    table.placeMeld("p1", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]);
+    table.placeMeld("p1", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")]);
+    table.placeMeld("p1", [c("9", "diamonds"), c("10", "diamonds"), c("J", "diamonds")]);
+    table.settleHand();
+    expect(table.state.chipBalances).toEqual({ p0: -300, p1: 300 });
+
+    // Second hand, same table, same running balances — this time p0 wins a
+    // plain hand with no bonuses: ranks shifted off A-2-3/Q-K-A so no Mico
+    // triggers, and p1 gets a meld on the table (even though they don't
+    // win) so Patona doesn't apply to them either.
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+    table.state.melds.push({
+      id: "m0",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "diamonds")],
+    });
+    table.state.hands["p0"] = [
+      c("2", "spades"),
+      c("3", "spades"),
+      c("4", "spades"),
+      c("5", "diamonds"),
+      c("6", "diamonds"),
+      c("7", "diamonds"),
+      c("9", "clubs"),
+      c("10", "clubs"),
+      c("J", "clubs"),
+    ];
+    table.placeMeld("p0", [c("2", "spades"), c("3", "spades"), c("4", "spades")]);
+    table.placeMeld("p0", [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds")]);
+    table.placeMeld("p0", [c("9", "clubs"), c("10", "clubs"), c("J", "clubs")]);
+    table.settleHand();
+
+    // p0: -300 (hand 1) + 200 pot - 100 own ante (hand 2, no bonuses) = -200.
+    // p1: +300 (hand 1) - 100 ante (hand 2) = +200.
+    expect(table.state.chipBalances).toEqual({ p0: -200, p1: 200 });
   });
 });
 

@@ -80,6 +80,7 @@ export class Table {
       accumulatedPot: 0,
       handOutcome: null,
       eventLog: [],
+      chipBalances: Object.fromEntries(seats.map((s) => [s.playerId, 0])),
     };
   }
 
@@ -729,7 +730,7 @@ export class Table {
     const carriedOverPot = this.state.accumulatedPot;
     this.state.accumulatedPot = 0;
 
-    return calculateHandOutcome({
+    const payout = calculateHandOutcome({
       stakeType: this.config.stakeType,
       ante: this.config.ante,
       winnerId,
@@ -738,5 +739,19 @@ export class Table {
       patonaLoserIds,
       carriedOverPot,
     });
+
+    if (payout.kind === "chips" || payout.kind === "money") {
+      // Every seat (winner included) put one ante into the pot the winner
+      // now collects — the winner's net gain is the pot minus their own
+      // ante, plus whatever Mico/Patona extras losers owe them directly.
+      const totalExtras = Object.values(payout.extraPerLoser).reduce((sum, v) => sum + v, 0);
+      this.state.chipBalances[winnerId] = (this.state.chipBalances[winnerId] ?? 0) + payout.potWon - this.config.ante + totalExtras;
+      for (const loserId of loserIds) {
+        this.state.chipBalances[loserId] =
+          (this.state.chipBalances[loserId] ?? 0) - this.config.ante - (payout.extraPerLoser[loserId] ?? 0);
+      }
+    }
+
+    return payout;
   }
 }

@@ -519,6 +519,7 @@ export default function GameTable() {
               isDrawing={seat.seatIndex === drawingSeatIndex}
               reactionEmoji={reactionsByPlayerId[seat.playerId]?.emoji}
               reactionKey={reactionsByPlayerId[seat.playerId]?.key}
+              chipsBalance={state.stakeType === "dare" ? null : seat.chipsBalance}
             />
             <PlayerMeldsCluster
               melds={state.melds.filter((m) => m.ownerId === seat.playerId)}
@@ -612,6 +613,7 @@ export default function GameTable() {
                   isDrawing={yourSeat.seatIndex === drawingSeatIndex}
                   reactionEmoji={reactionsByPlayerId[yourSeat.playerId]?.emoji}
                   reactionKey={reactionsByPlayerId[yourSeat.playerId]?.key}
+                  chipsBalance={state.stakeType === "dare" ? null : yourSeat.chipsBalance}
                   hideCardBacks
                 />
               </div>

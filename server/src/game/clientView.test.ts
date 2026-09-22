@@ -32,6 +32,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     accumulatedPot: 0,
     handOutcome: null,
     eventLog: [],
+    chipBalances: {},
     ...overrides,
   };
 }

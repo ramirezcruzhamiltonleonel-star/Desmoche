@@ -322,6 +322,7 @@ export class Room {
         cardCount: 0,
         inactiveThisHand: false,
         isBot: isBotPlayerId(s.playerId),
+        chipsBalance: 0,
       })),
       yourSeatIndex: this.seats.find((s) => s.playerId === playerId)?.seatIndex ?? null,
       // Spectating requires the game to already be in progress — this

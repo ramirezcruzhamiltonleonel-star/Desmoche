@@ -110,18 +110,26 @@ export default function HomeScreen() {
           <ProfilePanel token={token} displayName={user?.displayName ?? ""} onClose={() => setShowProfile(false)} />
         )}
 
-        {isGuest && (
-          <button
-            onClick={handleInstantDemo}
-            disabled={busy}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gold/60 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-50"
-          >
-            {busy && <Spinner size="sm" tone="gold" />}
-            🎮 Jugar ya contra bots (mesa instantánea)
-          </button>
-        )}
+        <button
+          onClick={handleInstantDemo}
+          disabled={busy}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gold px-6 py-5 text-xl font-bold text-stone-900 shadow-2xl transition hover:bg-gold-light disabled:opacity-50"
+        >
+          {busy ? <Spinner size="sm" tone="dark" /> : "🎮"} Jugar ya
+        </button>
+        <p className="mb-4 text-center text-xs text-stone-400">
+          Mesa instantánea contra bots · fichas · ante 50
+        </p>
 
-        <div className="mb-4 flex rounded-lg border border-wood bg-felt p-1">
+        {/* Open by default when a shared join link (?mesa=CODE) brought them
+            here — they need the join form immediately, not tucked behind a
+            summary they'd have to know to click. */}
+        <details className="mb-4 group" open={Boolean(sharedCode)}>
+          <summary className="cursor-pointer list-none text-center text-sm text-stone-400 underline decoration-dotted transition hover:text-stone-200">
+            Opciones de mesa (crear con otras reglas, unirse a una de amigos, o mirar)
+          </summary>
+
+        <div className="mt-4 mb-4 flex rounded-lg border border-wood bg-felt p-1">
           <button
             className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
               mode === "create" ? "bg-gold text-stone-900" : "text-stone-300"
@@ -272,6 +280,7 @@ export default function HomeScreen() {
           )}
           {error && <p className="mt-4 rounded-lg bg-red-900/50 px-3 py-2 text-sm text-red-200">{error}</p>}
         </div>
+        </details>
       </div>
     </div>
   );

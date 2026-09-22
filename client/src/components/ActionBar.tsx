@@ -103,7 +103,13 @@ export default function ActionBar({
             <button
               onClick={onPlaceMeld}
               disabled={!canPlaceMeld}
-              title={selectedCount >= 3 && !canPlaceMeld ? "Esas cartas no forman un grupo válido" : undefined}
+              title={
+                canPlaceMeld
+                  ? undefined
+                  : selectedCount < 3
+                    ? "Seleccioná al menos 3 cartas que formen tercia o escalera"
+                    : "Esas cartas no forman un grupo válido"
+              }
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
                 canPlaceMeld
                   ? "border-2 border-gold bg-gold/15 text-gold shadow-[0_0_12px_-2px_rgba(212,175,55,0.6)] hover:bg-gold/25"
@@ -115,6 +121,17 @@ export default function ActionBar({
             <button
               onClick={onDiscard}
               disabled={!canDiscardSelection}
+              title={
+                canDiscardSelection
+                  ? undefined
+                  : mustPlaceCard
+                    ? "Debes usar la carta que tomaste del descarte en un grupo antes de descartar"
+                    : pendingDrawnCard
+                      ? "Solo podés descartar la carta que acabás de robar — seleccionala primero"
+                      : selectedCount === 0
+                        ? "Seleccioná 1 carta de tu mano para descartar"
+                        : "Seleccioná exactamente 1 carta para descartar"
+              }
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
                 canDiscardSelection
                   ? "border-2 border-stone-200 bg-stone-200/10 text-stone-100 shadow-[0_0_10px_-2px_rgba(230,230,230,0.35)] hover:bg-stone-200/20"

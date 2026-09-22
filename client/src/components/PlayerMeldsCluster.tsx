@@ -34,7 +34,11 @@ export default function PlayerMeldsCluster({
 
   return (
     <div
-      className={`flex w-full min-w-0 max-h-28 gap-1 overflow-y-auto ${
+      // No max-height/scroll here on purpose — every group a player has on
+      // the table should be visible at a glance without hunting for a
+      // scrollbar (reported UX complaint). The felt grid's row is sized to
+      // its content, so this is free to grow as tall as it actually needs.
+      className={`flex w-full min-w-0 gap-1 ${
         direction === "row" ? "flex-row flex-wrap justify-center" : "flex-col items-center"
       }`}
     >

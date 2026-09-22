@@ -520,7 +520,11 @@ export default function GameTable() {
               reactionEmoji={reactionsByPlayerId[seat.playerId]?.emoji}
               reactionKey={reactionsByPlayerId[seat.playerId]?.key}
             />
-            <PlayerMeldsCluster melds={state.melds.filter((m) => m.ownerId === seat.playerId)} size="xs" />
+            <PlayerMeldsCluster
+              melds={state.melds.filter((m) => m.ownerId === seat.playerId)}
+              size="sm"
+              direction="row"
+            />
           </div>
         ))}
 

@@ -37,6 +37,18 @@ export default function LobbyScreen() {
     }
   }
 
+  function handleInviteWhatsApp() {
+    if (!state) return;
+    const link = buildJoinLink(state.code);
+    const message = `¡Te invito a jugar Desmoche! Entrá acá y te unís directo a la mesa: ${link}`;
+    // wa.me with no phone number opens WhatsApp's own contact picker — works
+    // the same on the mobile app and WhatsApp Web, no number to know ahead
+    // of time. Whoever taps the link inside the resulting chat lands
+    // straight on this table via buildJoinLink's ?mesa= param — no code to
+    // copy/paste by hand.
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="screen-fade flex min-h-screen flex-col items-center justify-center bg-felt-dark px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
@@ -64,6 +76,12 @@ export default function LobbyScreen() {
               className="h-28 w-28 rounded-lg border border-wood-dark sm:h-36 sm:w-36"
             />
           )}
+          <button
+            onClick={handleInviteWhatsApp}
+            className="w-full rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-stone-900 transition hover:brightness-105"
+          >
+            📱 Invitar por WhatsApp
+          </button>
           <button
             onClick={handleCopyLink}
             className="w-full rounded-lg border border-wood-dark bg-stone-900/60 px-3 py-1.5 text-xs font-semibold text-stone-200 transition hover:border-gold"

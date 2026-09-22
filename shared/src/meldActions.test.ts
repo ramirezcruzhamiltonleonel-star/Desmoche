@@ -32,6 +32,48 @@ describe("canUseDiscardImmediately", () => {
     const hand = [c("2", "spades"), c("9", "clubs"), c("K", "diamonds")];
     expect(canUseDiscardImmediately(hand, c("4", "hearts"), [])).toBe(false);
   });
+
+  // Reported bug: neither the claimed card ALONE extends the meld (there's
+  // a gap), nor do the hand cards alone form a valid brand-new meld with
+  // it — but the claimed card TOGETHER WITH a hand card completes the same
+  // existing meld. E.g. a run sitting at 9-10-J, holding a Q in hand,
+  // someone discards a K: the K alone can't extend 9-10-J (skips the Q),
+  // and Q+K alone isn't a valid 2-card meld — but claiming the K and
+  // placing it with the Q extends the meld to 9-10-J-Q-K in one move.
+  it("allows the pickup when it combines with a hand card to extend an own meld together", () => {
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("9", "clubs"), c("10", "clubs"), c("J", "clubs")],
+    };
+    const hand = [c("Q", "clubs"), c("2", "spades")];
+    expect(canUseDiscardImmediately(hand, c("K", "clubs"), [ownMeld])).toBe(true);
+  });
+
+  it("still rejects the pickup when the hand has nothing to bridge the gap", () => {
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("9", "clubs"), c("10", "clubs"), c("J", "clubs")],
+    };
+    const hand = [c("2", "spades"), c("9", "hearts")];
+    expect(canUseDiscardImmediately(hand, c("K", "clubs"), [ownMeld])).toBe(false);
+  });
+
+  // Generalizes to a bigger gap needing TWO hand cards alongside the
+  // claimed one, all landing on the same existing meld together.
+  it("allows the pickup when it needs two hand cards together with it to extend an own meld", () => {
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("8", "diamonds"), c("9", "diamonds"), c("10", "diamonds")],
+    };
+    const hand = [c("J", "diamonds"), c("Q", "diamonds"), c("2", "spades")];
+    expect(canUseDiscardImmediately(hand, c("K", "diamonds"), [ownMeld])).toBe(true);
+  });
 });
 
 describe("canDesmocharFrom", () => {

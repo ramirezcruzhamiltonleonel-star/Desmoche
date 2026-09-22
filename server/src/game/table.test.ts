@@ -496,6 +496,51 @@ describe("Table — claiming a discard out of turn", () => {
     expect(table.state.phase).toBe("claim-window");
     expect(table.state.claim?.pendingSeatIndices).toContain(1);
   });
+
+  // Re-reported live: an own run sitting at 9-10-J, holding the Q in hand as
+  // a "surprise" for later, and the K gets discarded by the other player.
+  // Neither the K alone extends 9-10-J (skips the Q), nor does the hand
+  // alone form a new meld with it — the play only exists by claiming the K
+  // and placing it together with the already-held Q. Before the
+  // canUseDiscardImmediately fix, this was refused as "no te sirve de
+  // inmediato" even though it's entirely legal once claimed.
+  it("allows claiming a card that only becomes usable combined with a hand card on an own meld, and completing that extend", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("9", "clubs"), c("10", "clubs"), c("J", "clubs")],
+    });
+    table.state.hands["p1"] = [c("Q", "clubs"), c("2", "spades")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "clubs")];
+    table.discard("p0", c("K", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    table.respondToClaim("p1", "claim");
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(1);
+    expect(table.state.mustPlaceCard).toEqual(c("K", "clubs"));
+
+    table.extendMeld("p1", "m1", [c("K", "clubs"), c("Q", "clubs")]);
+
+    const meld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(meld.cards).toEqual([
+      c("9", "clubs"),
+      c("10", "clubs"),
+      c("J", "clubs"),
+      c("K", "clubs"),
+      c("Q", "clubs"),
+    ]);
+    expect(table.state.mustPlaceCard).toBeNull();
+    expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
+  });
 });
 
 describe("Table — desmoche", () => {

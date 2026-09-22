@@ -5,18 +5,29 @@ import { canExtendMeld, isValidMeld } from "./meldRules";
 
 /**
  * Whether `card` (candidate to draw from the discard pile) can be put to
- * immediate use: either as part of a brand-new valid meld built from the
- * player's hand, or to extend one of the player's own melds already on the
- * table. This must be checked BEFORE the draw is allowed — a discard pickup
- * that can't be used right away is illegal.
+ * immediate use: as part of a brand-new valid meld built from the player's
+ * hand, to extend one of the player's own melds on its own, OR combined with
+ * some hand cards to extend one of the player's own melds together in one
+ * move (e.g. a meld sitting at 9-10-J, claiming a K while already holding
+ * the connecting Q — neither the K alone nor the Q alone extends the meld,
+ * but claiming the K and placing both together does). Without that last
+ * case, a genuinely immediate-use card was refused as "doesn't serve you
+ * right now" purely because the check only ever tried the claimed card by
+ * itself against each meld. This must be checked BEFORE the draw is allowed
+ * — a discard pickup that can't be used right away is illegal.
  */
 export function canUseDiscardImmediately(
   hand: Card[],
   card: Card,
   ownMelds: Meld[],
 ): boolean {
-  if (ownMelds.some((meld) => canExtendMeld(meld.cards, card))) {
-    return true;
+  for (const meld of ownMelds) {
+    if (canExtendMeld(meld.cards, card)) return true;
+    for (const size of [1, 2]) {
+      for (const combo of combinations(hand, size)) {
+        if (isValidMeld([...meld.cards, card, ...combo])) return true;
+      }
+    }
   }
 
   for (const size of [2, 3]) {

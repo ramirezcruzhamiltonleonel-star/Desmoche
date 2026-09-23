@@ -470,6 +470,16 @@ io.on("connection", (socket: AppSocket) => {
     }
   });
 
+  socket.on("table:request-join", () => {
+    try {
+      const { room, playerId } = currentRoomAndPlayer(socket);
+      room.requestToJoinAsPlayer(playerId, socket.data.displayName!);
+      broadcastRoom(room);
+    } catch (err) {
+      socket.emit("table:error", { message: errorMessage(err) });
+    }
+  });
+
   socket.on("table:remove-bot", ({ playerId: botPlayerId }) => {
     try {
       const { room, playerId } = currentRoomAndPlayer(socket);

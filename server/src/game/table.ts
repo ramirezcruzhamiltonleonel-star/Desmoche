@@ -220,6 +220,27 @@ export class Table {
     this.state.eventLog.push({ type: "retired", seatIndex: seat.seatIndex });
   }
 
+  /**
+   * Seats a brand-new player (a spectator who asked to join) — only between
+   * hands, never mid-hand: seats are otherwise frozen for the table's whole
+   * lifetime (this is the one deliberate exception), and every in-flight
+   * concept — turnSeatIndex, dealerSeatIndex, meld ownerId, an open claim
+   * window's seat indices — assumes a fixed roster while a hand is live.
+   * The new seat gets seatIndex = current seat count (always the next
+   * open slot) and a 0 chip balance, same as everyone else got when the
+   * Table was first constructed.
+   */
+  addSeat(seat: Seat): void {
+    if (this.state.phase !== "hand-over" && this.state.phase !== "lobby") {
+      throw new GameError("Solo se puede sumar un jugador nuevo entre manos");
+    }
+    if (this.state.seats.length >= 4) {
+      throw new GameError("La mesa ya está llena");
+    }
+    this.state.seats.push(seat);
+    this.state.chipBalances[seat.playerId] = 0;
+  }
+
   private finishHand(
     reason: Exclude<HandOutcomeSummary["reason"], "stock-exhausted">,
     winnerSeatIndex: number,

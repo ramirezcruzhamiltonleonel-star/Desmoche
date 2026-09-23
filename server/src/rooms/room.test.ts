@@ -431,6 +431,69 @@ describe("Room — spectating", () => {
   });
 });
 
+describe("Room — a spectator can become a real player at the next hand", () => {
+  function startedRoom(): Room {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    return room;
+  }
+
+  function forceHandOver(room: Room): void {
+    const table = room.requireTable();
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+  }
+
+  it("refuses to request joining before spectating at all", () => {
+    const room = startedRoom();
+    expect(() => room.requestToJoinAsPlayer("stranger", "Cris")).toThrow(GameError);
+  });
+
+  it("doesn't seat them mid-hand — only queues the request", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+    room.requestToJoinAsPlayer("stranger", "Cris");
+
+    expect(room.playerCount).toBe(2); // still just Ana and Beto
+    expect(room.viewFor("stranger").isSpectator).toBe(true);
+  });
+
+  it("seats them as a real player exactly at the next hand boundary, dealt in fresh", () => {
+    const room = startedRoom();
+    room.spectate("stranger");
+    room.requestToJoinAsPlayer("stranger", "Cris");
+    forceHandOver(room);
+
+    room.nextHand();
+
+    expect(room.playerCount).toBe(3);
+    expect(room.allSpectatorIds()).toEqual([]);
+    const view = room.viewFor("stranger");
+    expect(view.isSpectator).toBe(false);
+    expect(view.yourSeatIndex).toBe(2);
+    expect(view.yourHand.length).toBeGreaterThan(0); // genuinely dealt into this hand
+    expect(room.requireTable().state.chipBalances["stranger"]).toBe(0);
+  });
+
+  it("refuses the request once the table is already full", () => {
+    const room = makeRoom();
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.join("user-c", "Caro");
+    room.join("user-d", "Dani");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+    room.setReady("user-c", true);
+    room.setReady("user-d", true);
+    room.spectate("stranger");
+
+    expect(() => room.requestToJoinAsPlayer("stranger", "Cris")).toThrow(GameError);
+  });
+});
+
 describe("Room — hand progression", () => {
   it("refuses to start the next hand before the game has started", () => {
     const room = makeRoom();

@@ -126,6 +126,8 @@ export interface ClientToServerEvents {
   "table:leave": () => void;
   "table:next-hand": () => void;
   "table:add-bot": () => void;
+  /** A spectator asking to become a real player — not seated immediately (a hand may be live), queued and seated automatically right before the next hand deals. */
+  "table:request-join": () => void;
   "table:remove-bot": (payload: { playerId: string }) => void;
   "game:action": (action: GameAction) => void;
   "voice:join": (ack: (result: VoiceJoinAck) => void) => void;

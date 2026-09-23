@@ -110,7 +110,7 @@ interface DesmocheSource {
 }
 
 export default function GameTable() {
-  const { state, sendAction, nextHand, leaveTable } = useGame();
+  const { state, sendAction, nextHand, leaveTable, requestJoinAsPlayer } = useGame();
   const { isGuest, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const sound = useSound();
@@ -133,6 +133,7 @@ export default function GameTable() {
   const [justSucceededMeldId, setJustSucceededMeldId] = useState<string | null>(null);
   const [botSpeech, setBotSpeech] = useState<{ seatIndex: number; text: string; key: number } | null>(null);
   const [firstClaimHint, setFirstClaimHint] = useState<string | null>(null);
+  const [requestedToJoin, setRequestedToJoin] = useState(false);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -697,9 +698,27 @@ export default function GameTable() {
         }`}
       >
         {state.isSpectator ? (
-          <p className="py-3 text-center text-xs text-stone-400">
-            👁 Modo espectador — estás mirando esta mesa sin participar.
-          </p>
+          <div className="py-3 text-center">
+            <p className="mb-2 text-xs text-stone-400">
+              👁 Modo espectador — estás mirando esta mesa sin participar.
+            </p>
+            {state.seats.length < 4 &&
+              (requestedToJoin ? (
+                <p className="text-xs text-gold">
+                  Pediste unirte — entrás como jugador apenas empiece la próxima mano.
+                </p>
+              ) : (
+                <button
+                  onClick={() => {
+                    requestJoinAsPlayer();
+                    setRequestedToJoin(true);
+                  }}
+                  className="rounded-lg border border-gold px-4 py-1.5 text-sm font-semibold text-gold transition hover:bg-gold/10"
+                >
+                  Unirme como jugador en la próxima mano
+                </button>
+              ))}
+          </div>
         ) : (
           <>
             {yourSeat && (

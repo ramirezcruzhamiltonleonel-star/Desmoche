@@ -45,6 +45,8 @@ export class Room {
   private history: ClientHandHistoryEntry[] = [];
   /** Users watching the table without a seat — never counted toward playerCount, never dealt a hand, never touch settlement. */
   private spectatorIds = new Set<string>();
+  /** userId → displayName, for spectators who've asked to become a real player at the next hand boundary — see requestToJoinAsPlayer/seatPendingJoinRequests. */
+  private pendingJoinRequests = new Map<string, string>();
   /**
    * Players who explicitly left via leave() — excluded from allPlayerIds(),
    * so broadcastRoom() (index.ts) simply stops sending them anything for
@@ -229,6 +231,40 @@ export class Room {
     return [...this.spectatorIds].filter((id) => !this.leftPlayerIds.has(id));
   }
 
+  /**
+   * A spectator asking to become a real player — not seated immediately
+   * (a hand may well be live), just queued. nextHand() seats every still-
+   * eligible pending request right before dealing, so a late arrival's
+   * very first hand is a genuinely fresh deal, not something they joined
+   * partway through. Silently a no-op once the table is already full or
+   * they're no longer spectating, rather than an error the UI has to
+   * specifically handle — the button just stops being relevant.
+   */
+  requestToJoinAsPlayer(userId: string, displayName: string): void {
+    if (!this.spectatorIds.has(userId)) throw new GameError("Solo un espectador puede pedir unirse como jugador");
+    if (this.seats.length >= 4) throw new GameError("La mesa ya está llena");
+    this.pendingJoinRequests.set(userId, displayName);
+  }
+
+  /** Whoever asked via requestToJoinAsPlayer and still fits gets a real seat, right before the next hand deals. */
+  private seatPendingJoinRequests(): void {
+    for (const [userId, displayName] of this.pendingJoinRequests) {
+      if (this.seats.length >= 4) break;
+      if (this.seats.some((s) => s.playerId === userId)) continue; // already seated somehow — skip
+      const seat: Seat = {
+        seatIndex: this.seats.length,
+        playerId: userId,
+        displayName,
+        connected: true,
+        ready: true,
+      };
+      this.seats.push(seat);
+      this.spectatorIds.delete(userId);
+      this.table?.addSeat(seat);
+    }
+    this.pendingJoinRequests.clear();
+  }
+
   setReady(playerId: string, ready: boolean): void {
     if (this.hasStarted) return;
     const seat = this.seats.find((s) => s.playerId === playerId);
@@ -263,6 +299,11 @@ export class Room {
     if (table.state.phase !== "hand-over") {
       throw new GameError("La mano en curso todavía no terminó");
     }
+    // Seat any spectator who asked to join BEFORE computing the dealer
+    // rotation, so a newly-seated player is already counted in it — and
+    // well before startHand deals, so their very first hand is dealt in
+    // fresh, not joined mid-deal.
+    this.seatPendingJoinRequests();
     this.dealerSeatIndex = nextSeat(this.dealerSeatIndex, this.seats.length);
     this.handSettled = false;
     this.settlementCache = null;

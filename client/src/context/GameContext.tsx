@@ -36,6 +36,8 @@ interface GameContextValue {
   sendAction: (action: GameAction) => void;
   addBot: () => void;
   removeBot: (playerId: string) => void;
+  /** A spectator asking to become a real player — seated automatically right before the next hand deals, not immediately. */
+  requestJoinAsPlayer: () => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -189,6 +191,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       addBot: () => socketRef.current?.emit("table:add-bot"),
       removeBot: (playerId) => socketRef.current?.emit("table:remove-bot", { playerId }),
+      requestJoinAsPlayer: () => socketRef.current?.emit("table:request-join"),
     }),
     [connected, socket, state, lastError, isGuest],
   );

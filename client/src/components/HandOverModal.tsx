@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   bonusesAppliedThisHand,
   isAutoWinReason,
@@ -10,8 +10,10 @@ import {
 } from "@desmoche/shared";
 import { useSound } from "../hooks/useSound";
 import { hasSeenBonus, markBonusSeen } from "../lib/bonusSeenTracker";
+import { generateReplayGif } from "../lib/generateReplayGif";
 import { REASON_LABELS } from "../lib/labels";
 import Confetti from "./Confetti";
+import ReplayScenes, { REPLAY_SCENE_HOLDS_MS } from "./ReplayScenes";
 
 /** Animates from 0 up to `value` over ~1.1s — used for the pot-won number on a real close, so it reads as "you just earned this" instead of a static line of text. */
 function useCountUp(value: number, active: boolean): number {
@@ -97,6 +99,34 @@ export default function HandOverModal({
     for (const kind of firstTimeBonuses) markBonusSeen(kind);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Shareable replay GIF — only offered for a real close (the moment worth
+  // sharing), built from a handful of static "scenes" (see ReplayScenes),
+  // never a true recording of the live animation.
+  const replayContainerRef = useRef<HTMLDivElement>(null);
+  const [replayScene, setReplayScene] = useState(0);
+  const [replayStatus, setReplayStatus] = useState<"idle" | "generating" | "ready" | "error">("idle");
+  const [replayUrl, setReplayUrl] = useState<string | null>(null);
+  const [replayProgress, setReplayProgress] = useState(0);
+
+  async function handleGenerateReplay() {
+    if (!replayContainerRef.current) return;
+    setReplayStatus("generating");
+    setReplayProgress(0);
+    try {
+      const scenes = REPLAY_SCENE_HOLDS_MS.map((holdMs) => ({ holdMs }));
+      const blob = await generateReplayGif(
+        replayContainerRef.current,
+        scenes,
+        setReplayScene,
+        setReplayProgress,
+      );
+      setReplayUrl(URL.createObjectURL(blob));
+      setReplayStatus("ready");
+    } catch {
+      setReplayStatus("error");
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
@@ -218,6 +248,32 @@ export default function HandOverModal({
           </div>
         )}
 
+        {isCloseWin && (
+          <div className="mb-3">
+            {replayStatus === "ready" && replayUrl ? (
+              <a
+                href={replayUrl}
+                download="desmoche-victoria.gif"
+                className="block w-full rounded-lg border border-gold px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10"
+              >
+                🎬 Descargar GIF para compartir
+              </a>
+            ) : (
+              <button
+                onClick={handleGenerateReplay}
+                disabled={replayStatus === "generating"}
+                className="w-full rounded-lg border border-gold px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-50"
+              >
+                {replayStatus === "generating"
+                  ? `Generando GIF... ${Math.round(replayProgress * 100)}%`
+                  : replayStatus === "error"
+                    ? "No se pudo generar — tocá para reintentar"
+                    : "🎬 Crear GIF de esta victoria"}
+              </button>
+            )}
+          </div>
+        )}
+
         <button
           onClick={onNextHand}
           className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light"
@@ -225,6 +281,17 @@ export default function HandOverModal({
           Siguiente mano
         </button>
       </div>
+
+      {isCloseWin && (
+        // Off-screen (not display:none/visibility:hidden — those break
+        // html-to-image's capture) — never actually shown to the player,
+        // only ever screenshotted scene by scene into the GIF.
+        <div className="fixed left-[-9999px] top-0" aria-hidden>
+          <div ref={replayContainerRef} className="h-[640px] w-[400px] overflow-hidden">
+            <ReplayScenes scene={replayScene} outcome={outcome} settlement={settlement} winnerName={winnerName} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

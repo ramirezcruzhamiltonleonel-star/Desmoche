@@ -9,9 +9,22 @@ const FELT = "#0b3d2e";
 const FELT_DARK = "#082c21";
 
 /** Official Desmoche card back — dark felt, gold frame, corner flourishes, suit ovals, wordmark. */
-export default function CardBack({ size = "sm" }: { size?: keyof typeof SIZE_CLASSES }) {
+export default function CardBack({
+  size = "sm",
+  foggy = false,
+}: {
+  size?: keyof typeof SIZE_CLASSES;
+  /** Spectator mode: a translucent mist over hidden opponent cards — visually distinct from a normal player's own view of the same card-backs, reinforcing "you're watching, not playing". */
+  foggy?: boolean;
+}) {
   return (
-    <div className={`shrink-0 overflow-hidden rounded-md shadow-md ${SIZE_CLASSES[size]}`}>
+    <div className={`relative shrink-0 overflow-hidden rounded-md shadow-md ${SIZE_CLASSES[size]}`}>
+      {foggy && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 bg-stone-200/25 backdrop-blur-[1.5px]"
+        />
+      )}
       <svg viewBox="0 0 100 140" className="h-full w-full" role="img" aria-label="Reverso de carta Desmoche">
         <defs>
           <linearGradient id="db-felt" x1="0" y1="0" x2="1" y2="1">

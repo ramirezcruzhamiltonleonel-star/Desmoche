@@ -562,6 +562,9 @@ export default function GameTable() {
           <button onClick={() => setShowRules(true)} aria-label="Reglas completas del juego" className="p-1 text-base">
             📖
           </button>
+          <button onClick={() => setShowTutorial(true)} aria-label="Repasar el tutorial" className="p-1 text-base">
+            🎓
+          </button>
           <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
             📜
           </button>
@@ -628,6 +631,7 @@ export default function GameTable() {
               reactionEmoji={reactionsByPlayerId[seat.playerId]?.emoji}
               reactionKey={reactionsByPlayerId[seat.playerId]?.key}
               chipsBalance={state.stakeType === "dare" ? null : seat.chipsBalance}
+              foggy={state.isSpectator}
             />
             <PlayerMeldsCluster
               melds={state.melds.filter((m) => m.ownerId === seat.playerId)}

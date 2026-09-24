@@ -13,6 +13,8 @@ interface PlayerSeatProps {
   reactionKey?: number;
   /** Used for the player's OWN seat, shown above their actual hand — the real cards are already visible right below, so a redundant card-back stack would just be clutter. */
   hideCardBacks?: boolean;
+  /** Spectator mode: renders hidden opponent card-backs under a translucent mist. */
+  foggy?: boolean;
   /** Chips/money running total for the whole table session — omitted entirely in dare mode, where it's meaningless. */
   chipsBalance?: number | null;
 }
@@ -26,6 +28,7 @@ export default function PlayerSeat({
   reactionEmoji,
   reactionKey,
   hideCardBacks,
+  foggy,
   chipsBalance,
 }: PlayerSeatProps) {
   const isOutOfHand = !seat.connected || seat.inactiveThisHand;
@@ -72,7 +75,7 @@ export default function PlayerSeat({
       {!hideCardBacks && (
         <div className="flex -space-x-5">
           {Array.from({ length: Math.min(seat.cardCount, 11) }).map((_, i) => (
-            <CardBack key={i} size="sm" />
+            <CardBack key={i} size="sm" foggy={foggy} />
           ))}
         </div>
       )}

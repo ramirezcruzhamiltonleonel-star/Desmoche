@@ -10,6 +10,7 @@ import {
   isAutoWinReason,
   isValidMeld,
   REACTION_EMOJIS,
+  RETO_MAX_LENGTH,
   type Card as CardModel,
   type ClientSeatView,
 } from "@desmoche/shared";
@@ -134,6 +135,8 @@ export default function GameTable() {
   const [botSpeech, setBotSpeech] = useState<{ seatIndex: number; text: string; key: number } | null>(null);
   const [firstClaimHint, setFirstClaimHint] = useState<string | null>(null);
   const [requestedToJoin, setRequestedToJoin] = useState(false);
+  const [editingReto, setEditingReto] = useState(false);
+  const [retoDraft, setRetoDraft] = useState("");
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -465,6 +468,13 @@ export default function GameTable() {
     setConfirmingRetire(false);
   }
 
+  function handleSaveReto() {
+    const trimmed = retoDraft.trim();
+    if (!trimmed) return;
+    sendAction({ type: "set-reto", text: trimmed });
+    setEditingReto(false);
+  }
+
   function handleLeaveClick() {
     // A guest who's actually played something gets one chance to see what
     // they'd lose before it's gone — real accounts leave immediately like
@@ -759,6 +769,52 @@ export default function GameTable() {
               <p className="mb-2 animate-pulse text-center text-xs font-bold uppercase tracking-widest text-gold">
                 ★ Tu turno ★
               </p>
+            )}
+            {state.stakeType === "dare" && !state.isSpectator && (
+              <div className="mb-2 rounded-lg border border-wood/60 bg-stone-900/40 px-3 py-2">
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-400">
+                  Tu reto — solo se revela a los demás si ganás una mano
+                </p>
+                {editingReto ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={retoDraft}
+                      onChange={(e) => setRetoDraft(e.target.value)}
+                      maxLength={RETO_MAX_LENGTH}
+                      placeholder="Escribí tu reto..."
+                      className="min-w-[10rem] flex-1 rounded-lg border border-wood-dark bg-stone-900 px-2 py-1 text-sm text-stone-100"
+                    />
+                    <button
+                      onClick={handleSaveReto}
+                      disabled={!retoDraft.trim()}
+                      className="rounded-lg bg-gold px-3 py-1 text-xs font-semibold text-stone-900 transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => setEditingReto(false)}
+                      className="rounded-lg border border-stone-500 px-3 py-1 text-xs text-stone-300 transition hover:border-stone-300"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm text-stone-200">
+                      {state.yourReto ?? <span className="italic text-stone-500">Todavía no escribiste un reto</span>}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setRetoDraft(state.yourReto ?? "");
+                        setEditingReto(true);
+                      }}
+                      className="shrink-0 rounded-lg border border-stone-500 px-2 py-1 text-xs text-stone-300 transition hover:border-gold hover:text-gold"
+                    >
+                      {state.yourReto ? "Editar" : "Escribir"}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {canRetire && (
               <div className="mb-1 flex justify-start">

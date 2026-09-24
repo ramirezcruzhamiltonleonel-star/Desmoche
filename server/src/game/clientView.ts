@@ -78,6 +78,7 @@ export function toClientView(
     accumulatedPot: state.accumulatedPot,
     handOutcome: state.handOutcome,
     eventLog: state.eventLog,
+    yourReto: state.retos[viewerPlayerId] ?? null,
     // Populated by Room.viewFor(), which knows the table's stake config and
     // the running session history — this projector only has the rules-engine
     // state for the CURRENT hand, not settlements or cross-hand history.

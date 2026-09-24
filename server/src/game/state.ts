@@ -127,6 +127,15 @@ export interface GameState {
    * winning" without anyone having to open the hand history panel.
    */
   chipBalances: Record<string, number>;
+  /**
+   * Dare mode only: each player's own free-text reto, in their own words —
+   * never fixed for the whole session, they may rewrite it before any hand.
+   * Whoever wins a hand has THEIR current reto (not the loser's own) shown
+   * to the whole table and performed by every loser that hand. Never reset
+   * by startHand() — an unset reto simply stays whatever it was last set to
+   * (or absent, if never set at all).
+   */
+  retos: Record<string, string>;
 }
 
 export function seatOf(state: GameState, playerId: string): Seat {

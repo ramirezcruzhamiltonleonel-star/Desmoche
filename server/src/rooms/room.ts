@@ -409,6 +409,9 @@ export class Room {
       handSettlement: null,
       handHistory: this.history,
       eventLog: [],
+      // No Table exists yet to have stored anything against — a reto can
+      // only be set once the table (and its first hand) exists.
+      yourReto: null,
     };
   }
 }

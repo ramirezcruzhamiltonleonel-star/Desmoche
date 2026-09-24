@@ -18,6 +18,11 @@ export interface HandOutcomeInput {
    * hands ("se va doble"), added on top of this hand's own ante pot.
    */
   carriedOverPot?: number;
+  /**
+   * Dare mode only: the WINNER's own current reto (not any loser's) — this
+   * is what every loser performs. Null if the winner never set one.
+   */
+  winnerReto?: string | null;
 }
 
 export interface ChipsOrMoneyPayout {
@@ -42,6 +47,13 @@ export interface DarePayout {
   winnerId: string;
   /** Every player who did not win must fulfill their dare. */
   playersWhoOweADare: string[];
+  /**
+   * The winner's own current reto (free text, in their own words) — this is
+   * what every loser this hand must perform, shown table-wide and marked
+   * fulfilled automatically, no manual confirmation. Null if the winner
+   * never set one.
+   */
+  winnerReto: string | null;
 }
 
 /**
@@ -66,6 +78,7 @@ export function calculateHandOutcome(input: HandOutcomeInput): HandOutcome {
       kind: "dare",
       winnerId,
       playersWhoOweADare: [...loserIds],
+      winnerReto: input.winnerReto ?? null,
     };
   }
 

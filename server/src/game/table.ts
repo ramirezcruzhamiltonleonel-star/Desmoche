@@ -2,9 +2,11 @@ import {
   cardId,
   canClaimDiscard,
   canDesmocharFrom,
+  containsOffensiveContent,
   isHandEmptied,
   isValidMeld,
   isValidSet,
+  RETO_MAX_LENGTH,
   type Card,
   type Meld,
 } from "@desmoche/shared";
@@ -81,6 +83,7 @@ export class Table {
       handOutcome: null,
       eventLog: [],
       chipBalances: Object.fromEntries(seats.map((s) => [s.playerId, 0])),
+      retos: {},
     };
   }
 
@@ -258,6 +261,33 @@ export class Table {
     }
     this.state.seats.push(seat);
     this.state.chipBalances[seat.playerId] = 0;
+  }
+
+  /**
+   * Dare mode: a player writes (or rewrites) their own free-text reto. Not
+   * fixed for the whole session — they may change it before any hand, and
+   * whatever it's set to at the moment someone wins is the reto every loser
+   * that hand performs (see settleHand). No phase restriction: safe to
+   * change any time, including mid-hand, since it only ever gets read at
+   * the NEXT settlement — changing it now never retroactively rewrites a
+   * hand that already ended.
+   */
+  setReto(playerId: string, text: string): void {
+    if (this.config.stakeType !== "dare") {
+      throw new GameError("Los retos solo aplican en mesas de modo Retos");
+    }
+    seatOf(this.state, playerId); // throws if playerId isn't actually seated
+    const trimmed = text.trim();
+    if (trimmed.length === 0) {
+      throw new GameError("El reto no puede estar vacío");
+    }
+    if (trimmed.length > RETO_MAX_LENGTH) {
+      throw new GameError(`El reto no puede tener más de ${RETO_MAX_LENGTH} caracteres`);
+    }
+    if (containsOffensiveContent(trimmed)) {
+      throw new GameError("Ese texto no está permitido — probá con otro reto");
+    }
+    this.state.retos[playerId] = trimmed;
   }
 
   private finishHand(
@@ -826,6 +856,7 @@ export class Table {
       bonuses,
       patonaLoserIds,
       carriedOverPot,
+      winnerReto: this.state.retos[winnerId] ?? null,
     });
 
     if (payout.kind === "chips" || payout.kind === "money") {

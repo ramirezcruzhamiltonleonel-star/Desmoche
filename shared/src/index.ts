@@ -14,3 +14,4 @@ export * from "./bonuses";
 export * from "./bonusesApplied";
 export * from "./botCommentary";
 export * from "./claimHint";
+export * from "./contentFilter";

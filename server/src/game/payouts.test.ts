@@ -16,6 +16,24 @@ describe("calculateHandOutcome", () => {
       kind: "dare",
       winnerId: "p1",
       playersWhoOweADare: ["p2", "p3"],
+      winnerReto: null,
+    });
+  });
+
+  it("in dare mode, includes the winner's own current reto when one was given", () => {
+    const outcome = calculateHandOutcome({
+      stakeType: "dare",
+      ante: 0,
+      winnerId: "p1",
+      loserIds: ["p2", "p3"],
+      bonuses: noBonus,
+      winnerReto: "Cantar el himno al revés",
+    });
+    expect(outcome).toEqual({
+      kind: "dare",
+      winnerId: "p1",
+      playersWhoOweADare: ["p2", "p3"],
+      winnerReto: "Cantar el himno al revés",
     });
   });
 
@@ -99,6 +117,7 @@ describe("calculateHandOutcome", () => {
       kind: "dare",
       winnerId: "p1",
       playersWhoOweADare: ["p2"],
+      winnerReto: null,
     });
   });
 });

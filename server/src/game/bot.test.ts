@@ -40,6 +40,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     handOutcome: null,
     eventLog: [],
     chipBalances: {},
+    retos: {},
     ...overrides,
   };
 }

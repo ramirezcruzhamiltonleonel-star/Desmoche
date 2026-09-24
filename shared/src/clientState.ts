@@ -76,7 +76,13 @@ export type ClientHandSettlement =
       /** Which losers specifically owe Patona (placed zero melds all hand) — see patonaLoserIds on the server's ChipsOrMoneyPayout for why this is broken out from extraPerLoser. */
       patonaLoserIds: string[];
     }
-  | { kind: "dare"; winnerId: string; playersWhoOweADare: string[] }
+  | {
+      kind: "dare";
+      winnerId: string;
+      playersWhoOweADare: string[];
+      /** The winner's own reto (free text) — what every loser performs. Null if never set. */
+      winnerReto: string | null;
+    }
   | {
       /**
        * The mazo agotado ("se va doble") case: nobody won, so nothing is
@@ -138,4 +144,11 @@ export interface ClientGameState {
   handHistory: ClientHandHistoryEntry[];
   /** Notable in-hand moments (discard claims, desmoches, Peladía/Cuatro Cuerpos) for the whole table session, oldest first — filterable by type in the UI. */
   eventLog: TableEvent[];
+  /**
+   * Dare mode only: this viewer's own current reto, in their own words —
+   * null if they haven't set one yet. Private: nobody else's reto is ever
+   * sent here, only the winner's — once someone wins, it's the winnerReto
+   * on that hand's ClientHandSettlement instead.
+   */
+  yourReto: string | null;
 }

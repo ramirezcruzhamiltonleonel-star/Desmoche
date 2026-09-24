@@ -29,6 +29,7 @@ function baseState(overrides: Partial<ClientGameState>): ClientGameState {
     handSettlement: null,
     handHistory: [],
     eventLog: [],
+    yourReto: null,
     ...overrides,
   };
 }
@@ -107,7 +108,7 @@ describe("computeGuestSummary", () => {
     const dareWin: ClientHandHistoryEntry = {
       reason: "meld-out",
       winnerSeatIndex: 0,
-      settlement: { kind: "dare", winnerId: "me", playersWhoOweADare: ["p1"] },
+      settlement: { kind: "dare", winnerId: "me", playersWhoOweADare: ["p1"], winnerReto: null },
       playedAt: 1,
     };
     const state = baseState({ yourSeatIndex: 0, handHistory: [dareWin] });

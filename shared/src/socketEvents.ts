@@ -38,7 +38,8 @@ export type GameAction =
   | { type: "extend-meld"; meldId: string; cards: Card[] }
   | { type: "desmochar"; fromMeldId: string; toMeldId: string; card: Card }
   | { type: "discard"; card: Card }
-  | { type: "retire-from-hand" };
+  | { type: "retire-from-hand" }
+  | { type: "set-reto"; text: string };
 
 export interface ErrorPayload {
   message: string;

@@ -367,6 +367,9 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
     case "retire-from-hand":
       table.retire(playerId);
       return;
+    case "set-reto":
+      table.setReto(playerId, action.text);
+      return;
   }
 }
 

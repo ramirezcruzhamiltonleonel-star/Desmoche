@@ -1975,6 +1975,70 @@ describe("Table — inactive seats: disconnect mid-hand and \"Retirarme de la ma
   });
 });
 
+describe("Table — setReto (Modo Retos)", () => {
+  it("only applies in dare-mode tables", () => {
+    const table = new Table(config({ stakeType: "chips" }), seats(2));
+    expect(() => table.setReto("p0", "Cantar el himno al revés")).toThrow(GameError);
+  });
+
+  it("stores a player's own reto, trimmed", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.setReto("p0", "  Bailar como pollo  ");
+    expect(table.state.retos["p0"]).toBe("Bailar como pollo");
+  });
+
+  it("lets a player rewrite their reto — it's never fixed for the whole session", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.setReto("p0", "Reto original");
+    table.setReto("p0", "Reto nuevo");
+    expect(table.state.retos["p0"]).toBe("Reto nuevo");
+  });
+
+  it("rejects an empty (or whitespace-only) reto", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    expect(() => table.setReto("p0", "   ")).toThrow(GameError);
+  });
+
+  it("rejects a reto longer than the max length", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    expect(() => table.setReto("p0", "x".repeat(500))).toThrow(GameError);
+  });
+
+  it("rejects an offensive reto", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    expect(() => table.setReto("p0", "Sos un pendejo")).toThrow(GameError);
+    expect(table.state.retos["p0"]).toBeUndefined();
+  });
+
+  // Regression: settleHand must show every loser the WINNER's own current
+  // reto, not their own — and mark it fulfilled automatically (no separate
+  // confirmation step exists at all in the payout shape).
+  it("settleHand pays out the WINNER's reto to every loser, not their own", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.setReto("p0", "Reto de p0 — el ganador");
+    table.setReto("p1", "Reto de p1 — el perdedor, nunca debería usarse");
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+
+    const outcome = table.settleHand();
+    if (outcome.kind !== "dare") throw new Error("expected a dare outcome");
+    expect(outcome.winnerReto).toBe("Reto de p0 — el ganador");
+    expect(outcome.playersWhoOweADare).toEqual(["p1"]);
+  });
+
+  it("settleHand's winnerReto is null when the winner never set one", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+
+    const outcome = table.settleHand();
+    if (outcome.kind !== "dare") throw new Error("expected a dare outcome");
+    expect(outcome.winnerReto).toBeNull();
+  });
+});
+
 describe("Table — event log", () => {
   it("logs a Peladía declaration", () => {
     const table = new Table(config(), seats(2));

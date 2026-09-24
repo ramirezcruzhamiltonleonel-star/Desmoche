@@ -133,10 +133,15 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
                     </p>
                     {winnerName ? <p>Ganó {winnerName}</p> : <p>Nadie ganó — el pozo se acumula</p>}
                     {entry.settlement.kind === "dare" && entry.settlement.playersWhoOweADare.length > 0 && (
-                      <p className="text-stone-400">
-                        Deben reto:{" "}
-                        {entry.settlement.playersWhoOweADare.map((id) => nameByPlayerId[id] ?? id).join(", ")}
-                      </p>
+                      <>
+                        {entry.settlement.winnerReto && (
+                          <p className="italic text-stone-400">"{entry.settlement.winnerReto}"</p>
+                        )}
+                        <p className="text-stone-400">
+                          Deben reto:{" "}
+                          {entry.settlement.playersWhoOweADare.map((id) => nameByPlayerId[id] ?? id).join(", ")}
+                        </p>
+                      </>
                     )}
                     {(entry.settlement.kind === "chips" || entry.settlement.kind === "money") && (
                       <p className="text-stone-400">Pozo: {entry.settlement.potWon}</p>

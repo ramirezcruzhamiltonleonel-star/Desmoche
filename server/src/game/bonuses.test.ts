@@ -56,7 +56,14 @@ describe("hasMicoArriba", () => {
 
 describe("calculateBonuses", () => {
   it("charges one ante per bonus present", () => {
-    const onlyAbajo = [meld("run", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")])];
+    // A second, different-suit filler meld keeps this fixture from ALSO
+    // accidentally qualifying for Flor (same-suit-only close) — that
+    // interaction is covered on its own in the side-bets describe block
+    // below, kept separate here so this stays a pure Mico-only assertion.
+    const onlyAbajo = [
+      meld("run", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]),
+      meld("run", [c("7", "hearts"), c("8", "hearts"), c("9", "hearts")]),
+    ];
     expect(calculateBonuses(onlyAbajo, 100).extraPerLoser).toBe(100);
 
     const both = [
@@ -93,5 +100,66 @@ describe("calculateBonuses", () => {
       meld("run", [c("A", "hearts"), c("2", "hearts"), c("3", "hearts")]),
     ];
     expect(calculateBonuses(melds, 100).extraPerLoser).toBe(300);
+  });
+});
+
+describe("calculateBonuses — side bets de casa (Oro, Corazón, Flor)", () => {
+  it("pays Oro (2x ante) for closing with only diamond escaleras", () => {
+    const melds = [
+      meld("run", [c("2", "diamonds"), c("3", "diamonds"), c("4", "diamonds")]),
+      meld("run", [c("7", "diamonds"), c("8", "diamonds"), c("9", "diamonds")]),
+    ];
+    const result = calculateBonuses(melds, 100);
+    expect(result.oro).toBe(true);
+    // Oro is itself a special case of Flor (same suit, specifically
+    // diamonds) — both fire together, per the confirmed "independent
+    // bonuses that stack" design.
+    expect(result.flor).toBe(true);
+    expect(result.extraPerLoser).toBe(100 * 2 + Math.round(100 * 1.5)); // 350
+  });
+
+  it("pays Corazón (2x ante) for closing with only heart escaleras", () => {
+    const melds = [meld("run", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")])];
+    const result = calculateBonuses(melds, 100);
+    expect(result.corazon).toBe(true);
+    expect(result.flor).toBe(true);
+    expect(result.extraPerLoser).toBe(100 * 2 + Math.round(100 * 1.5)); // 350
+  });
+
+  it("pays Flor alone (1.5x ante) for a same-suit close in spades or clubs — no Oro/Corazón", () => {
+    const melds = [meld("run", [c("2", "clubs"), c("3", "clubs"), c("4", "clubs")])];
+    const result = calculateBonuses(melds, 100);
+    expect(result.oro).toBe(false);
+    expect(result.corazon).toBe(false);
+    expect(result.flor).toBe(true);
+    expect(result.extraPerLoser).toBe(Math.round(100 * 1.5)); // 150
+  });
+
+  it("stacks Flor with Mico when the same single run qualifies for both", () => {
+    // A-2-3 of clubs is simultaneously a Mico abajo AND (being the whole
+    // winning play, one suit) a Flor.
+    const melds = [meld("run", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")])];
+    const result = calculateBonuses(melds, 100);
+    expect(result.micoAbajo).toBe(true);
+    expect(result.flor).toBe(true);
+    expect(result.extraPerLoser).toBe(100 + Math.round(100 * 1.5)); // 250
+  });
+
+  it("pays nothing extra when the winning play mixes suits or includes a tercia", () => {
+    const mixedSuits = [
+      meld("run", [c("2", "clubs"), c("3", "clubs"), c("4", "clubs")]),
+      meld("run", [c("7", "hearts"), c("8", "hearts"), c("9", "hearts")]),
+    ];
+    expect(calculateBonuses(mixedSuits, 100).extraPerLoser).toBe(0);
+
+    const withTercia = [
+      meld("run", [c("2", "clubs"), c("3", "clubs"), c("4", "clubs")]),
+      meld("set", [c("9", "clubs"), c("9", "hearts"), c("9", "diamonds")]),
+    ];
+    const result = calculateBonuses(withTercia, 100);
+    expect(result.oro).toBe(false);
+    expect(result.corazon).toBe(false);
+    expect(result.flor).toBe(false);
+    expect(result.extraPerLoser).toBe(0);
   });
 });

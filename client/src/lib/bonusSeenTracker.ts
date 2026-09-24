@@ -1,4 +1,4 @@
-export type BonusKind = "peladia" | "cuatro-cuerpos" | "mico" | "patona";
+export type BonusKind = "peladia" | "cuatro-cuerpos" | "mico" | "patona" | "oro" | "corazon" | "flor";
 
 const KEY_PREFIX = "desmoche.bonusSeen.";
 

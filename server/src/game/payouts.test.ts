@@ -1,7 +1,7 @@
 import { calculateHandOutcome } from "./payouts";
 
-const noBonus = { micoAbajo: false, micoArriba: false, extraPerLoser: 0 };
-const withBonus = { micoAbajo: true, micoArriba: false, extraPerLoser: 50 };
+const noBonus = { micoAbajo: false, micoArriba: false, oro: false, corazon: false, flor: false, extraPerLoser: 0 };
+const withBonus = { micoAbajo: true, micoArriba: false, oro: false, corazon: false, flor: false, extraPerLoser: 50 };
 
 describe("calculateHandOutcome", () => {
   it("in dare mode, every loser owes a dare and no money changes hands", () => {

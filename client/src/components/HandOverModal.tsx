@@ -44,6 +44,9 @@ const BONUS_TITLES: Record<BonusKind, string> = {
   "cuatro-cuerpos": "¿Qué es Cuatro Cuerpos?",
   mico: "¿Qué es el bono Mico?",
   patona: "¿Qué es el bono Patona?",
+  oro: "¿Qué es el bono Oro?",
+  corazon: "¿Qué es el bono Corazón?",
+  flor: "¿Qué es el bono Flor?",
 };
 
 const BONUS_EXPLANATIONS: Record<BonusKind, string> = {
@@ -54,6 +57,9 @@ const BONUS_EXPLANATIONS: Record<BonusKind, string> = {
   mico: 'Tu jugada ganadora incluye una escalera A-2-3 o Q-K-A del mismo palo (un "Mico") — por eso cada perdedor te paga un ante extra, además del pozo normal.',
   patona:
     'Quien no bajó ningún grupo en toda la mano debe un ante extra por "Patona", además de lo que ya debía por el pozo — se acumula con el Mico si también aplica.',
+  oro: "Cerraste la mano usando solo escaleras de diamante (oro) — cada perdedor te paga 2 antes extra.",
+  corazon: "Cerraste la mano usando solo escaleras de corazones — cada perdedor te paga 2 antes extra.",
+  flor: "Cerraste la mano usando solo escaleras, todas del mismo palo — cada perdedor te paga 1.5 antes extra. Se acumula con Oro/Corazón si también aplican.",
 };
 
 interface HandOverModalProps {
@@ -90,6 +96,9 @@ export default function HandOverModal({
   }, []);
   const appliedBonuses = bonusesAppliedThisHand(outcome, settlement);
   const micoApplies = appliedBonuses.includes("mico");
+  const oroApplies = appliedBonuses.includes("oro");
+  const corazonApplies = appliedBonuses.includes("corazon");
+  const florApplies = appliedBonuses.includes("flor");
   // Captured once, at the moment this modal first appears for this hand —
   // "first time" is evaluated exactly once per hand-over, not re-checked on
   // every re-render (which would flicker back to "already seen" the instant
@@ -221,7 +230,16 @@ export default function HandOverModal({
                   .filter(([, extra]) => extra > 0)
                   .map(([playerId, extra]) => {
                     const isPatona = settlement.patonaLoserIds.includes(playerId);
-                    const reason = isPatona && micoApplies ? "Mico + Patona" : isPatona ? "Patona" : "Mico";
+                    const reason =
+                      [
+                        isPatona && "Patona",
+                        micoApplies && "Mico",
+                        oroApplies && "Oro",
+                        corazonApplies && "Corazón",
+                        florApplies && "Flor",
+                      ]
+                        .filter((label): label is string => Boolean(label))
+                        .join(" + ") || "Bono";
                     return (
                       <p key={playerId}>
                         {nameByPlayerId[playerId] ?? playerId} paga {extra} extra

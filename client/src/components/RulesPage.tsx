@@ -150,7 +150,7 @@ export default function RulesPage({ onClose }: RulesPageProps) {
               />
             </section>
 
-            <section className="rounded-lg border border-gold/30 bg-gold/5 p-3">
+            <section className="mb-4 rounded-lg border border-gold/30 bg-gold/5 p-3">
               <h3 className="mb-1 font-display text-base text-gold">💰 Patona</h3>
               <p className="text-sm text-stone-200">
                 Si un perdedor no bajó <strong>ningún</strong> grupo en toda la mano, le debe al
@@ -158,6 +158,25 @@ export default function RulesPage({ onClose }: RulesPageProps) {
                 — se acumula con los Micos. No aplica sobre una Peladía/Cuatro Cuerpos (ahí nadie
                 llegó a tener turno) ni en Modo Retos.
               </p>
+            </section>
+
+            <section className="mb-4 rounded-lg border border-gold/30 bg-gold/5 p-3">
+              <h3 className="mb-1 font-display text-base text-gold">🃏 Oro, Corazón y Flor</h3>
+              <p className="mb-2 text-sm text-stone-200">
+                Cerrar la mano usando <strong>solo escaleras</strong> (nunca tercias) de un mismo palo
+                dispara un bono extra: todo diamante paga <strong>Oro</strong> (2 antes por
+                oponente), todo corazones paga <strong>Corazón</strong> (2 antes por oponente), y
+                cualquier otro palo repetido en toda la jugada paga <strong>Flor</strong> (1.5 antes
+                por oponente). Oro y Corazón también cuentan como Flor a la vez — se acumulan entre
+                sí y con los Micos.
+              </p>
+              <ExampleRow
+                cards={[
+                  { rank: "2", suit: "diamonds" },
+                  { rank: "3", suit: "diamonds" },
+                  { rank: "4", suit: "diamonds" },
+                ]}
+              />
             </section>
           </div>
         </div>

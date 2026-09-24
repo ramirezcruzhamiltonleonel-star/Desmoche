@@ -1216,6 +1216,10 @@ describe("Table — Mico: longer runs and multiple Micos in one hand (regression
       winnerSeatIndex: 0,
       winningMelds: [
         { id: "m1", type: "run", ownerId: "p0", cards: [c("A", "spades"), c("2", "spades"), c("3", "spades"), c("4", "spades")] },
+        // A second, different-suit meld keeps this fixture from also
+        // qualifying for Flor (same-suit-only close) — isolating this
+        // assertion to Mico alone, matching the Priority-3 side-bets tests.
+        { id: "m2", type: "run", ownerId: "p0", cards: [c("7", "clubs"), c("8", "clubs"), c("9", "clubs")] },
       ],
     };
 
@@ -1246,6 +1250,33 @@ describe("Table — Mico: longer runs and multiple Micos in one hand (regression
     const outcome = table.settleHand();
     if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
     expect(outcome.extraPerLoser).toEqual({ p1: 200 });
+  });
+});
+
+describe("Table — side bets de casa (Oro, Corazón, Flor)", () => {
+  it("pays Oro + Flor together through a real settleHand() when the winner closes all-diamonds", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    table.state.melds.push({
+      id: "p1meld",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "hearts"), c("9", "clubs"), c("9", "spades")],
+    });
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = {
+      reason: "meld-out",
+      winnerSeatIndex: 0,
+      winningMelds: [
+        { id: "m1", type: "run", ownerId: "p0", cards: [c("2", "diamonds"), c("3", "diamonds"), c("4", "diamonds")] },
+        { id: "m2", type: "run", ownerId: "p0", cards: [c("7", "diamonds"), c("8", "diamonds"), c("9", "diamonds")] },
+      ],
+    };
+
+    const outcome = table.settleHand();
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+    // Oro (2x100=200) + Flor (1.5x100=150) = 350, no Mico/Patona here.
+    expect(outcome.extraPerLoser).toEqual({ p1: 350 });
   });
 });
 

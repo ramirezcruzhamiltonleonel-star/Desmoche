@@ -21,10 +21,26 @@ describe("bonusesAppliedThisHand", () => {
   });
 
   it("detects mico from the winning melds on a normal meld-out win", () => {
+    // A second, different-suit filler meld keeps this from also qualifying
+    // for Corazón/Flor (same-suit-only close) — that combined detection is
+    // covered on its own below.
     const melds: Meld[] = [
       { id: "m1", type: "run", ownerId: "p1", cards: [c("A", "hearts"), c("2", "hearts"), c("3", "hearts")] },
+      { id: "m2", type: "run", ownerId: "p1", cards: [c("7", "clubs"), c("8", "clubs"), c("9", "clubs")] },
     ];
     expect(bonusesAppliedThisHand(outcome("meld-out", melds), null)).toEqual(["mico"]);
+  });
+
+  it("detects Oro/Corazón/Flor together when a Mico run happens to be the entire (single-suit) winning play", () => {
+    const heartsOnly: Meld[] = [
+      { id: "m1", type: "run", ownerId: "p1", cards: [c("A", "hearts"), c("2", "hearts"), c("3", "hearts")] },
+    ];
+    expect(bonusesAppliedThisHand(outcome("meld-out", heartsOnly), null)).toEqual(["mico", "corazon", "flor"]);
+
+    const spadesOnly: Meld[] = [
+      { id: "m1", type: "run", ownerId: "p1", cards: [c("Q", "spades"), c("K", "spades"), c("A", "spades")] },
+    ];
+    expect(bonusesAppliedThisHand(outcome("meld-out", spadesOnly), null)).toEqual(["mico", "flor"]);
   });
 
   it("detects patona from the settlement when a loser placed nothing all hand", () => {
@@ -41,6 +57,7 @@ describe("bonusesAppliedThisHand", () => {
   it("can detect mico AND patona together on the same hand", () => {
     const melds: Meld[] = [
       { id: "m1", type: "run", ownerId: "p1", cards: [c("Q", "spades"), c("K", "spades"), c("A", "spades")] },
+      { id: "m2", type: "run", ownerId: "p1", cards: [c("7", "diamonds"), c("8", "diamonds"), c("9", "diamonds")] },
     ];
     const settlement: ClientHandSettlement = {
       kind: "chips",

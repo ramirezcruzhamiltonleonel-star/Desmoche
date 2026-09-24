@@ -15,3 +15,4 @@ export * from "./bonusesApplied";
 export * from "./botCommentary";
 export * from "./claimHint";
 export * from "./contentFilter";
+export * from "./sidebets";

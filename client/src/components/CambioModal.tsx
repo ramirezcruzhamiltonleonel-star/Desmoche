@@ -19,6 +19,18 @@ export default function CambioModal({
   onSubmit,
 }: CambioModalProps) {
   const [selected, setSelected] = useState<CardModel | null>(null);
+  // Cambio is blind and simultaneous — who actually receives this card isn't
+  // known here, so there's no honest on-screen destination to fly it
+  // toward. Instead the chosen card visibly lifts, shrinks and fades right
+  // in the modal on submit — real movement instead of an instant swap,
+  // without pretending to show a recipient that doesn't exist yet.
+  const [handingOver, setHandingOver] = useState(false);
+
+  function handleSubmit() {
+    if (!selected || handingOver) return;
+    setHandingOver(true);
+    setTimeout(() => onSubmit(selected), 260);
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
@@ -49,21 +61,29 @@ export default function CambioModal({
               suya.
             </p>
             <div className="mb-4 flex flex-wrap justify-center gap-2">
-              {hand.map((card) => (
-                <Card
-                  key={cardKey(card)}
-                  card={card}
-                  selected={selected !== null && cardKey(selected) === cardKey(card)}
-                  onClick={() => setSelected(card)}
-                />
-              ))}
+              {hand.map((card) => {
+                const isSelected = selected !== null && cardKey(selected) === cardKey(card);
+                return (
+                  <div
+                    key={cardKey(card)}
+                    className="transition-all duration-200 ease-out"
+                    style={
+                      isSelected && handingOver
+                        ? { transform: "translateY(-14px) scale(0.7) rotate(-6deg)", opacity: 0 }
+                        : undefined
+                    }
+                  >
+                    <Card card={card} selected={isSelected} onClick={() => !handingOver && setSelected(card)} />
+                  </div>
+                );
+              })}
             </div>
             <button
-              onClick={() => selected && onSubmit(selected)}
-              disabled={!selected}
+              onClick={handleSubmit}
+              disabled={!selected || handingOver}
               className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light disabled:opacity-40"
             >
-              Entregar carta
+              {handingOver ? "Entregando..." : "Entregar carta"}
             </button>
           </>
         )}

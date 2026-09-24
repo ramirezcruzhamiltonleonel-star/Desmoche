@@ -48,7 +48,7 @@ import StockFlipCard from "./StockFlipCard";
 import TutorialModal from "./TutorialModal";
 import VoiceChatPanel from "./VoiceChatPanel";
 
-interface DesmocheFlight {
+interface CardFlight {
   from: Point;
   to: Point;
   card: CardModel;
@@ -121,7 +121,7 @@ export default function GameTable() {
   const [selectedCards, setSelectedCards] = useState<CardModel[]>([]);
   const [desmocheMode, setDesmocheMode] = useState(false);
   const [desmocheSource, setDesmocheSource] = useState<DesmocheSource | null>(null);
-  const [desmocheFlight, setDesmocheFlight] = useState<DesmocheFlight | null>(null);
+  const [cardFlight, setCardFlight] = useState<CardFlight | null>(null);
   const [stockFlip, setStockFlip] = useState<StockFlip | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -137,6 +137,8 @@ export default function GameTable() {
   const [requestedToJoin, setRequestedToJoin] = useState(false);
   const [editingReto, setEditingReto] = useState(false);
   const [retoDraft, setRetoDraft] = useState("");
+  const handCardsRef = useRef<HTMLDivElement>(null);
+  const discardPileRef = useRef<HTMLDivElement>(null);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -449,7 +451,19 @@ export default function GameTable() {
 
   function handleDiscard() {
     if (selectedCards.length !== 1) return;
-    sendAction({ type: "discard", card: selectedCards[0]! });
+    const card = selectedCards[0]!;
+    const sourceEl = handCardsRef.current?.querySelector<HTMLElement>(`[data-card-key="${cardKey(card)}"]`);
+    const destEl = discardPileRef.current;
+    if (sourceEl && destEl) {
+      const fromRect = sourceEl.getBoundingClientRect();
+      const toRect = destEl.getBoundingClientRect();
+      setCardFlight({
+        from: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
+        to: { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 },
+        card,
+      });
+    }
+    sendAction({ type: "discard", card });
     setSelectedCards([]);
     sound.playDiscard();
   }
@@ -505,7 +519,7 @@ export default function GameTable() {
     if (sourceEl && destEl) {
       const fromRect = sourceEl.getBoundingClientRect();
       const toRect = destEl.getBoundingClientRect();
-      setDesmocheFlight({
+      setCardFlight({
         from: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
         to: { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 },
         card: desmocheSource.card,
@@ -671,7 +685,7 @@ export default function GameTable() {
                 {canDraw ? "Mazo — toca para robar" : `Mazo (${state.stockCount})`}
               </span>
             </div>
-            <div className="flex flex-col items-center gap-1">
+            <div ref={discardPileRef} className="flex flex-col items-center gap-1">
               {state.topDiscard ? (
                 // The top discard IS the card a claim window offers (initial
                 // flip, every ritual reveal, and every normal in-hand
@@ -872,20 +886,21 @@ export default function GameTable() {
                 />
               </div>
             )}
-            <div className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
+            <div ref={handCardsRef} className="mb-2 flex justify-center gap-2 overflow-x-auto pb-2">
               {(handArranged ? arrangeHandForDisplay(state.yourHand) : sortHandForDisplay(state.yourHand)).map(
                 (card) => (
-                  <Card
-                    key={cardKey(card)}
-                    card={card}
-                    selected={selectedCards.some((c) => cardKey(c) === cardKey(card))}
-                    pendingDraw={Boolean(
-                      state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card),
-                    )}
-                    playable={playableCardKeys.has(cardKey(card))}
-                    connectsToOffer={claimConnectionKeys.has(cardKey(card))}
-                    onClick={() => toggleHandCard(card)}
-                  />
+                  <div key={cardKey(card)} data-card-key={cardKey(card)}>
+                    <Card
+                      card={card}
+                      selected={selectedCards.some((c) => cardKey(c) === cardKey(card))}
+                      pendingDraw={Boolean(
+                        state.pendingDrawnCard && cardKey(state.pendingDrawnCard) === cardKey(card),
+                      )}
+                      playable={playableCardKeys.has(cardKey(card))}
+                      connectsToOffer={claimConnectionKeys.has(cardKey(card))}
+                      onClick={() => toggleHandCard(card)}
+                    />
+                  </div>
                 ),
               )}
             </div>
@@ -1004,12 +1019,12 @@ export default function GameTable() {
         />
       ))}
 
-      {desmocheFlight && (
+      {cardFlight && (
         <FlyingCard
-          from={desmocheFlight.from}
-          to={desmocheFlight.to}
-          card={desmocheFlight.card}
-          onDone={() => setDesmocheFlight(null)}
+          from={cardFlight.from}
+          to={cardFlight.to}
+          card={cardFlight.card}
+          onDone={() => setCardFlight(null)}
         />
       )}
 

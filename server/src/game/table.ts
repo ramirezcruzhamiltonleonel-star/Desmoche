@@ -99,6 +99,13 @@ export class Table {
     if (seat.seatIndex !== this.state.turnSeatIndex) {
       throw new GameError("No es tu turno");
     }
+    // Defensive, regardless of how turnSeatIndex could ever have landed on
+    // an inactive seat (a stale claim-window fallback, a retry racing a
+    // disconnect, etc.) — a retired/disconnected seat must never be able
+    // to act just because some earlier bug pointed the turn at them.
+    if (this.state.inactiveSeatIndices.includes(seat.seatIndex)) {
+      throw new GameError("Ya no estás activo en esta mano");
+    }
     return seat;
   }
 
@@ -133,6 +140,18 @@ export class Table {
     if (this.state.inactiveSeatIndices.includes(seatIndex)) return;
     if (this.state.phase === "lobby" || this.state.phase === "hand-over") return;
     this.state.inactiveSeatIndices.push(seatIndex);
+
+    // Nobody left active AT ALL, in any phase — end the hand outright
+    // instead of trying to hand a turn/claim/Cambio to seats that can no
+    // longer act. Without this, the last active seat retiring (or idling
+    // out) left the table permanently stuck: turnSeatIndex (or a claim
+    // window) pointing at seats nobody could ever respond from (reported
+    // bug — "la mesa se puede congelar para siempre").
+    const stillActive = this.state.seats.some((s) => !this.state.inactiveSeatIndices.includes(s.seatIndex));
+    if (!stillActive) {
+      this.endHandWithNoWinner();
+      return;
+    }
 
     if (this.state.phase === "cambio" && this.state.cambio) {
       const cambio = this.state.cambio;
@@ -495,7 +514,14 @@ export class Table {
     }
 
     // A normal (non-initial) discard going unclaimed: turn passes onward.
-    this.state.turnSeatIndex = claim.fallbackSeatIndex;
+    // Recomputed fresh here rather than trusting the stored
+    // fallbackSeatIndex — a seat can go inactive (disconnect, retire)
+    // during the up-to-30s claim window itself, which used to leave the
+    // turn pointing at a seat nobody could ever act from (reported bug —
+    // the table gets stuck). nextActiveSeat always skips anyone currently
+    // inactive, computed against the CURRENT state, not whatever it was
+    // when the window opened.
+    this.state.turnSeatIndex = this.nextActiveSeat(claim.referenceSeatIndex);
     this.state.hasDrawnThisTurn = false;
     this.state.mustPlaceCard = null;
     this.state.phase = "turn-active";
@@ -743,6 +769,17 @@ export class Table {
     if (outcome.reason === "stock-exhausted") {
       const addedToPot = this.config.stakeType === "dare" ? 0 : this.config.ante * this.playerCount;
       this.state.accumulatedPot += addedToPot;
+      // Every seat's ante for THIS hand rides into the accumulated pot —
+      // without actually debiting it here, the eventual winner would
+      // collect chips nobody ever paid in (reported bug: the table's total
+      // balance didn't sum to zero). Charged unconditionally, retired/
+      // inactive seats included — they still owe their ante once the pot
+      // is finally paid out, same as any other loser.
+      if (this.config.stakeType !== "dare") {
+        for (const seat of this.state.seats) {
+          this.state.chipBalances[seat.playerId] = (this.state.chipBalances[seat.playerId] ?? 0) - this.config.ante;
+        }
+      }
       return { kind: "carry-over", addedToPot, totalAccumulatedPot: this.state.accumulatedPot };
     }
 

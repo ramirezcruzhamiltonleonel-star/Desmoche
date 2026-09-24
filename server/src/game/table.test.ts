@@ -1125,6 +1125,42 @@ describe('Table — "se va doble": the pot carries over when a hand ends with no
     expect(table.state.accumulatedPot).toBe(0);
   });
 
+  // Reported bug: a stock-exhausted hand grew accumulatedPot without ever
+  // debiting anyone's chipBalances for it — so once a later hand finally
+  // paid that pot out to a winner, the table's total balance no longer
+  // summed to zero (chips created from nothing). Every seat must actually
+  // pay their ante on EVERY hand, no-winner ones included.
+  it("never creates chips from nothing — the table's total balance sums to zero across carry-over hands and the eventual win", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+
+    forceStockExhausted(table);
+    table.settleHand();
+    // Both seats already paid their ante into the accumulating pot — nobody's up or down yet.
+    expect(table.state.chipBalances).toEqual({ p0: -100, p1: -100 });
+
+    forceStockExhausted(table);
+    table.settleHand();
+    expect(table.state.chipBalances).toEqual({ p0: -200, p1: -200 });
+
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = { reason: "meld-out", winnerSeatIndex: 0, winningMelds: [] };
+    table.settleHand();
+
+    const total = Object.values(table.state.chipBalances).reduce((sum, v) => sum + v, 0);
+    expect(total).toBe(0);
+  });
+
+  it("doesn't touch chip balances at all in dare mode's carry-over — there's no ante to charge", () => {
+    const table = new Table(config({ stakeType: "dare", ante: 0 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    forceStockExhausted(table);
+
+    table.settleHand();
+
+    expect(table.state.chipBalances).toEqual({ p0: 0, p1: 0 });
+  });
+
   it("does not accumulate anything for a hand that ends normally with a winner", () => {
     const table = new Table(config({ ante: 100 }), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
@@ -1583,6 +1619,83 @@ describe("Table — inactive seats: disconnect mid-hand and \"Retirarme de la ma
       expect(outcome.extraPerLoser).toEqual({ p1: 200 });
       expect(outcome.potWon).toBe(200);
     });
+  });
+
+  // Reported bug: an unclaimed discard's turn hand-off used to trust a
+  // fallbackSeatIndex computed back when the claim window FIRST opened —
+  // if that seat went inactive sometime during the (up to 30s) window
+  // itself, the turn landed on a seat nobody could ever act from, and the
+  // table froze there forever.
+  it("skips a seat that went inactive DURING the claim window itself, instead of freezing the turn on them", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    // Get to a normal in-hand discard from p0, opening a fresh claim window
+    // whose fallback (computed right now, while everyone's still active) is p1.
+    table.respondToClaim("p1", "pass");
+    table.respondToClaim("p2", "pass");
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "diamonds")];
+    table.discard("p0", c("K", "diamonds"));
+    expect(table.state.claim!.fallbackSeatIndex).toBe(1);
+
+    // p1 disconnects mid-window — the window itself doesn't resolve yet
+    // (p2 hasn't responded), but the stored fallback is now stale.
+    table.handleDisconnect("p1");
+    expect(table.state.phase).toBe("claim-window");
+
+    table.respondToClaim("p2", "pass");
+
+    // Must NOT land on the now-inactive p1 — skips straight to p2.
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(2);
+  });
+
+  it("ends the hand outright the instant the LAST active seat retires mid-turn, instead of freezing with nobody left to act", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+    table.handleDisconnect("p1"); // only p0 left active
+    expect(table.state.inactiveSeatIndices).toEqual([1]);
+
+    table.retire("p0"); // now NOBODY is active
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "stock-exhausted",
+      winnerSeatIndex: null,
+      winningMelds: [],
+    });
+  });
+
+  it("ends the hand outright if the last pending seat in a claim window disconnects and nobody else is active either", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    table.handleDisconnect("p0"); // p0 already gone, only p1 left pending on the initial claim
+    expect(table.state.claim!.pendingSeatIndices).toEqual([1]);
+
+    table.handleDisconnect("p1"); // now nobody at all
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome?.reason).toBe("stock-exhausted");
+  });
+
+  it("never lets an inactive seat act, even if turnSeatIndex somehow still pointed at them", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0);
+    table.handleDisconnect("p0");
+    // Force the exact broken state the bug report described: the turn
+    // pointing at a seat that's already inactive.
+    table.state.turnSeatIndex = 0;
+
+    expect(() => table.drawFromStock("p0")).toThrow(GameError);
   });
 });
 

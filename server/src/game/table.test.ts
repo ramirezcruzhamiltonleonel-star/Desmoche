@@ -1198,6 +1198,57 @@ describe("Table — Patona", () => {
   });
 });
 
+describe("Table — Mico: longer runs and multiple Micos in one hand (regression)", () => {
+  it("pays Mico for a longer run that CONTAINS the A-2-3 sequence, not just an exact 3-card run", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    // p1 places a meld of its own so Patona doesn't also stack — isolating
+    // this assertion to Mico alone.
+    table.state.melds.push({
+      id: "p1meld",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "hearts"), c("9", "clubs"), c("9", "diamonds")],
+    });
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = {
+      reason: "meld-out",
+      winnerSeatIndex: 0,
+      winningMelds: [
+        { id: "m1", type: "run", ownerId: "p0", cards: [c("A", "spades"), c("2", "spades"), c("3", "spades"), c("4", "spades")] },
+      ],
+    };
+
+    const outcome = table.settleHand();
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+    expect(outcome.extraPerLoser).toEqual({ p1: 100 });
+  });
+
+  it("pays DOUBLE when the winning hand has two Mico abajo runs in different suits", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    table.state.melds.push({
+      id: "p1meld",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "hearts"), c("9", "clubs"), c("9", "diamonds")],
+    });
+    (table.state as { phase: string }).phase = "hand-over";
+    table.state.handOutcome = {
+      reason: "meld-out",
+      winnerSeatIndex: 0,
+      winningMelds: [
+        { id: "m1", type: "run", ownerId: "p0", cards: [c("A", "spades"), c("2", "spades"), c("3", "spades")] },
+        { id: "m2", type: "run", ownerId: "p0", cards: [c("A", "hearts"), c("2", "hearts"), c("3", "hearts")] },
+      ],
+    };
+
+    const outcome = table.settleHand();
+    if (outcome.kind !== "chips" && outcome.kind !== "money") throw new Error("expected a chips/money outcome");
+    expect(outcome.extraPerLoser).toEqual({ p1: 200 });
+  });
+});
+
 describe("Table — the discard pile is NEVER recycled back into the stock (regression)", () => {
   // A live report described a hand that "kept going indefinitely with bots"
   // instead of ending — traced to the stock being reshuffled from the

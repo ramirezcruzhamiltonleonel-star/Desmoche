@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 const STORAGE_KEY = "desmoche.soundEnabled";
 
@@ -10,10 +10,24 @@ function loadEnabled(): boolean {
   }
 }
 
-/** Tiny beeps via the Web Audio API — no audio assets to ship or load. */
+/**
+ * Real recorded sound effects (Mixkit — free for commercial use, no
+ * attribution required) instead of the plain oscillator beeps this used to
+ * synthesize. A fresh Audio() per play call rather than one shared/reused
+ * element: these are all short one-shots that can legitimately overlap
+ * (e.g. two melds placed in quick succession), and a reused element would
+ * either cut the previous play off or need its own queue for no real
+ * benefit here.
+ */
+const SOUND_FILES = {
+  swoosh: "/sounds/swoosh.mp3",
+  coin: "/sounds/coin.mp3",
+  winFanfare: "/sounds/win-fanfare.mp3",
+  click: "/sounds/click.mp3",
+} as const;
+
 export function useSound() {
   const [enabled, setEnabled] = useState<boolean>(loadEnabled);
-  const ctxRef = useRef<AudioContext | null>(null);
 
   const toggle = useCallback(() => {
     setEnabled((prev) => {
@@ -28,74 +42,40 @@ export function useSound() {
   }, []);
 
   const play = useCallback(
-    (frequency: number, durationMs: number) => {
+    (file: keyof typeof SOUND_FILES, volume = 0.5) => {
       if (!enabled) return;
       try {
-        const ctx = ctxRef.current ?? new AudioContext();
-        ctxRef.current = ctx;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.06, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + durationMs / 1000);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + durationMs / 1000);
+        const audio = new Audio(SOUND_FILES[file]);
+        audio.volume = volume;
+        // Autoplay restrictions (no prior user gesture yet) or a missing
+        // file just mean this particular cue is silently skipped — sound
+        // is always optional, never something an action waits on.
+        audio.play().catch(() => {});
       } catch {
-        // Autoplay restrictions or no Web Audio support — sound is optional.
+        // ignore
       }
     },
     [enabled],
   );
 
-  const playSequence = useCallback(
-    (frequencies: number[], durationMs: number, gapMs: number) => {
-      frequencies.forEach((f, i) => setTimeout(() => play(f, durationMs), i * gapMs));
-    },
-    [play],
-  );
-
   return {
     enabled,
     toggle,
-    playDraw: () => play(440, 90),
-    playDiscard: () => play(280, 90),
-    playWin: () => play(660, 320),
-    playTurn: () => play(520, 140),
-    /**
-     * A meld landing successfully — a short bright rising chime, more
-     * "that's right!" than the plain single beep it used to be, since this
-     * is the main positive-reinforcement moment for someone still learning
-     * which combinations are valid.
-     */
-    playMeld: () => playSequence([600, 760, 920], 70, 55),
-    /** Desmoche succeeding — a rising two-note chime, brighter than the old flat pair. */
-    playDesmochar: () => playSequence([500, 700], 80, 65),
-    playDeal: () => playSequence([380, 440, 500, 560], 60, 50),
-    /**
-     * Peladía / Cuatro Cuerpos — won on the deal alone, the most dramatic
-     * moments in the game. A fanfare distinct from the plain playWin():
-     * a quick rising run into a sustained high note, not just one beep.
-     */
-    playAutoWin: () => {
-      playSequence([440, 550, 660, 880], 70, 65);
-      setTimeout(() => play(1100, 500), 300);
-    },
-    /**
-     * Closing the hand in one real play (meld-out/discard-out) — the
-     * biggest, most "you earned this" celebration in the game, distinct
-     * from both the plain playWin() (used elsewhere) and playAutoWin()
-     * (a deal-luck win, not a played one): a longer rising run into a
-     * two-note triumphant flourish at the top.
-     */
-    playCloseWin: () => {
-      playSequence([440, 523, 587, 659, 784, 880], 65, 60);
-      setTimeout(() => play(1047, 150), 420);
-      setTimeout(() => play(1319, 600), 540);
-    },
-    /** A short, bright multi-tone "clink" for chips changing hands at settlement — distinct timbre (shorter, higher, more clustered) from every other cue so it reads as "money", not another meld/turn/win beep. */
-    playChipsPay: () => playSequence([1400, 1600, 1800], 40, 35),
+    /** Card leaving/entering a hand or the table — dealing, drawing, discarding, melding, desmochando. One shared "swoosh" for all card movement. */
+    playDraw: () => play("swoosh"),
+    playDiscard: () => play("swoosh"),
+    playDeal: () => play("swoosh", 0.4),
+    playMeld: () => play("swoosh", 0.6),
+    playDesmochar: () => play("swoosh", 0.6),
+    /** "Te toca a vos" — a short, distinct notification tick, not a card sound. */
+    playTurn: () => play("click", 0.6),
+    /** A plain hand-over with no auto-win/close-win bonus treatment (rare — see isAutoWinReason/isCloseWin in GameTable). */
+    playWin: () => play("winFanfare", 0.5),
+    /** Peladía / Cuatro Cuerpos — won on the deal alone, the game's most dramatic moment. */
+    playAutoWin: () => play("winFanfare", 0.7),
+    /** Closing the hand in one real play (meld-out/discard-out) — the biggest "you earned this" moment. */
+    playCloseWin: () => play("winFanfare", 0.8),
+    /** Chips changing hands at settlement. */
+    playChipsPay: () => play("coin", 0.6),
   };
 }

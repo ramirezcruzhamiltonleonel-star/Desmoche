@@ -1,6 +1,12 @@
 import { cardId, type Card } from "./cards";
 import type { Meld } from "./melds";
-import { canDesmocharFrom, canUseDiscardImmediately, findPlayableCardIds, isHandEmptied } from "./meldActions";
+import {
+  canDesmocharAnyCardFrom,
+  canDesmocharFrom,
+  canUseDiscardImmediately,
+  findPlayableCardIds,
+  isHandEmptied,
+} from "./meldActions";
 
 function c(rank: Card["rank"], suit: Card["suit"]): Card {
   return { rank, suit };
@@ -79,17 +85,58 @@ describe("canUseDiscardImmediately", () => {
 describe("canDesmocharFrom", () => {
   it("rejects removing a card from a 3-card meld", () => {
     const meld = [c("8", "hearts"), c("8", "clubs"), c("8", "diamonds")];
-    expect(canDesmocharFrom(meld)).toBe(false);
+    expect(canDesmocharFrom(meld, c("8", "hearts"))).toBe(false);
   });
 
-  it("allows removing a card from a 4-card meld", () => {
+  it("allows removing a card from a 4-card set — the remainder is still a valid 3-card set", () => {
     const meld = [
       c("8", "hearts"),
       c("8", "clubs"),
       c("8", "diamonds"),
       c("8", "spades"),
     ];
-    expect(canDesmocharFrom(meld)).toBe(true);
+    expect(canDesmocharFrom(meld, c("8", "spades"))).toBe(true);
+  });
+
+  // Reported bug: a 5-card run 9-10-J-Q-K (spades) had its 10 desmochado,
+  // leaving 9-J-Q-K on the table — 4 cards, so the old length-only check
+  // allowed it, but 9-J-Q-K has a gap and is NOT a valid run. This must be
+  // rejected; only removing an END card (9 or K) keeps a valid run.
+  it("rejects desmocharring a card that would leave a gap in a run, even with 3+ cards remaining", () => {
+    const run = [
+      c("9", "spades"),
+      c("10", "spades"),
+      c("J", "spades"),
+      c("Q", "spades"),
+      c("K", "spades"),
+    ];
+    expect(canDesmocharFrom(run, c("10", "spades"))).toBe(false);
+    expect(canDesmocharFrom(run, c("J", "spades"))).toBe(false);
+    expect(canDesmocharFrom(run, c("Q", "spades"))).toBe(false);
+  });
+
+  it("allows desmocharring an END card of a run, since the remainder is still a valid, shorter run", () => {
+    const run = [
+      c("9", "spades"),
+      c("10", "spades"),
+      c("J", "spades"),
+      c("Q", "spades"),
+      c("K", "spades"),
+    ];
+    expect(canDesmocharFrom(run, c("9", "spades"))).toBe(true);
+    expect(canDesmocharFrom(run, c("K", "spades"))).toBe(true);
+  });
+});
+
+describe("canDesmocharAnyCardFrom", () => {
+  it("is true for a 4-card run, since at least one end card can be safely removed", () => {
+    const run = [c("9", "spades"), c("10", "spades"), c("J", "spades"), c("Q", "spades")];
+    expect(canDesmocharAnyCardFrom(run)).toBe(true);
+  });
+
+  it("is false for an exact 3-card meld — nothing can be removed at all", () => {
+    const set = [c("8", "hearts"), c("8", "clubs"), c("8", "diamonds")];
+    expect(canDesmocharAnyCardFrom(set)).toBe(false);
   });
 });
 

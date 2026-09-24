@@ -132,17 +132,14 @@ function findBeneficialDesmoche(
   const hand = handOf(state, playerId);
 
   for (const from of ownMelds) {
-    if (!canDesmocharFrom(from.cards)) continue;
+    if (from.cards.length < 4) continue;
     for (const card of from.cards) {
+      if (!canDesmocharFrom(from.cards, card)) continue;
       for (const to of ownMelds) {
         if (to.id === from.id) continue;
         if (!canExtendMeld(to.cards, card)) continue;
 
         const shrunkFrom = from.cards.filter((c) => cardId(c) !== cardId(card));
-        // canDesmocharFrom only checks length — pulling a middle card out of a
-        // run can leave a non-consecutive remainder, so double-check validity
-        // here rather than ever proposing a move that would corrupt the table.
-        if (!isValidMeld(shrunkFrom)) continue;
         const helpsHandCard = hand.some((handCard) => {
           if (findExtendableMeld([{ ...from, cards: shrunkFrom }], handCard)) return true;
           if (findExtendableMeld([{ ...to, cards: [...to.cards, card] }], handCard)) return true;

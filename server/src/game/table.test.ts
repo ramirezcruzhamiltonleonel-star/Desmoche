@@ -588,6 +588,55 @@ describe("Table — desmoche", () => {
     expect(m1.cards).toHaveLength(3);
     expect(m2.cards).toHaveLength(3);
   });
+
+  // Reported bug, reproduced exactly: a run 9♠-10♠-J♠-Q♠-K♠ had its 10♠
+  // desmochado, leaving 9♠-J♠-Q♠-K♠ (a gap) sitting on the table as an
+  // accepted "valid" meld — 4 cards, so the old length-only check let it
+  // through, and a player could then win holding that gapped group.
+  it("refuses to desmochar a middle card of a run even though 4 cards would remain — the gap makes it invalid", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push(
+      {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("9", "spades"), c("10", "spades"), c("J", "spades"), c("Q", "spades"), c("K", "spades")],
+      },
+      { id: "m2", type: "set", ownerId: "p1", cards: [c("8", "hearts"), c("8", "clubs")] },
+    );
+
+    expect(() => table.desmochar("p1", "m1", "m2", c("10", "spades"))).toThrow(GameError);
+    // The source meld must be left exactly as it was — never partially mutated.
+    const m1 = table.state.melds.find((m) => m.id === "m1")!;
+    expect(m1.cards).toHaveLength(5);
+  });
+
+  it("still allows desmocharring an END card of that same 5-card run, since the remainder stays a valid run", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    table.state.melds.push(
+      {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("9", "spades"), c("10", "spades"), c("J", "spades"), c("Q", "spades"), c("K", "spades")],
+      },
+      { id: "m2", type: "set", ownerId: "p1", cards: [c("K", "hearts"), c("K", "clubs")] },
+    );
+
+    table.desmochar("p1", "m1", "m2", c("K", "spades"));
+
+    const m1 = table.state.melds.find((m) => m.id === "m1")!;
+    expect(m1.cards).toHaveLength(4);
+    expect(m1.cards.map((card) => card.rank)).toEqual(["9", "10", "J", "Q"]);
+  });
 });
 
 describe("Table — placeMeld combined with a desmoched card (regression)", () => {

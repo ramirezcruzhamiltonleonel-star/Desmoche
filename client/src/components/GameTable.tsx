@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  canDesmocharFrom,
+  canDesmocharAnyCardFrom,
   canUseDiscardImmediately,
   computeGuestSummary,
   computeMeldProgress,
@@ -383,7 +383,7 @@ export default function GameTable() {
     selectedCards.length === 1 &&
     !state.mustPlaceCard &&
     (!state.pendingDrawnCard || cardKey(selectedCards[0]!) === cardKey(state.pendingDrawnCard));
-  const canDesmoche = myMelds.some((meld) => canDesmocharFrom(meld.cards));
+  const canDesmoche = myMelds.some((meld) => canDesmocharAnyCardFrom(meld.cards));
   const validDesmocheDestinationIds = new Set(
     desmocheSource
       ? myMelds
@@ -804,7 +804,7 @@ export default function GameTable() {
                   melds={myMelds}
                   size="sm"
                   direction="row"
-                  pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharFrom(meld.cards)}
+                  pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharAnyCardFrom(meld.cards)}
                   pickInProgress={desmocheMode && !desmocheSource}
                   onPickSourceCard={handlePickDesmocheSource}
                   sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}

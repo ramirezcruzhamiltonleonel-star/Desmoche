@@ -632,8 +632,8 @@ export class Table {
       if (!sourceMeld.cards.some((c) => cardId(c) === cardId(desmoche.card))) {
         throw new GameError("Esa carta no está en el grupo de origen");
       }
-      if (!canDesmocharFrom(sourceMeld.cards)) {
-        throw new GameError("Ese grupo quedaría con menos de 3 cartas");
+      if (!canDesmocharFrom(sourceMeld.cards, desmoche.card)) {
+        throw new GameError("Ese grupo quedaría con menos de 3 cartas, o dejaría de ser una combinación válida");
       }
     }
 
@@ -710,8 +710,8 @@ export class Table {
     if (fromMeld.ownerId !== playerId || toMeld.ownerId !== playerId) {
       throw new GameError("Solo puedes desmochar entre tus propios grupos");
     }
-    if (!canDesmocharFrom(fromMeld.cards)) {
-      throw new GameError("Ese grupo quedaría con menos de 3 cartas");
+    if (!canDesmocharFrom(fromMeld.cards, card)) {
+      throw new GameError("Ese grupo quedaría con menos de 3 cartas, o dejaría de ser una combinación válida");
     }
     const remainingFrom = removeCard(fromMeld.cards, card);
     const combinedTo = [...toMeld.cards, card];

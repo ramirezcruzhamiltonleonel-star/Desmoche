@@ -41,10 +41,31 @@ export function canUseDiscardImmediately(
 
 /**
  * Desmoche: removing a card from an existing meld to reuse it elsewhere is
- * only legal if the source meld keeps at least 3 cards afterward.
+ * only legal if the source meld remains a fully valid combination afterward
+ * — not merely 3+ cards. A run loses its middle card and keeps 3+ cards but
+ * a gap (9-10-J-Q-K minus the 10 leaves 9-J-Q-K, no longer consecutive) is
+ * NOT good enough; the source meld must still be melded on its own.
  */
-export function canDesmocharFrom(sourceMeldCards: Card[]): boolean {
-  return sourceMeldCards.length - 1 >= 3;
+export function canDesmocharFrom(sourceMeldCards: Card[], removedCard: Card): boolean {
+  const removedId = cardId(removedCard);
+  let removed = false;
+  const remaining = sourceMeldCards.filter((c) => {
+    if (!removed && cardId(c) === removedId) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+  return remaining.length >= 3 && isValidMeld(remaining);
+}
+
+/**
+ * Whether ANY single card in this meld could be desmochado without
+ * breaking it — used to gate desmoche UI before a specific card has been
+ * chosen yet (e.g. "is this meld even eligible as a desmoche source").
+ */
+export function canDesmocharAnyCardFrom(sourceMeldCards: Card[]): boolean {
+  return sourceMeldCards.some((card) => canDesmocharFrom(sourceMeldCards, card));
 }
 
 /** A player wins immediately when their whole hand (post-draw) is melded, nothing left to discard. */

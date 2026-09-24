@@ -164,6 +164,106 @@ describe("Table — dealing and auto-wins", () => {
   });
 });
 
+// Reported bug: Peladía/Cuatro Cuerpos were only ever checked on the
+// as-dealt hand — a card received through Cambio that completes either one
+// went completely undetected, and the hand just proceeded to normal play
+// with the bonus never declared.
+describe("Table — Peladía/Cuatro Cuerpos are ALSO checked right after Cambio resolves (regression)", () => {
+  it("declares Cuatro Cuerpos for a player who only completes it via the card they receive in Cambio", () => {
+    // p0 is dealt 3 of the 4 eights (not yet Cuatro Cuerpos) plus a
+    // throwaway last card; p1's last card is the 4th eight. Cambio hands
+    // each seat's last card to the other — p0 ends up with all 4 eights.
+    const p0Pre: Card[] = [
+      c("8", "spades"),
+      c("8", "hearts"),
+      c("8", "clubs"),
+      c("2", "spades"),
+      c("3", "spades"),
+      c("5", "hearts"),
+      c("9", "clubs"),
+      c("J", "diamonds"),
+      c("6", "hearts"), // submitted away in Cambio
+    ];
+    const p1Pre: Card[] = [
+      c("2", "hearts"),
+      c("4", "clubs"),
+      c("6", "diamonds"),
+      c("7", "spades"),
+      c("7", "hearts"), // pairs with the 7♠ above, so p1 never auto-wins on its own
+      c("10", "clubs"),
+      c("Q", "hearts"),
+      c("A", "spades"),
+      c("8", "diamonds"), // the missing 8 — submitted to p0 in Cambio
+    ];
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([p0Pre, p1Pre], c("4", "diamonds")));
+
+    // Neither seat auto-won on the as-dealt hand — Cambio proceeds normally.
+    expect(table.state.phase).toBe("cambio");
+
+    resolveCambio(table, ["p0", "p1"]);
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "cuatro-cuerpos",
+      winnerSeatIndex: 0,
+      winningMelds: [],
+    });
+  });
+
+  it("declares Peladía for a player who only becomes unplayable after losing a pairing card and gaining a harmless one in Cambio", () => {
+    // p0's first 8 cards are Peladía-safe on their own (no pair, no
+    // same-suit adjacency); its 9th (last) card pairs with the first,
+    // blocking the as-dealt auto-win. That 9th card leaves in Cambio, and
+    // the harmless card p0 receives back doesn't reintroduce a pair or an
+    // adjacency — so p0 becomes genuinely Peladía only once Cambio resolves.
+    const p0Pre: Card[] = [
+      c("2", "spades"),
+      c("5", "hearts"),
+      c("9", "clubs"),
+      c("K", "diamonds"),
+      c("4", "spades"),
+      c("7", "hearts"),
+      c("J", "clubs"),
+      c("3", "diamonds"),
+      c("2", "hearts"), // pairs with the 2♠ above — submitted away in Cambio
+    ];
+    const p1Pre: Card[] = [
+      c("6", "clubs"),
+      c("6", "hearts"), // p1's own pair, untouched by Cambio — p1 never qualifies
+      c("8", "hearts"),
+      c("9", "diamonds"),
+      c("Q", "spades"),
+      c("A", "hearts"),
+      c("J", "spades"),
+      c("3", "clubs"),
+      c("10", "diamonds"), // submitted to p0 in Cambio — doesn't clash with p0's hand
+    ];
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([p0Pre, p1Pre], c("4", "diamonds")));
+
+    expect(table.state.phase).toBe("cambio");
+
+    resolveCambio(table, ["p0", "p1"]);
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome).toEqual({
+      reason: "peladia",
+      winnerSeatIndex: 0,
+      winningMelds: [],
+    });
+  });
+
+  it("proceeds straight to the opening claim ritual as usual when Cambio completes without producing any auto-win", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.handOutcome).toBeNull();
+  });
+});
+
 describe('Table — "modo sin automáticas" (autoWinsEnabled: false)', () => {
   it("does not end the hand on a Peladía — goes to Cambio like any other deal", () => {
     const table = new Table(config({ autoWinsEnabled: false }), seats(2));

@@ -284,6 +284,42 @@ export class Table {
   }
 
   /**
+   * Checks every seat's CURRENT hand for Peladía/Cuatro Cuerpos and ends the
+   * hand immediately if either applies, exactly like the as-dealt check.
+   * Called both right after dealing and again right after Cambio resolves —
+   * a card received in the blind exchange can complete either bonus just as
+   * well as the original deal could, and that used to go undetected because
+   * only the as-dealt hand was ever checked. Returns whether the hand ended.
+   */
+  private checkAndApplyAutoWins(): boolean {
+    if (!this.config.autoWinsEnabled) return false;
+    const hands = this.state.seats.map((seat) => handOf(this.state, seat.playerId));
+    const autoWins = checkAutoWins(hands);
+    const n = this.playerCount;
+    // A four-of-a-kind hand always contains a pair, so no single hand can
+    // qualify for both bonuses at once. When different players qualify for
+    // different auto-wins in the same deal (not covered by the traditional
+    // rule), Cuatro Cuerpos takes precedence as the rarer, more specific win.
+    if (autoWins.cuatroCuerposSeatIndices.length > 0) {
+      const winnerSeat = closestToDealerRight(
+        this.state.dealerSeatIndex,
+        autoWins.cuatroCuerposSeatIndices,
+        n,
+      );
+      this.state.eventLog.push({ type: "cuatro-cuerpos", seatIndex: winnerSeat });
+      this.finishHand("cuatro-cuerpos", winnerSeat, []);
+      return true;
+    }
+    if (autoWins.peladiaSeatIndices.length > 0) {
+      const winnerSeat = closestToDealerRight(this.state.dealerSeatIndex, autoWins.peladiaSeatIndices, n);
+      this.state.eventLog.push({ type: "peladia", seatIndex: winnerSeat });
+      this.finishHand("peladia", winnerSeat, []);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Starts (or restarts, for a new hand) dealing. Rotates the dealer across
    * hands by passing the new `dealerSeatIndex`. `deckOverride` exists purely
    * for deterministic tests — production callers never pass it.
@@ -313,34 +349,12 @@ export class Table {
       .map((s) => s.seatIndex);
 
     // "Modo sin automáticas": Peladía/Cuatro Cuerpos are skipped entirely —
-    // every hand gets played out through Cambio and normal turns.
-    if (this.config.autoWinsEnabled) {
-      const autoWins = checkAutoWins(hands);
-      // A four-of-a-kind hand always contains a pair, so no single hand can
-      // qualify for both bonuses at once. When different players qualify for
-      // different auto-wins in the same deal (not covered by the traditional
-      // rule), Cuatro Cuerpos takes precedence as the rarer, more specific win.
-      if (autoWins.cuatroCuerposSeatIndices.length > 0) {
-        const winnerSeat = closestToDealerRight(
-          dealerSeatIndex,
-          autoWins.cuatroCuerposSeatIndices,
-          n,
-        );
-        this.state.eventLog.push({ type: "cuatro-cuerpos", seatIndex: winnerSeat });
-        this.finishHand("cuatro-cuerpos", winnerSeat, []);
-        return;
-      }
-      if (autoWins.peladiaSeatIndices.length > 0) {
-        const winnerSeat = closestToDealerRight(dealerSeatIndex, autoWins.peladiaSeatIndices, n);
-        this.state.eventLog.push({ type: "peladia", seatIndex: winnerSeat });
-        this.finishHand("peladia", winnerSeat, []);
-        return;
-      }
-    }
+    // every hand gets played out through Cambio and normal turns. Checked
+    // on the as-dealt hand here; also re-checked after Cambio resolves (see
+    // resolveCambio) since a card received in the exchange can complete
+    // either one just as well as the original deal could.
+    if (this.checkAndApplyAutoWins()) return;
 
-    // Peladía/Cuatro Cuerpos are checked on the as-dealt hand — Cambio only
-    // happens once neither auto-win applies (see startHand's early returns
-    // above), matching the brief's "se declaran apenas se reparte".
     const activeSeatCount = n - this.state.inactiveSeatIndices.length;
     if (activeSeatCount <= 1) {
       // Nothing to exchange with only one (or zero) active seats — skip
@@ -393,6 +407,7 @@ export class Table {
       this.state.hands[recipientId] = [...handOf(this.state, recipientId), givenCard];
     }
     this.state.cambio = null;
+    if (this.checkAndApplyAutoWins()) return;
     this.openInitialClaimWindow();
   }
 

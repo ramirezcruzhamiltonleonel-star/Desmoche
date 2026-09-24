@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   canDesmocharAnyCardFrom,
-  canUseDiscardImmediately,
+  canClaimDiscard,
   computeGuestSummary,
   computeMeldProgress,
   explainClaimUsefulness,
@@ -340,7 +340,7 @@ export default function GameTable() {
     state.yourSeatIndex !== null &&
     state.claim.pendingSeatIndices.includes(state.yourSeatIndex);
   const canClaim =
-    isClaimEligible && state.claim !== null && canUseDiscardImmediately(state.yourHand, state.claim.card, myMelds);
+    isClaimEligible && state.claim !== null && canClaimDiscard(state.yourHand, state.claim.card, myMelds);
 
   // A stock draw is never a free choice — whatever's selected must include it
   // before placing/extending is allowed to go through (mirrors the server's

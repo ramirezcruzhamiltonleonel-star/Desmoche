@@ -1,9 +1,11 @@
 import { cardId, type Card } from "./cards";
 import type { Meld } from "./melds";
 import {
+  canClaimDiscard,
   canDesmocharAnyCardFrom,
   canDesmocharFrom,
   canUseDiscardImmediately,
+  canUseDiscardWithDesmoche,
   findPlayableCardIds,
   isHandEmptied,
 } from "./meldActions";
@@ -79,6 +81,56 @@ describe("canUseDiscardImmediately", () => {
     };
     const hand = [c("J", "diamonds"), c("Q", "diamonds"), c("2", "spades")];
     expect(canUseDiscardImmediately(hand, c("K", "diamonds"), [ownMeld])).toBe(true);
+  });
+});
+
+// Reported bug (R4, part 2): a card that only serves for DESMOCHE — not
+// immediately usable in the hand alone — must still be claimable, not
+// auto-rejected just because it doesn't serve "de inmediato" in the
+// narrower canUseDiscardImmediately sense.
+describe("canUseDiscardWithDesmoche / canClaimDiscard", () => {
+  it("is false when the card genuinely doesn't help even combined with any legal desmoche", () => {
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs"), c("8", "diamonds")],
+    };
+    const hand = [c("2", "spades")];
+    // A totally unrelated card — no desmoche of the 8s set helps a lone 2♠.
+    expect(canUseDiscardWithDesmoche(hand, c("K", "clubs"), [ownMeld])).toBe(false);
+    expect(canClaimDiscard(hand, c("K", "clubs"), [ownMeld])).toBe(false);
+  });
+
+  it("is true when desmocharring a card out of an own meld lets it combine with hand cards into a brand-new meld", () => {
+    // 8♦ desmochado from this 4-card set of 8s (remainder 8♠-8♥-8♣ stays a
+    // valid 3-card set), combined with a 7♦ already in hand, completes a
+    // 6♦-7♦-8♦ run with the claimed 6♦ — but the claimed 6♦ does NOT work
+    // on its own: it doesn't extend the set of 8s, and 7♦ alone in hand
+    // can't form any new meld by itself.
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs"), c("8", "diamonds")],
+    };
+    const hand = [c("7", "diamonds")];
+
+    expect(canUseDiscardImmediately(hand, c("6", "diamonds"), [ownMeld])).toBe(false);
+    expect(canUseDiscardWithDesmoche(hand, c("6", "diamonds"), [ownMeld])).toBe(true);
+    expect(canClaimDiscard(hand, c("6", "diamonds"), [ownMeld])).toBe(true);
+  });
+
+  it("canClaimDiscard is also true for the plain immediate case, without needing any desmoche", () => {
+    const hand = [c("2", "spades")];
+    expect(canClaimDiscard(hand, c("9", "diamonds"), [])).toBe(false);
+    const ownMeld: Meld = {
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("6", "hearts"), c("7", "hearts"), c("8", "hearts")],
+    };
+    expect(canClaimDiscard(hand, c("9", "hearts"), [ownMeld])).toBe(true);
   });
 });
 

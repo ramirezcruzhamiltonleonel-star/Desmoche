@@ -1,7 +1,7 @@
 import {
   cardId,
+  canClaimDiscard,
   canDesmocharFrom,
-  canUseDiscardImmediately,
   isHandEmptied,
   isValidMeld,
   isValidSet,
@@ -448,8 +448,8 @@ export class Table {
     if (response === "claim") {
       const hand = handOf(this.state, playerId);
       const ownMelds = this.state.melds.filter((m) => m.ownerId === playerId);
-      if (!canUseDiscardImmediately(hand, claim.card, ownMelds)) {
-        throw new GameError("Esa carta no te sirve de inmediato, no puedes reclamarla");
+      if (!canClaimDiscard(hand, claim.card, ownMelds)) {
+        throw new GameError("Esa carta no te sirve de inmediato ni combinada con un desmoche, no puedes reclamarla");
       }
       claim.claimedBy.push(seat.seatIndex);
     }

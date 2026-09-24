@@ -648,6 +648,82 @@ describe("Table — claiming a discard out of turn", () => {
     expect(table.state.mustPlaceCard).toBeNull();
     expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
   });
+
+  // R4, part 2: a card that only serves for DESMOCHE — not immediately
+  // usable in the hand alone — must be acceptable as a claim too, not
+  // auto-rejected just because it doesn't serve "de inmediato" on its own.
+  it("accepts a claim for a card that only serves via desmoche, and lets the claimant complete it in one move", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs"), c("8", "diamonds")],
+    });
+    table.state.hands["p1"] = [c("7", "diamonds"), c("2", "spades")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("6", "diamonds")];
+    table.discard("p0", c("6", "diamonds"));
+
+    expect(table.state.phase).toBe("claim-window");
+    // Doesn't extend the set of 8s, and 7♦ alone in hand forms nothing on
+    // its own — only claimable because desmocharring the 8♦ out of the set
+    // (still leaving a valid 8♠-8♥-8♣) completes a brand-new 6♦-7♦-8♦ run.
+    table.respondToClaim("p1", "claim");
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.mustPlaceCard).toEqual(c("6", "diamonds"));
+
+    table.placeMeld("p1", [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")], {
+      fromMeldId: "m1",
+      card: c("8", "diamonds"),
+    });
+
+    const newMeld = table.state.melds.find((m) =>
+      m.cards.some((card) => card.rank === "6" && card.suit === "diamonds"),
+    );
+    expect(newMeld?.cards).toEqual([c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")]);
+    const sourceMeld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(sourceMeld.cards).toEqual([c("8", "spades"), c("8", "hearts"), c("8", "clubs")]);
+    expect(table.state.mustPlaceCard).toBeNull();
+    expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
+  });
+
+  // R4, part 1: unclaimed discards must keep advancing to the next player in
+  // rotation, never handing the draw back to whoever just discarded. Chains
+  // 3 consecutive unclaimed discards across a full rotation to rule out any
+  // state carried over between turns, not just a single isolated handoff
+  // (already covered by "moves on to the next active seat..." above).
+  it("keeps advancing through multiple consecutive unclaimed discards, never back to whoever just discarded (regression, R4)", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND, NORMAL_HAND], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "diamonds")];
+    table.discard("p0", c("K", "diamonds"));
+    table.respondToClaim("p1", "pass");
+    table.respondToClaim("p2", "pass");
+    expect(table.state.turnSeatIndex).toBe(1);
+
+    table.state.hasDrawnThisTurn = true;
+    table.state.hands["p1"] = [...table.state.hands["p1"]!, c("Q", "diamonds")];
+    table.discard("p1", c("Q", "diamonds"));
+    table.respondToClaim("p2", "pass");
+    table.respondToClaim("p0", "pass");
+    expect(table.state.turnSeatIndex).toBe(2);
+
+    table.state.hasDrawnThisTurn = true;
+    table.state.hands["p2"] = [...table.state.hands["p2"]!, c("J", "diamonds")];
+    table.discard("p2", c("J", "diamonds"));
+    table.respondToClaim("p0", "pass");
+    table.respondToClaim("p1", "pass");
+    expect(table.state.turnSeatIndex).toBe(0); // full rotation back to p0, never stuck on p2
+  });
 });
 
 describe("Table — desmoche", () => {

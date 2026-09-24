@@ -205,4 +205,48 @@ describe("persistHandOutcome", () => {
     expect(hand.players[0]!.userId).toBe("real-2");
     expect(hand.players[0]!.isWinner).toBe(false);
   });
+
+  // Reported bug: a table where EVERY seat is a guest still wrote a
+  // TableRecord + HandHistoryRecord (with an empty players list) on every
+  // hand, contradicting "no deja rastro" for guest-only tables. Nothing at
+  // all should be persisted when there's no real (non-guest) seat.
+  it("persists absolutely nothing when every seat at the table is a guest", async () => {
+    const room = new Room("ALLGUEST", "chips", 100);
+    room.join("guest:aaa", "Invitado A");
+    room.join("guest:bbb", "Invitado B");
+    room.setReady("guest:aaa", true);
+    room.setReady("guest:bbb", true);
+    forceHandOver(room, 0);
+
+    const outcome = room.maybeSettle();
+    await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
+
+    const tableRecord = await prisma.tableRecord.findFirst({ where: { code: "ALLGUEST" } });
+    expect(tableRecord).toBeNull();
+    const anyAllGuestHand = await prisma.handHistoryRecord.findFirst({
+      where: { table: { code: "ALLGUEST" } },
+    });
+    expect(anyAllGuestHand).toBeNull();
+  });
+
+  it("still persists normally for a guest-only table that also seats a bot, since a bot is a real (non-guest) seat", async () => {
+    await makeUser("bot:chepe", "El Chepe", 1_000_000);
+
+    const room = new Room("GUESTBOT", "chips", 100);
+    room.join("guest:ccc", "Invitado C");
+    room.join("bot:chepe", "El Chepe");
+    room.setReady("guest:ccc", true);
+    room.setReady("bot:chepe", true);
+    forceHandOver(room, 1); // the bot wins
+
+    const outcome = room.maybeSettle();
+    await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
+
+    const hand = await prisma.handHistoryRecord.findFirstOrThrow({
+      where: { winnerUserId: "bot:chepe" },
+      include: { players: true },
+    });
+    expect(hand.players).toHaveLength(1); // only the bot — the guest still gets no row
+    expect(hand.players[0]!.userId).toBe("bot:chepe");
+  });
 });

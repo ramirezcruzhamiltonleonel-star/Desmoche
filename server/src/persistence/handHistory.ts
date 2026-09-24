@@ -28,6 +28,12 @@ import { updateStreakForPlay } from "./streak";
  * recorded normally; winnerUserId itself has no such constraint, so a guest
  * winning is fine to record there even though they get no HandHistoryPlayer
  * row of their own.
+ *
+ * If EVERY seat is a guest (realSeats empty — no bots either, since a bot
+ * would itself count as a non-guest real seat), nothing about this hand
+ * gets written at all: no TableRecord, no HandHistoryRecord. "No deja
+ * rastro" for an all-guest table means exactly that — not merely omitting
+ * guest player rows from an otherwise-created record.
  */
 export async function persistHandOutcome(
   prisma: PrismaClient,
@@ -36,6 +42,9 @@ export async function persistHandOutcome(
 ): Promise<void> {
   const table = room.requireTable();
   const seats = table.state.seats;
+  const realSeats = seats.filter((seat) => !isGuestPlayerId(seat.playerId));
+  if (realSeats.length === 0) return;
+
   const reason = table.state.handOutcome?.reason ?? "meld-out";
   const winnerId = outcome.kind === "carry-over" ? null : outcome.winnerId;
 
@@ -53,8 +62,6 @@ export async function persistHandOutcome(
   const tableRecord = await prisma.tableRecord.create({
     data: { code: room.code, stakeType: room.stakeType, ante: room.ante },
   });
-
-  const realSeats = seats.filter((seat) => !isGuestPlayerId(seat.playerId));
 
   await prisma.handHistoryRecord.create({
     data: {

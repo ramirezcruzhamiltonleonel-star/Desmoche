@@ -35,6 +35,8 @@ import ActionBar from "./ActionBar";
 import CambioModal from "./CambioModal";
 import Card from "./Card";
 import CardBack from "./CardBack";
+import ChipStack from "./ChipStack";
+import ChipToken from "./ChipToken";
 import ClaimBanner from "./ClaimBanner";
 import ContextualHelpModal from "./ContextualHelpModal";
 import FlyingCard, { type Point } from "./FlyingCard";
@@ -139,6 +141,8 @@ export default function GameTable() {
   const [retoDraft, setRetoDraft] = useState("");
   const handCardsRef = useRef<HTMLDivElement>(null);
   const discardPileRef = useRef<HTMLDivElement>(null);
+  const potRef = useRef<HTMLDivElement>(null);
+  const [chipFlights, setChipFlights] = useState<{ id: string; from: Point; to: Point; delayMs: number }[]>([]);
   const wonAlreadyRef = useRef(false);
   const prevPhaseRef = useRef<string | undefined>(undefined);
   const prevIsYourTurnRef = useRef(false);
@@ -176,6 +180,40 @@ export default function GameTable() {
       sound.playDeal();
       dealAnim.trigger(buildDealOrder(state.dealerSeatIndex, state.seats.length), state.yourSeatIndex);
       setHandArranged(false);
+      // Ante collection, made visible: one chip per seat flies from that
+      // seat's position to the pot, right as the new hand opens — same
+      // "physical movement instead of a number just changing" idea as the
+      // card deal, timed to land after the deal itself so it doesn't
+      // compete for attention.
+      if (state.stakeType !== "dare" && potRef.current) {
+        const potPoint = (() => {
+          const rect = potRef.current!.getBoundingClientRect();
+          return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        })();
+        const newChipFlights = state.seats
+          .map((seat, i) => {
+            // Your own seat isn't in the opponents' ring (it's rendered
+            // separately below the felt) — same special case the deal
+            // animation itself already makes for yourSeatIndex.
+            const seatEl =
+              seat.seatIndex === state.yourSeatIndex
+                ? dealAnim.handTrayRef.current
+                : (dealAnim.seatRefs.current.get(seat.seatIndex) ?? null);
+            if (!seatEl) return null;
+            const seatRect = seatEl.getBoundingClientRect();
+            return {
+              id: `chip-${Date.now()}-${seat.seatIndex}`,
+              from: { x: seatRect.left + seatRect.width / 2, y: seatRect.top + seatRect.height / 2 },
+              to: potPoint,
+              delayMs: 900 + i * 80,
+            };
+          })
+          .filter((f): f is { id: string; from: Point; to: Point; delayMs: number } => f !== null);
+        if (newChipFlights.length > 0) {
+          setChipFlights(newChipFlights);
+          setTimeout(() => setChipFlights([]), 900 + newChipFlights.length * 80 + 500);
+        }
+      }
     }
     prevPhaseRef.current = state?.phase;
     // Selections don't carry over across turns/hands.
@@ -698,6 +736,12 @@ export default function GameTable() {
               )}
               <span className="text-[10px] text-stone-400">Descarte</span>
             </div>
+            {state.stakeType !== "dare" && state.phase !== "lobby" && (
+              <div ref={potRef} className="flex flex-col items-center gap-1">
+                <ChipStack amount={state.ante * state.seats.length + state.accumulatedPot} size="sm" />
+                <span className="text-[10px] text-stone-400">Pozo</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1031,6 +1075,12 @@ export default function GameTable() {
       {stockFlip && (
         <StockFlipCard card={stockFlip.card} origin={stockFlip.origin} onDone={() => setStockFlip(null)} />
       )}
+
+      {chipFlights.map((flight) => (
+        <FlyingCard key={flight.id} from={flight.from} to={flight.to} delayMs={flight.delayMs} durationMs={380}>
+          <ChipToken size="sm" />
+        </FlyingCard>
+      ))}
     </div>
   );
 }

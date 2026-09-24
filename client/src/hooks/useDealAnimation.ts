@@ -75,5 +75,15 @@ export function useDealAnimation() {
     setTimeout(() => setFlights([]), totalMs);
   }, []);
 
-  return { deckRef, registerSeatRef, handTrayRef, flights, trigger, flightDurationMs: FLIGHT_DURATION_MS };
+  return {
+    deckRef,
+    registerSeatRef,
+    handTrayRef,
+    flights,
+    trigger,
+    flightDurationMs: FLIGHT_DURATION_MS,
+    // Exposed so other animations (the ante-to-pot chip flight) can reuse
+    // the same registered seat positions instead of tracking their own.
+    seatRefs,
+  };
 }

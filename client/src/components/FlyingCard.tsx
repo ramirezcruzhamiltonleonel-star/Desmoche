@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Card as CardModel } from "@desmoche/shared";
 import Card from "./Card";
@@ -14,6 +14,8 @@ interface FlyingCardProps {
   to: Point;
   /** Omit to fly a face-down card back (dealing); pass a card to fly it face-up (desmoche). */
   card?: CardModel;
+  /** Flies this instead of a card/card-back entirely — e.g. a chip token for the ante-to-pot flight. Takes priority over `card` when given. */
+  children?: ReactNode;
   size?: "sm" | "md";
   delayMs?: number;
   durationMs?: number;
@@ -30,6 +32,7 @@ export default function FlyingCard({
   from,
   to,
   card,
+  children,
   size = "sm",
   delayMs = 0,
   durationMs = 420,
@@ -67,7 +70,7 @@ export default function FlyingCard({
         opacity: phase === "start" ? 0.9 : 1,
       }}
     >
-      {card ? <Card card={card} size={size} /> : <CardBack size={size} />}
+      {children ?? (card ? <Card card={card} size={size} /> : <CardBack size={size} />)}
     </div>,
     document.body,
   );

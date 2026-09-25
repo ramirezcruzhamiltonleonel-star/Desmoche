@@ -76,13 +76,13 @@ function contextualHelp(props: ContextualHelpModalProps): HelpContent {
     if (canDraw) {
       return {
         title: "Es tu turno",
-        body: 'Tocá el mazo (o el botón dorado "Robar del mazo") para robar una carta. Después vas a poder usarla en un grupo o descartarla — no se puede elegir entre ella y el resto de tu mano.',
+        body: 'Tocá el mazo (o el botón dorado "Robar del mazo") para robar una carta. Después vas a poder usarla en un grupo o botarla — no se puede elegir entre ella y el resto de tu mano.',
       };
     }
     if (canAct) {
       return {
         title: "Resolvé tu turno",
-        body: 'Ya robaste (o reclamaste una carta). Ahora podés: bajar un grupo nuevo, agregar cartas a un grupo propio ya en mesa, desmochar (mover una carta entre tus grupos), o descartar para terminar tu turno.',
+        body: 'Ya robaste (o reclamaste una carta). Ahora podés: bajar un grupo nuevo, agregar cartas a un grupo propio ya en mesa, desmochar (mover una carta entre tus grupos), o botar para terminar tu turno.',
       };
     }
   }

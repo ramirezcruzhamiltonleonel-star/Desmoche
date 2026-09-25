@@ -52,6 +52,13 @@ import StockFlipCard from "./StockFlipCard";
 import TutorialModal from "./TutorialModal";
 import VoiceChatPanel from "./VoiceChatPanel";
 
+const SUIT_SYMBOL: Record<CardModel["suit"], string> = {
+  spades: "♠",
+  hearts: "♥",
+  diamonds: "♦",
+  clubs: "♣",
+};
+
 interface CardFlight {
   from: Point;
   to: Point;
@@ -153,6 +160,8 @@ export default function GameTable() {
   const meldSizeInitRef = useRef(false);
   const prevEventLogLengthRef = useRef(0);
   const botSpeechKeyRef = useRef(0);
+  const autoExtendKeyRef = useRef(0);
+  const [autoExtendBanner, setAutoExtendBanner] = useState<{ text: string; key: number } | null>(null);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -264,7 +273,7 @@ export default function GameTable() {
 
   useEffect(() => {
     // A stock draw is never a free choice among the original 9 — pre-select
-    // it so "Descartar" targets it by default, and any meld the player
+    // it so "Botar" targets it by default, and any meld the player
     // builds naturally has to include it.
     if (state?.pendingDrawnCard) {
       setSelectedCards([state.pendingDrawnCard]);
@@ -304,29 +313,45 @@ export default function GameTable() {
   }, [state?.melds.map((m) => `${m.id}:${m.cards.length}`).join(",")]);
 
   useEffect(() => {
-    // Bot commentary: only the newest entries since last render, and only
-    // for a bot seat — a human's own meld/retire is already obvious from
-    // their own screen, this is specifically to make bots feel alive.
+    // Bot commentary (only newest entries since last render, only for a bot
+    // seat — a human's own meld/retire is already obvious from their own
+    // screen) and the auto-extend banner (visible to EVERYONE regardless of
+    // who owns the group) share this one pass over new eventLog entries —
+    // splitting them into separate effects would race over which one gets
+    // to consume prevEventLogLengthRef first.
     if (!state) return;
     const prevLength = prevEventLogLengthRef.current;
     const newEntries = state.eventLog.slice(prevLength);
     prevEventLogLengthRef.current = state.eventLog.length;
-    if (prevLength === 0) return; // skip whatever already happened before this player joined/reconnected
+    if (prevLength === 0) return undefined; // skip whatever already happened before this player joined/reconnected
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
     for (const entry of newEntries) {
-      if (entry.type !== "meld-placed" && entry.type !== "retired") continue;
-      const seat = state.seats.find((s) => s.seatIndex === entry.seatIndex);
-      if (!seat || !seat.isBot) continue;
-      const text =
-        entry.type === "retired"
-          ? `${seat.displayName} se retiró de la mano`
-          : `${seat.displayName} bajó ${formatMeldCommentary(entry.meldType, entry.cards)}`;
-      botSpeechKeyRef.current += 1;
-      setBotSpeech({ seatIndex: entry.seatIndex, text, key: botSpeechKeyRef.current });
-      const timer = setTimeout(() => setBotSpeech(null), 2300); // matches .reaction-float's 2.2s animation
-      return () => clearTimeout(timer);
+      if (entry.type === "meld-placed" || entry.type === "retired") {
+        const seat = state.seats.find((s) => s.seatIndex === entry.seatIndex);
+        if (seat?.isBot) {
+          const text =
+            entry.type === "retired"
+              ? `${seat.displayName} se retiró de la mano`
+              : `${seat.displayName} bajó ${formatMeldCommentary(entry.meldType, entry.cards)}`;
+          botSpeechKeyRef.current += 1;
+          setBotSpeech({ seatIndex: entry.seatIndex, text, key: botSpeechKeyRef.current });
+          timers.push(setTimeout(() => setBotSpeech(null), 2300)); // matches .reaction-float's 2.2s animation
+        }
+      } else if (entry.type === "auto-extend") {
+        const seat = state.seats.find((s) => s.seatIndex === entry.seatIndex);
+        const cardText = `${entry.card.rank}${SUIT_SYMBOL[entry.card.suit]}`;
+        autoExtendKeyRef.current += 1;
+        setAutoExtendBanner({
+          text: `Se agregó el ${cardText} al grupo de ${seat?.displayName ?? "?"}`,
+          key: autoExtendKeyRef.current,
+        });
+        timers.push(setTimeout(() => setAutoExtendBanner(null), 2800));
+      }
     }
-    return undefined;
+
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.eventLog.length]);
 
@@ -757,6 +782,19 @@ export default function GameTable() {
           </div>
         </div>
       </div>
+
+      {autoExtendBanner && (
+        // Same floating-overlay treatment as ClaimBanner (fixed, not in
+        // normal flow) so it never pushes the hand tray around — visible to
+        // EVERYONE at the table, not just the group's owner, since this
+        // replaces what used to be a claim window everyone could see too.
+        <div
+          key={autoExtendBanner.key}
+          className="pointer-events-none fixed left-1/2 top-16 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
+        >
+          🃏 {autoExtendBanner.text}
+        </div>
+      )}
 
       {state.phase === "claim-window" && state.claim && (
         <ClaimBanner

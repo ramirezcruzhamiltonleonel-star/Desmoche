@@ -13,8 +13,8 @@ const SLIDES: Slide[] = [
     body: "Al repartir, cada jugador entrega 1 carta a ciegas al siguiente en la rotación. Nadie ve lo que recibió hasta que todos entregaron la suya.",
   },
   {
-    title: "2. Robar y descartar",
-    body: "En tu turno robás del mazo (o reclamás el descarte si te sirve de inmediato) y terminás descartando una carta para pasarle el turno al siguiente.",
+    title: "2. Robar y botar",
+    body: "En tu turno robás del mazo (o reclamás el descarte si te sirve de inmediato) y terminás botando una carta para pasarle el turno al siguiente.",
   },
   {
     title: "3. Bajar grupo",

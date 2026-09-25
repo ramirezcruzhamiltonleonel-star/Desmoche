@@ -2220,6 +2220,148 @@ describe("Table — setReto (Modo Retos)", () => {
   });
 });
 
+describe("Table — auto-extend: a card that completes an already-placed meld attaches automatically, no claim window at all", () => {
+  it("auto-attaches a discarded card that completes a placed SET, with no claim window opening", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("2", "spades"), c("2", "hearts"), c("2", "clubs")],
+    });
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("2", "diamonds")];
+    table.discard("p0", c("2", "diamonds"));
+
+    // No claim window at all — straight to the next active seat's turn.
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.claim).toBeNull();
+    expect(table.state.turnSeatIndex).toBe(1);
+    expect(table.state.hasDrawnThisTurn).toBe(false);
+    expect(table.state.mustPlaceCard).toBeNull();
+
+    const meld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(meld.cards).toEqual([
+      c("2", "spades"),
+      c("2", "hearts"),
+      c("2", "clubs"),
+      c("2", "diamonds"),
+    ]);
+    // Never sat on the discard pile.
+    expect(table.state.discard.some((c2) => c2.rank === "2" && c2.suit === "diamonds")).toBe(false);
+    expect(table.state.eventLog).toContainEqual({
+      type: "auto-extend",
+      seatIndex: 1,
+      card: c("2", "diamonds"),
+    });
+  });
+
+  it("auto-attaches a discarded card that extends a placed RUN at either end", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds")],
+    });
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "diamonds")];
+    table.discard("p0", c("8", "diamonds"));
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.claim).toBeNull();
+    const meld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(meld.cards).toEqual([
+      c("5", "diamonds"),
+      c("6", "diamonds"),
+      c("7", "diamonds"),
+      c("8", "diamonds"),
+    ]);
+  });
+
+  it("when the card would extend TWO DIFFERENT players' melds at once, gives it to whoever is closest in rotation from the discarder", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    skipToNormalTurn(table, 0, true);
+
+    // p1's run needs a 6♦ on top; p2's run needs a 6♦ underneath — a single
+    // discarded 6♦ would extend BOTH. Priority goes to p1 (seat 1), closer
+    // in rotation to the discarder (seat 0) than p2 (seat 2).
+    table.state.melds.push(
+      { id: "m1", type: "run", ownerId: "p1", cards: [c("3", "diamonds"), c("4", "diamonds"), c("5", "diamonds")] },
+      { id: "m2", type: "run", ownerId: "p2", cards: [c("7", "diamonds"), c("8", "diamonds"), c("9", "diamonds")] },
+    );
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("6", "diamonds")];
+    table.discard("p0", c("6", "diamonds"));
+
+    expect(table.state.phase).toBe("turn-active");
+    const m1 = table.state.melds.find((m) => m.id === "m1")!;
+    const m2 = table.state.melds.find((m) => m.id === "m2")!;
+    expect(m1.cards).toHaveLength(4); // p1 got it
+    expect(m2.cards).toHaveLength(3); // p2's run untouched
+    expect(table.state.eventLog).toContainEqual({
+      type: "auto-extend",
+      seatIndex: 1,
+      card: c("6", "diamonds"),
+    });
+  });
+
+  it("does NOT trigger for a card that only forms a brand-new meld — that keeps the normal ask-first claim flow", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    // No placed melds at all — a claimable card here can only ever form a
+    // brand-new meld, never auto-extend anything.
+    table.state.hands["p1"] = [c("6", "clubs"), c("7", "clubs")];
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim?.pendingSeatIndices).toEqual([1]);
+  });
+
+  it("does NOT trigger when the card only extends a meld TOGETHER WITH a hand card — that's a real choice, stays ask-first", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    // p1's run needs a 9♣ to reach the discarded K♣ (9-10-J-Q-K) — the
+    // Q♣ ALONE doesn't extend it, but Q♣ + a held Q... this specific test
+    // just needs: the discard alone doesn't touch the placed meld, only
+    // combined with a hand card does (the existing "combine with hand"
+    // claim path, not auto-extend).
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("9", "clubs"), c("10", "clubs"), c("J", "clubs")],
+    });
+    table.state.hands["p1"] = [c("Q", "clubs"), c("2", "spades")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("K", "clubs")];
+    table.discard("p0", c("K", "clubs"));
+
+    // K♣ alone does NOT extend 9-10-J♣ (skips the Q) — normal claim flow.
+    expect(table.state.phase).toBe("claim-window");
+  });
+});
+
 describe("Table — event log", () => {
   it("logs a Peladía declaration", () => {
     const table = new Table(config(), seats(2));

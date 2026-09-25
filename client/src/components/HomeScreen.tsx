@@ -222,7 +222,7 @@ export default function HomeScreen() {
                   Regla de casa: bajar otros grupos antes de resolver la carta robada
                   <span className="block text-xs text-stone-400">
                     Podés bajar o extender grupos que no usan la carta que acabás de robar, antes de
-                    usarla o descartarla. Variante que se juega en algunas mesas.
+                    usarla o botarla. Variante que se juega en algunas mesas.
                   </span>
                 </span>
               </label>

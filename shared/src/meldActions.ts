@@ -188,6 +188,18 @@ export function resolveDesmocheExtension(
   return null;
 }
 
+/**
+ * Every ALREADY-PLACED meld (any player's) that `card` extends all on its
+ * own, no hand cards needed — the "obviously already someone's" case that
+ * gets auto-attached instead of ever being offered as a claim. A card that
+ * only extends a meld TOGETHER WITH a hand card is a genuine choice (which
+ * hand card, whether to spend one at all) and stays under the normal
+ * claim flow, so this deliberately does NOT consider combinations.
+ */
+export function findExtendableMelds(card: Card, allMelds: Meld[]): Meld[] {
+  return allMelds.filter((meld) => canExtendMeld(meld.cards, card));
+}
+
 /** A player wins immediately when their whole hand (post-draw) is melded, nothing left to discard. */
 export function isHandEmptied(remainingHand: Card[]): boolean {
   return remainingHand.length === 0;

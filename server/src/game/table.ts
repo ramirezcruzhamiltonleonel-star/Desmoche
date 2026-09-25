@@ -3,6 +3,7 @@ import {
   canClaimDiscard,
   canDesmocharFrom,
   containsOffensiveContent,
+  findExtendableMelds,
   isHandEmptied,
   isValidMeld,
   isValidSet,
@@ -619,7 +620,7 @@ export class Table {
     const pending = this.state.pendingDrawnCard;
     if (pending && !cards.some((c) => cardId(c) === cardId(pending))) {
       throw new GameError(
-        "Debes usar la carta que acabas de robar del mazo en este grupo, o descartarla, antes de cualquier otra cosa",
+        "Debes usar la carta que acabas de robar del mazo en este grupo, o botarla, antes de cualquier otra cosa",
       );
     }
   }
@@ -780,7 +781,7 @@ export class Table {
     this.assertCanAct(playerId);
     if (this.state.pendingDrawnCard) {
       throw new GameError(
-        "Debes usar o descartar la carta que acabas de robar del mazo antes de desmochar",
+        "Debes usar o botar la carta que acabas de robar del mazo antes de desmochar",
       );
     }
     if (fromMeldId === toMeldId) throw new GameError("Elige dos grupos distintos");
@@ -807,20 +808,59 @@ export class Table {
     this.assertCanAct(playerId);
     if (this.state.mustPlaceCard) {
       throw new GameError(
-        "Debes usar la carta que tomaste del descarte en un grupo antes de descartar",
+        "Debes usar la carta que tomaste del descarte en un grupo antes de botar",
       );
     }
     if (this.state.pendingDrawnCard && cardId(card) !== cardId(this.state.pendingDrawnCard)) {
       throw new GameError(
-        "Debes descartar la carta que acabas de robar del mazo, o usarla en un grupo — no puedes descartar otra en su lugar",
+        "Debes botar la carta que acabas de robar del mazo, o usarla en un grupo — no puedes botar otra en su lugar",
       );
     }
     const seat = seatOf(this.state, playerId);
     this.state.hands[playerId] = removeCard(handOf(this.state, playerId), card);
     this.state.discard.push(card);
     this.state.pendingDrawnCard = null;
-
     this.state.hasDrawnThisTurn = false;
+
+    // Priority, evaluated before any claim window even gets built: a card
+    // that all on its own (no hand cards needed) completes/extends a meld
+    // some player ALREADY has placed on the table auto-attaches to it —
+    // no "¿alguien quiere esta carta?", no chance to accidentally decline
+    // it, and no turn-jump happens because of it. Reported bug: forcing
+    // this through the normal claim flow meant accepting one of these
+    // "obviously already mine" cards cost a real discard every time
+    // (claiming always starts an active turn, which has to end in one) —
+    // repeatedly, that could strip a player's hand down to nothing useful,
+    // while declining meant genuinely losing the card for good either way.
+    // A card that only forms a brand-new meld, or that only works via
+    // desmoche, still has a genuine choice behind it and keeps the normal
+    // ask-first flow untouched.
+    const extendableMelds = findExtendableMelds(card, this.state.melds);
+    if (extendableMelds.length > 0) {
+      const ownerSeatIndices = [
+        ...new Set(extendableMelds.map((m) => seatOf(this.state, m.ownerId).seatIndex)),
+      ];
+      const winningSeatIndex =
+        ownerSeatIndices.length === 1
+          ? ownerSeatIndices[0]!
+          : resolveDiscardClaimPriority(seat.seatIndex, ownerSeatIndices, this.playerCount);
+      const targetMeld = extendableMelds.find(
+        (m) => seatOf(this.state, m.ownerId).seatIndex === winningSeatIndex,
+      )!;
+
+      this.state.discard.pop(); // never really sat on the pile — absorbed straight into the meld
+      targetMeld.cards = [...targetMeld.cards, card];
+      this.state.eventLog.push({ type: "auto-extend", seatIndex: winningSeatIndex, card });
+
+      // Exactly as if this discard had gone unclaimed: turn passes on
+      // normally, with no new discard obligation created by this event.
+      this.state.turnSeatIndex = this.nextActiveSeat(seat.seatIndex);
+      this.state.mustPlaceCard = null;
+      this.state.phase = "turn-active";
+      this.state.claim = null;
+      return;
+    }
+
     this.state.phase = "claim-window";
     this.state.claim = {
       claimWindowId: this.nextClaimWindowId++,

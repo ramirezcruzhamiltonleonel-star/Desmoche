@@ -76,15 +76,15 @@ export default function ActionBar({
     <div className="space-y-2 px-3 pb-3">
       {mustPlaceCard && (
         <p className="text-center text-xs text-gold">
-          Debes usar la carta que tomaste del descarte en un grupo antes de descartar.
+          Debes usar la carta que tomaste del descarte en un grupo antes de botar.
         </p>
       )}
 
       {pendingDrawnCard && (
         <p className="text-center text-xs text-gold">
           Robaste esta carta del mazo — úsala en un grupo (podés combinarla con una carta
-          desmochada de uno de tus grupos para armar uno nuevo) o descártala ahora mismo. No
-          puedes descartar ninguna otra en su lugar.
+          desmochada de uno de tus grupos para armar uno nuevo) o bótala ahora mismo. No
+          puedes botar ninguna otra en su lugar.
         </p>
       )}
 
@@ -125,12 +125,12 @@ export default function ActionBar({
                 canDiscardSelection
                   ? undefined
                   : mustPlaceCard
-                    ? "Debes usar la carta que tomaste del descarte en un grupo antes de descartar"
+                    ? "Debes usar la carta que tomaste del descarte en un grupo antes de botar"
                     : pendingDrawnCard
-                      ? "Solo podés descartar la carta que acabás de robar — seleccionala primero"
+                      ? "Solo podés botar la carta que acabás de robar — seleccionala primero"
                       : selectedCount === 0
-                        ? "Seleccioná 1 carta de tu mano para descartar"
-                        : "Seleccioná exactamente 1 carta para descartar"
+                        ? "Seleccioná 1 carta de tu mano para botar"
+                        : "Seleccioná exactamente 1 carta para botar"
               }
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
                 canDiscardSelection
@@ -138,7 +138,7 @@ export default function ActionBar({
                   : "border border-stone-600 text-stone-500 opacity-60"
               }`}
             >
-              Descartar
+              Botar
             </button>
           </div>
 

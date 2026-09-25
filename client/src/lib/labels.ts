@@ -10,7 +10,7 @@ export const REASON_LABELS: Record<string, string> = {
   peladia: "¡Peladía!",
   "cuatro-cuerpos": "¡Cuatro Cuerpos!",
   "meld-out": "Ganó bajando toda la mano",
-  "discard-out": "Ganó por descarte",
+  "discard-out": "Ganó botando",
   "stock-exhausted": "Se acabó el mazo — nadie ganó",
 };
 
@@ -19,4 +19,5 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   desmocho: "Desmoche",
   peladia: "Peladía",
   "cuatro-cuerpos": "Cuatro Cuerpos",
+  "auto-extend": "Se le agregó a su grupo",
 };

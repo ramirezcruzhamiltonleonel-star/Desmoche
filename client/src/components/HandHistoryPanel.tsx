@@ -27,6 +27,7 @@ const FILTER_OPTIONS: { value: EventFilter; label: string }[] = [
   { value: "claimed-discard", label: "Robó del descarte" },
   { value: "desmocho", label: "Desmoche" },
   { value: "peladia", label: "Peladía / Cuatro Cuerpos" },
+  { value: "auto-extend", label: "Se agregó a un grupo" },
 ];
 
 export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: HandHistoryPanelProps) {
@@ -170,7 +171,9 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
                     {" — "}
                     {EVENT_TYPE_LABELS[event.type] ?? event.type}
                   </span>
-                  {(event.type === "claimed-discard" || event.type === "desmocho") && (
+                  {(event.type === "claimed-discard" ||
+                    event.type === "desmocho" ||
+                    event.type === "auto-extend") && (
                     <span className="font-mono text-gold">{cardText(event.card)}</span>
                   )}
                 </div>

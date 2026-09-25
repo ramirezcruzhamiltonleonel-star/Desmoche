@@ -342,12 +342,17 @@ export default function GameTable() {
       } else if (entry.type === "auto-extend") {
         const seat = state.seats.find((s) => s.seatIndex === entry.seatIndex);
         const cardText = `${entry.card.rank}${SUIT_SYMBOL[entry.card.suit]}`;
+        const isYours = entry.seatIndex === state.yourSeatIndex;
         autoExtendKeyRef.current += 1;
         setAutoExtendBanner({
-          text: `Se agregó el ${cardText} al grupo de ${seat?.displayName ?? "?"}`,
+          text: isYours
+            ? `Se agregó el ${cardText} a tu grupo`
+            : `Se agregó el ${cardText} al grupo de ${seat?.displayName ?? "?"}`,
           key: autoExtendKeyRef.current,
         });
-        timers.push(setTimeout(() => setAutoExtendBanner(null), 2800));
+        // 4.5s (within the requested 3-6s window) — long enough to actually
+        // read, not just an instant flash.
+        timers.push(setTimeout(() => setAutoExtendBanner(null), 4500));
       }
     }
 

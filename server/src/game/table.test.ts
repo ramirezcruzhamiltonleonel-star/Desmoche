@@ -2559,3 +2559,62 @@ describe("Table — event log", () => {
     expect(table.state.eventLog).toEqual([]);
   });
 });
+
+describe("Table — hand size never drifts around an auto-extend (regression: reported '11 cards, unwinnable')", () => {
+  it("a stock draw NEVER auto-attaches to the drawer's own placed meld — it always becomes a normal pendingDrawnCard, exactly like any other draw", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, false);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p0",
+      cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")],
+    });
+    const beforeHandLen = table.state.hands["p0"]!.length;
+    table.state.stock = [c("9", "diamonds")]; // top of stock — matches p0's OWN placed set
+
+    table.drawFromStock("p0");
+
+    expect(table.state.hands["p0"]).toHaveLength(beforeHandLen + 1); // just a normal draw
+    expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(3); // untouched
+    expect(table.state.pendingDrawnCard).toEqual(c("9", "diamonds")); // theirs to decide
+    expect(table.state.phase).toBe("turn-active"); // still their turn, still owe a discard
+  });
+
+  it("after drawing then discarding the drawn card straight into another player's meld via auto-extend, the discarder's hand is back to exactly what it was before the draw, and the meld owner's HAND (not their meld) is completely untouched", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, false);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")],
+    });
+    const p0HandBefore = table.state.hands["p0"]!.length;
+    const p1HandBefore = table.state.hands["p1"]!.length;
+    table.state.stock = [c("9", "diamonds")];
+
+    table.drawFromStock("p0");
+    expect(table.state.hands["p0"]).toHaveLength(p0HandBefore + 1); // 9 -> 10, mid-turn
+    table.discard("p0", c("9", "diamonds"));
+
+    // Back to exactly where it started — never 10, never 11.
+    expect(table.state.hands["p0"]).toHaveLength(p0HandBefore);
+    // The meld owner's HAND never changes — only their MELD does.
+    expect(table.state.hands["p1"]).toHaveLength(p1HandBefore);
+    expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(4);
+    expect(table.state.eventLog).toContainEqual({
+      type: "auto-extend",
+      seatIndex: 1,
+      card: c("9", "diamonds"),
+    });
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.turnSeatIndex).toBe(1); // turn moved on, nobody stuck mid-turn
+  });
+});

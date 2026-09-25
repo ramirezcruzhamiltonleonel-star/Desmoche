@@ -11,16 +11,21 @@ export interface PipPosition {
   rotated?: boolean;
 }
 
-const L = 24;
+// Kept well clear of the corner index (rank + suit glyph in each corner) so
+// a two-digit "10" or the pip nearest a corner never overlaps the numeral —
+// a reported legibility bug. Margins are noticeably wider than a physical
+// card's because our smallest render sizes are only ~30-40px tall, where a
+// legible corner index needs proportionally more breathing room.
+const L = 27;
 const C = 50;
-const R = 76;
-const TOP = 12;
-const UPPER = 27;
-const UPMID = 37;
+const R = 73;
+const TOP = 20;
+const UPPER = 33;
+const UPMID = 41;
 const MID = 50;
-const LOWMID = 63;
-const LOWER = 73;
-const BOTTOM = 88;
+const LOWMID = 59;
+const LOWER = 67;
+const BOTTOM = 85;
 
 export const PIP_LAYOUTS: Record<number, PipPosition[]> = {
   2: [

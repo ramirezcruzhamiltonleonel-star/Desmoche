@@ -12,34 +12,57 @@ const SUIT_SYMBOL: Record<CardModel["suit"], string> = {
 const RED_SUITS = new Set<CardModel["suit"]>(["hearts", "diamonds"]);
 
 const SIZE_CLASSES = {
-  xs: "h-10 w-7 px-0.5 py-0.5 text-[8px]",
-  sm: "h-14 w-10 px-1 py-1 text-[10px]",
-  md: "h-20 w-14 px-1 py-1 text-xs",
-  lg: "h-24 w-16 px-1 py-1 text-sm",
+  xs: "h-10 w-7 px-0.5 py-0.5",
+  sm: "h-14 w-10 px-1 py-1",
+  md: "h-20 w-14 px-1 py-1",
+  lg: "h-24 w-16 px-1 py-1",
+} as const;
+
+// The corner rank digit is the single most important thing to read on a
+// card at a glance — sized and weighted independently from everything
+// else on the face (previously it silently inherited the card's smallest
+// ambient text size, which was the actual cause of a reported "numbers
+// are hard to read" complaint).
+const CORNER_RANK_SIZE = {
+  xs: "text-[9px]",
+  sm: "text-[10px]",
+  md: "text-[13px]",
+  lg: "text-base",
 } as const;
 
 // The index corner's own tiny suit glyph, beneath the rank — same
 // proportion at every size, distinct from PIP_SYMBOL_SIZE (the face pips,
 // which read bigger since there are fewer of them competing for space).
 const CORNER_SUIT_SIZE = {
+  xs: "text-[8px]",
+  sm: "text-[10px]",
+  md: "text-[11px]",
+  lg: "text-sm",
+} as const;
+
+// Higher pip counts (7-10) pack 6 distinct row-levels into the same
+// vertical field as the low counts' 2-3 rows — sized down a notch so they
+// don't collide with each other, while the corner index (not these pips)
+// stays the thing actually read for the card's value.
+const PIP_SYMBOL_SIZE = {
   xs: "text-[7px]",
   sm: "text-[9px]",
-  md: "text-[11px]",
+  md: "text-xs",
+  lg: "text-sm",
+} as const;
+
+const PIP_SYMBOL_SIZE_DENSE = {
+  xs: "text-[6px]",
+  sm: "text-[7px]",
+  md: "text-[10px]",
   lg: "text-xs",
 } as const;
 
-const PIP_SYMBOL_SIZE = {
-  xs: "text-[7px]",
-  sm: "text-[10px]",
-  md: "text-sm",
-  lg: "text-base",
-} as const;
-
 const ACE_SYMBOL_SIZE = {
-  xs: "text-base",
-  sm: "text-2xl",
-  md: "text-4xl",
-  lg: "text-5xl",
+  xs: "text-lg",
+  sm: "text-3xl",
+  md: "text-5xl",
+  lg: "text-6xl",
 } as const;
 
 interface CardProps {
@@ -77,12 +100,13 @@ function CardFace({ card, size }: { card: CardModel; size: keyof typeof SIZE_CLA
   }
 
   const pips = PIP_LAYOUTS[Number(card.rank)] ?? [];
+  const pipSize = pips.length >= 7 ? PIP_SYMBOL_SIZE_DENSE[size] : PIP_SYMBOL_SIZE[size];
   return (
     <div className="absolute inset-0">
       {pips.map((pip, i) => (
         <span
           key={i}
-          className={`absolute ${PIP_SYMBOL_SIZE[size]} leading-none`}
+          className={`absolute ${pipSize} leading-none`}
           style={{
             left: `${pip.x}%`,
             top: `${pip.y}%`,
@@ -140,13 +164,13 @@ export default function Card({
           reported legibility bug), and nothing in this digital table is
           ever viewed from the "other end" the way a real fanned-out card
           would be, so the rotation bought us a confusion with no upside. */}
-      <span className="absolute left-1 top-0.5 flex flex-col items-center leading-none">
-        <span className="tabular-nums">{card.rank}</span>
-        <span className={CORNER_SUIT_SIZE[size]}>{SUIT_SYMBOL[card.suit]}</span>
+      <span className="absolute left-0.5 top-0.5 flex flex-col items-center leading-none">
+        <span className={`${CORNER_RANK_SIZE[size]} tabular-nums tracking-tighter`}>{card.rank}</span>
+        <span className={`-mt-0.5 ${CORNER_SUIT_SIZE[size]}`}>{SUIT_SYMBOL[card.suit]}</span>
       </span>
-      <span className="absolute right-1 bottom-0.5 flex flex-col items-center leading-none">
-        <span className="tabular-nums">{card.rank}</span>
-        <span className={CORNER_SUIT_SIZE[size]}>{SUIT_SYMBOL[card.suit]}</span>
+      <span className="absolute right-0.5 bottom-0.5 flex flex-col items-center leading-none">
+        <span className={`${CORNER_RANK_SIZE[size]} tabular-nums tracking-tighter`}>{card.rank}</span>
+        <span className={`-mt-0.5 ${CORNER_SUIT_SIZE[size]}`}>{SUIT_SYMBOL[card.suit]}</span>
       </span>
       <CardFace card={card} size={size} />
     </button>

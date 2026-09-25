@@ -33,7 +33,11 @@ export default function CambioModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+    // z-[55] — strictly above the dealing animation's flying cards/stock
+    // flip (z-50): those can still be finishing their animation right as
+    // Cambio opens right after the deal, and used to render visibly on
+    // top of this modal (reported bug).
+    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 text-center shadow-2xl">
         <h3 className="mb-1 font-display text-lg text-gold">Cambio</h3>
 

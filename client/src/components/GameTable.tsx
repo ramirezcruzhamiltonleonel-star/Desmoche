@@ -641,7 +641,18 @@ export default function GameTable() {
       : "";
 
   return (
-    <div className="screen-fade flex min-h-screen flex-col bg-felt-dark">
+    <div
+      className="screen-fade flex h-screen flex-col overflow-hidden bg-felt-dark"
+      // 100dvh accounts for a mobile browser's address bar collapsing/
+      // expanding — 100vh (the Tailwind h-screen fallback for browsers
+      // without dvh support) is fixed to the LARGEST possible viewport,
+      // which cuts off the bottom (the hand tray/action bar, the one
+      // thing this fix most needs to keep visible) whenever the address
+      // bar is showing. A reported "hand/mazo/buttons need to fit in one
+      // screen, no scroll" complaint on small phones traced to exactly
+      // this plus the felt's old fixed 58vh floor below.
+      style={{ height: "100dvh" }}
+    >
       {/* relative z-[60] — above EVERY in-table modal (Cambio/hand-over at
           z-40, tutorial/history/guest-exit at z-50) — so Salir/Ayuda/
           Historial/Tema stay reachable no matter what's open. Safe even
@@ -703,9 +714,18 @@ export default function GameTable() {
       </div>
 
       <div
-        className="mx-3 mb-3 grid flex-1 items-center justify-items-center gap-x-1 gap-y-3 rounded-[2.5rem] border-8 border-wood bg-felt p-2 shadow-inner sm:gap-x-3 sm:p-4"
+        className="mx-3 mb-3 grid min-h-0 flex-1 items-center justify-items-center gap-x-1 gap-y-3 overflow-y-auto rounded-[2.5rem] border-8 border-wood bg-felt p-2 shadow-inner sm:gap-x-3 sm:p-4"
         style={{
-          minHeight: "58vh",
+          // A floor just tall enough to show the seats/mazo/pot row, NOT
+          // the old fixed 58vh — that forced the felt to claim well over
+          // half of even a short phone screen, pushing the hand tray and
+          // action buttons (the actually critical, always-must-see part)
+          // below the fold. flex-1 now does the real sizing: this area
+          // takes whatever space is left after the header and the hand
+          // tray/action bar (which never shrink) claim theirs, and
+          // scrolls internally on the rare hand where opponents' melds
+          // still don't fit, rather than pushing the whole page down.
+          minHeight: "140px",
           gridTemplateAreas: feltGrid.areas,
           gridTemplateColumns: feltGrid.columns,
           gridTemplateRows: feltGrid.rows,
@@ -809,7 +829,7 @@ export default function GameTable() {
         // replaces what used to be a claim window everyone could see too.
         <div
           key={autoExtendBanner.key}
-          className="pointer-events-none fixed left-1/2 top-16 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
+          className="pointer-events-none fixed left-1/2 top-1 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
         >
           🃏 {autoExtendBanner.text}
         </div>

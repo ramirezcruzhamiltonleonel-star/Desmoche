@@ -44,7 +44,7 @@ export default function ClaimBanner({ claim, isEligible, canClaim, onRespond, fi
     // positioning just below the header means it never reflows anything
     // else, and the hand tray (always at the bottom) stays exactly where it
     // was regardless of whether this is showing.
-    <div className="fixed left-1/2 top-16 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 p-3 shadow-2xl">
+    <div className="fixed left-1/2 top-1 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 p-3 shadow-2xl">
       <div className="mb-2 flex items-center justify-center gap-3">
         <span className="text-sm text-stone-200">¿Alguien quiere esta carta?</span>
         <Card card={claim.card} size="sm" />

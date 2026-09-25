@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatMeldCommentary, type Card as CardModel, type ClientGameState, type TableEventType } from "@desmoche/shared";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import { computeScoreboard } from "../lib/scoreboard";
 import { EVENT_TYPE_LABELS, REASON_LABELS } from "../lib/labels";
 
@@ -33,6 +34,7 @@ const FILTER_OPTIONS: { value: EventFilter; label: string }[] = [
 ];
 
 export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: HandHistoryPanelProps) {
+  useEscapeKey(onClose);
   const scoreboard = computeScoreboard(state.handHistory, state.seats, state.ante);
   const showChips = state.stakeType === "chips" || state.stakeType === "money";
   const [view, setView] = useState<"hands" | "events">("hands");
@@ -62,11 +64,18 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
             Marcador de la sesión
           </p>
           <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wide text-stone-500">
+                <th className="pb-1 text-left font-normal">Jugador</th>
+                <th className="pb-1 pr-2 text-right font-normal">Manos ganadas</th>
+                {showChips && <th className="pb-1 text-right font-normal">Fichas ganadas/perdidas</th>}
+              </tr>
+            </thead>
             <tbody>
               {scoreboard.map((row) => (
                 <tr key={row.playerId} className="text-stone-200">
                   <td className="py-0.5 pr-2">{row.displayName}</td>
-                  <td className="py-0.5 pr-2 text-right text-stone-400">{row.handsWon} manos</td>
+                  <td className="py-0.5 pr-2 text-right text-stone-400">{row.handsWon}</td>
                   {showChips && (
                     <td
                       className={`py-0.5 text-right font-semibold ${

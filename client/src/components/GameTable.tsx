@@ -361,6 +361,20 @@ export default function GameTable() {
   }, [state?.eventLog.length]);
 
   useEffect(() => {
+    // The server's 30s claim-response timer is shared/authoritative for
+    // the WHOLE table — pausing it for one player's local tutorial/help
+    // screen would unfairly hold up everyone else waiting on them. Instead,
+    // the moment a claim window this player is actually eligible to answer
+    // opens, close whichever of THEIR OWN modals would otherwise sit on
+    // top of the real claim banner and eat into their real response time.
+    if (!state || state.phase !== "claim-window" || !state.claim) return;
+    if (state.yourSeatIndex === null || !state.claim.pendingSeatIndices.includes(state.yourSeatIndex)) return;
+    setShowTutorial(false);
+    setShowContextualHelp(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.claim?.claimWindowId]);
+
+  useEffect(() => {
     // Only the very first genuinely-useful claim, ever, for this browser —
     // explains WHY once, then gets out of the way permanently. Keyed on
     // claimWindowId so this runs once per NEW window, not once per render.

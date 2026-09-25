@@ -1,4 +1,5 @@
 import type { Card as CardModel } from "@desmoche/shared";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import Card from "./Card";
 
 interface RulesPageProps {
@@ -16,6 +17,7 @@ function ExampleRow({ cards }: { cards: CardModel[] }) {
 }
 
 export default function RulesPage({ onClose }: RulesPageProps) {
+  useEscapeKey(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
       <div className="flex max-h-full w-full max-w-lg flex-col rounded-2xl border-4 border-wood bg-felt shadow-2xl">

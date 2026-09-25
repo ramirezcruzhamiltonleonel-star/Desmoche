@@ -1,5 +1,6 @@
 import type { ClientSeatView } from "@desmoche/shared";
 import CardBack from "./CardBack";
+import ChipToken from "./ChipToken";
 import DealerButton from "./DealerButton";
 import SeatAvatar from "./SeatAvatar";
 
@@ -68,13 +69,19 @@ export default function PlayerSeat({
         </span>
       </div>
       {chipsBalance !== undefined && chipsBalance !== null && (
-        <span
-          className={`text-[10px] font-semibold tabular-nums ${
-            chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
-          }`}
-        >
-          {chipsBalance > 0 ? "+" : ""}
-          {chipsBalance} fichas
+        <span className="flex items-center gap-1">
+          <ChipToken
+            size="sm"
+            denomination={chipsBalance > 0 ? "gold" : chipsBalance < 0 ? "bronze" : "silver"}
+          />
+          <span
+            className={`text-[10px] font-semibold tabular-nums ${
+              chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
+            }`}
+          >
+            {chipsBalance > 0 ? "+" : ""}
+            {chipsBalance} fichas
+          </span>
         </span>
       )}
       {!hideCardBacks && (

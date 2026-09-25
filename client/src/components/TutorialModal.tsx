@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import Card from "./Card";
 
 interface Slide {
@@ -49,6 +50,7 @@ interface TutorialModalProps {
 }
 
 export default function TutorialModal({ onClose }: TutorialModalProps) {
+  useEscapeKey(onClose);
   const [index, setIndex] = useState(0);
   const isLast = index === SLIDES.length - 1;
   const slide = SLIDES[index]!;

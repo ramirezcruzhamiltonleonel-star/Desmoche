@@ -1,4 +1,5 @@
 import type { ClientGameState } from "@desmoche/shared";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 interface ContextualHelpModalProps {
   state: ClientGameState;
@@ -103,6 +104,7 @@ function contextualHelp(props: ContextualHelpModalProps): HelpContent {
 export default function ContextualHelpModal(props: ContextualHelpModalProps) {
   const { title, body } = contextualHelp(props);
   const { onClose, onShowFullTutorial } = props;
+  useEscapeKey(onClose);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"

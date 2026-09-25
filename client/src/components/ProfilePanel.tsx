@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { claimDailyMission, fetchDailyProgress, fetchMyStats, type DailyProgress, type UserStats } from "../lib/api";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import Spinner from "./Spinner";
 
 interface ProfilePanelProps {
@@ -9,6 +10,7 @@ interface ProfilePanelProps {
 }
 
 export default function ProfilePanel({ token, displayName, onClose }: ProfilePanelProps) {
+  useEscapeKey(onClose);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [daily, setDaily] = useState<DailyProgress | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { DISPLAY_NAME_MAX_LENGTH } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { loadGuestNameHint } from "../lib/guestNameHint";
+import { markAutoInstantDemoRequested } from "../lib/autoInstantDemo";
 import Spinner from "./Spinner";
 
 export default function LoginScreen() {
@@ -16,6 +17,7 @@ export default function LoginScreen() {
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestName, setGuestName] = useState(() => loadGuestNameHint());
   const [guestBusy, setGuestBusy] = useState(false);
+  const [oneClickBusy, setOneClickBusy] = useState(false);
 
   async function handleGuestSubmit(event: FormEvent) {
     event.preventDefault();
@@ -28,6 +30,29 @@ export default function LoginScreen() {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setGuestBusy(false);
+    }
+  }
+
+  /**
+   * The whole point: ONE click, no typing, straight into a live table
+   * against bots — down from the previous "reveal form -> type a name ->
+   * submit -> then a SECOND click on the home screen" (a reported
+   * friction complaint). Auth and the game socket live in separate React
+   * contexts (GameProvider only mounts once a token exists), so this
+   * can't fire startInstantDemo() itself from here — it logs in with an
+   * auto-generated name and leaves a one-shot flag for HomeScreen to pick
+   * up on its very first render instead.
+   */
+  async function handleOneClickPlay() {
+    setError(null);
+    setOneClickBusy(true);
+    try {
+      const guestNumber = Math.floor(100 + Math.random() * 900);
+      markAutoInstantDemoRequested();
+      await loginAsGuest(`Invitado ${guestNumber}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+      setOneClickBusy(false);
     }
   }
 
@@ -64,6 +89,24 @@ export default function LoginScreen() {
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
         <h1 className="mb-1 text-center font-display text-3xl text-gold">Desmoche</h1>
         <p className="mb-6 text-center text-sm text-stone-300">Mesa de cartas nicaragüense</p>
+
+        <button
+          type="button"
+          onClick={handleOneClickPlay}
+          disabled={oneClickBusy}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gold px-6 py-5 text-xl font-bold text-stone-900 shadow-2xl transition hover:bg-gold-light disabled:opacity-50"
+        >
+          {oneClickBusy ? <Spinner size="sm" tone="dark" /> : "🎮"} Jugar ya
+        </button>
+        <p className="mb-6 text-center text-xs text-stone-400">
+          Un clic, sin registrarte — mesa instantánea contra bots
+        </p>
+
+        <div className="mb-6 flex items-center gap-3 text-xs text-stone-500">
+          <div className="h-px flex-1 bg-wood-dark" />
+          o registrate / entrá con tu cuenta
+          <div className="h-px flex-1 bg-wood-dark" />
+        </div>
 
         {step === "email" ? (
           <form onSubmit={handleRequestCode} className="space-y-4" noValidate>

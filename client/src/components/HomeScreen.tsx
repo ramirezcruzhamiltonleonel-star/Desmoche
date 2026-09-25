@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { StakeType } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
+import { consumeAutoInstantDemoRequested } from "../lib/autoInstantDemo";
 import { STAKE_LABELS } from "../lib/labels";
 import { readJoinCodeFromUrl } from "../lib/joinLink";
 import CustomSelect from "./CustomSelect";
@@ -83,6 +84,14 @@ export default function HomeScreen() {
       setBusy(false);
     }
   }
+
+  // Completes LoginScreen's single "Jugar ya" click — fires automatically,
+  // exactly once, the very first time this screen mounts right after that
+  // click (never on a later plain visit to the home screen).
+  useEffect(() => {
+    if (consumeAutoInstantDemoRequested()) void handleInstantDemo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="screen-fade min-h-screen bg-felt-dark px-4 py-8">

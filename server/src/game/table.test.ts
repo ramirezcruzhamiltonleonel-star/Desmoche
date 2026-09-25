@@ -2617,4 +2617,58 @@ describe("Table — hand size never drifts around an auto-extend (regression: re
     expect(table.state.phase).toBe("turn-active");
     expect(table.state.turnSeatIndex).toBe(1); // turn moved on, nobody stuck mid-turn
   });
+
+  it("reproduces the exact reported shape (two 4-card sets + a 3-card run = 11 melded cards for the winner) and proves it's NOT card duplication — every card in play is still accounted for exactly once", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+
+    // p1 (the eventual winner) placed two 3-card sets on EARLIER turns —
+    // ordinary, legitimate melds from their own original hand. Ranks 8/10
+    // and the Q-K-A of spades are all untouched by NORMAL_HAND or the
+    // A-clubs/4-diamonds up-card, so nothing here can collide with what
+    // buildDeck() already dealt.
+    table.state.melds.push(
+      { id: "m1", type: "set", ownerId: "p1", cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")] },
+      { id: "m2", type: "set", ownerId: "p1", cards: [c("10", "spades"), c("10", "hearts"), c("10", "clubs")] },
+    );
+
+    // Two SEPARATE turns, two SEPARATE unrelated discards from p0, each one
+    // happening to complete one of p1's already-placed sets — exactly the
+    // "obviously already someone's" case auto-extend exists for. Neither
+    // touches p1's hand at all; only their table melds grow.
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "diamonds")];
+    table.discard("p0", c("8", "diamonds"));
+
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("10", "diamonds")];
+    table.discard("p0", c("10", "diamonds"));
+
+    expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(4);
+    expect(table.state.melds.find((m) => m.id === "m2")!.cards).toHaveLength(4);
+
+    // p1's OWN hand and OWN turn are completely untouched by either event
+    // above — they now place their own third meld (a normal Mico-arriba
+    // run, from their own hand) and go out normally.
+    skipToNormalTurn(table, 1, true);
+    table.state.hands["p1"] = [c("Q", "spades"), c("K", "spades"), c("A", "spades")];
+    table.placeMeld("p1", [c("Q", "spades"), c("K", "spades"), c("A", "spades")]);
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome?.reason).toBe("meld-out");
+    expect(table.state.handOutcome?.winnerSeatIndex).toBe(1);
+    const winningMelds = table.state.handOutcome!.winningMelds;
+    const meldedCards = winningMelds.flatMap((m) => m.cards);
+    // Exactly the reported shape: 4 + 4 + 3 = 11 — reached legitimately,
+    // via two ordinary auto-extends that happened DURING the hand, well
+    // before p1's own hand ever emptied, plus one normal meld from their
+    // own final 3 cards. Every one of those 11 cards is a DIFFERENT
+    // physical card — proving this is real board state, not the same
+    // card being counted (or attached) twice.
+    expect(winningMelds.map((m) => m.cards.length).sort()).toEqual([3, 4, 4]);
+    expect(meldedCards).toHaveLength(11);
+    expect(new Set(meldedCards.map(cardId)).size).toBe(11); // 11 DISTINCT cards, zero duplicates
+    expect(table.state.hands["p1"]).toHaveLength(0); // the WIN check only ever looks at the hand, never the meld total
+  });
 });

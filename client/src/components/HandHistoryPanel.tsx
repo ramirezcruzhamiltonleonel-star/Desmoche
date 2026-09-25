@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Card as CardModel, ClientGameState, TableEventType } from "@desmoche/shared";
+import { formatMeldCommentary, type Card as CardModel, type ClientGameState, type TableEventType } from "@desmoche/shared";
 import { computeScoreboard } from "../lib/scoreboard";
 import { EVENT_TYPE_LABELS, REASON_LABELS } from "../lib/labels";
 
@@ -24,10 +24,12 @@ type EventFilter = "all" | TableEventType;
 
 const FILTER_OPTIONS: { value: EventFilter; label: string }[] = [
   { value: "all", label: "Todos" },
-  { value: "claimed-discard", label: "Robó del descarte" },
+  { value: "claimed-discard", label: "Robó del bote" },
   { value: "desmocho", label: "Desmoche" },
   { value: "peladia", label: "Peladía / Cuatro Cuerpos" },
   { value: "auto-extend", label: "Se agregó a un grupo" },
+  { value: "meld-placed", label: "Grupos bajados" },
+  { value: "retired", label: "Retiros" },
 ];
 
 export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: HandHistoryPanelProps) {
@@ -169,7 +171,9 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
                   <span>
                     <span className="font-semibold text-stone-100">{nameBySeatIndex[event.seatIndex] ?? "?"}</span>
                     {" — "}
-                    {EVENT_TYPE_LABELS[event.type] ?? event.type}
+                    {event.type === "meld-placed"
+                      ? `Bajó ${formatMeldCommentary(event.meldType, event.cards)}`
+                      : (EVENT_TYPE_LABELS[event.type] ?? event.type)}
                   </span>
                   {(event.type === "claimed-discard" ||
                     event.type === "desmocho" ||

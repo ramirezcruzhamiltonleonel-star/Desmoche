@@ -76,7 +76,7 @@ export default function ActionBar({
     <div className="space-y-2 px-3 pb-3">
       {mustPlaceCard && (
         <p className="text-center text-xs text-gold">
-          Debes usar la carta que tomaste del descarte en un grupo antes de botar.
+          Debes usar la carta que tomaste del bote en un grupo antes de botar.
         </p>
       )}
 
@@ -125,7 +125,7 @@ export default function ActionBar({
                 canDiscardSelection
                   ? undefined
                   : mustPlaceCard
-                    ? "Debes usar la carta que tomaste del descarte en un grupo antes de botar"
+                    ? "Debes usar la carta que tomaste del bote en un grupo antes de botar"
                     : pendingDrawnCard
                       ? "Solo podés botar la carta que acabás de robar — seleccionala primero"
                       : selectedCount === 0

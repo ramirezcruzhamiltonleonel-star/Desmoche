@@ -62,12 +62,15 @@ const BONUS_EXPLANATIONS: Record<BonusKind, string> = {
   flor: "Cerraste la mano usando solo escaleras, todas del mismo palo — cada perdedor te paga 1.5 antes extra. Se acumula con Oro/Corazón si también aplican.",
 };
 
+const NEXT_HAND_COUNTDOWN_SECONDS = 5;
+
 interface HandOverModalProps {
   outcome: ClientHandOutcome;
   settlement: ClientHandSettlement | null;
   nameByPlayerId: Record<string, string>;
   winnerName: string;
   onNextHand: () => void;
+  onLeave: () => void;
   /** Omitted for spectators — reacting to a hand you didn't play doesn't make sense here. */
   onReact?: (emoji: ReactionEmoji) => void;
 }
@@ -78,8 +81,25 @@ export default function HandOverModal({
   nameByPlayerId,
   winnerName,
   onNextHand,
+  onLeave,
   onReact,
 }: HandOverModalProps) {
+  // Automatic, same fixed countdown for every player — previously any ONE
+  // player clicking "Siguiente mano" cut the results screen short for
+  // everyone else instantly, with no warning. A shared, predictable timer
+  // (each client fires the same nextHand() call independently; the server
+  // accepts whichever arrives first and silently no-ops the rest) replaces
+  // that with something every player can count on seeing in full.
+  const [secondsLeft, setSecondsLeft] = useState(NEXT_HAND_COUNTDOWN_SECONDS);
+  useEffect(() => {
+    if (secondsLeft <= 0) {
+      onNextHand();
+      return undefined;
+    }
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft]);
   const [justSent, setJustSent] = useState<ReactionEmoji | null>(null);
   const isAutoWin = isAutoWinReason(outcome.reason);
   // "Efecto Desmoche": closing the hand in one real play (not a deal-luck
@@ -205,7 +225,7 @@ export default function HandOverModal({
               </p>
             </div>
             <p className="text-[10px] uppercase tracking-wide text-stone-400">
-              Deben cumplirlo — ya quedó marcado como cumplido:
+              Reto asignado a los perdedores — marcado como cumplido automáticamente:
             </p>
             {settlement.playersWhoOweADare.map((playerId) => (
               <p key={playerId} className="font-semibold text-stone-100">
@@ -300,12 +320,14 @@ export default function HandOverModal({
           </div>
         )}
 
-        <button
-          onClick={onNextHand}
-          className="w-full rounded-lg bg-gold px-4 py-2 font-semibold text-stone-900 transition hover:bg-gold-light"
-        >
-          Siguiente mano
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button onClick={onLeave} className="text-xs text-stone-400 underline">
+            Salir
+          </button>
+          <p className="flex-1 text-right text-sm text-stone-300">
+            Siguiente mano en <span className="font-semibold text-gold tabular-nums">{secondsLeft}</span>s
+          </p>
+        </div>
       </div>
 
       {isCloseWin && (

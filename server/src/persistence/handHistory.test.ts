@@ -229,7 +229,7 @@ describe("persistHandOutcome", () => {
     expect(anyAllGuestHand).toBeNull();
   });
 
-  it("still persists normally for a guest-only table that also seats a bot, since a bot is a real (non-guest) seat", async () => {
+  it("persists absolutely nothing for a guest-only table that also seats a bot — a bot is a real User row, but not a REGISTERED HUMAN (regression: this used to persist and give the bot a streak for a hand no actual person played)", async () => {
     await makeUser("bot:chepe", "El Chepe", 1_000_000);
 
     const room = new Room("GUESTBOT", "chips", 100);
@@ -242,11 +242,32 @@ describe("persistHandOutcome", () => {
     const outcome = room.maybeSettle();
     await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
 
+    const tableRecord = await prisma.tableRecord.findFirst({ where: { code: "GUESTBOT" } });
+    expect(tableRecord).toBeNull();
+    const anyHand = await prisma.handHistoryRecord.findFirst({ where: { table: { code: "GUESTBOT" } } });
+    expect(anyHand).toBeNull();
+    const bot = await prisma.user.findUniqueOrThrow({ where: { id: "bot:chepe" } });
+    expect(bot.currentStreak).toBe(0); // no streak credit either
+  });
+
+  it("still persists normally, bot included, once at least one seat is a real registered human", async () => {
+    await makeUser("human-1", "Ana", 1000);
+    await makeUser("bot:chepe", "El Chepe", 1_000_000);
+
+    const room = new Room("HUMANBOT", "chips", 100);
+    room.join("human-1", "Ana");
+    room.join("bot:chepe", "El Chepe");
+    room.setReady("human-1", true);
+    room.setReady("bot:chepe", true);
+    forceHandOver(room, 1); // the bot wins
+
+    const outcome = room.maybeSettle();
+    await expect(persistHandOutcome(prisma, room, outcome!)).resolves.not.toThrow();
+
     const hand = await prisma.handHistoryRecord.findFirstOrThrow({
       where: { winnerUserId: "bot:chepe" },
       include: { players: true },
     });
-    expect(hand.players).toHaveLength(1); // only the bot — the guest still gets no row
-    expect(hand.players[0]!.userId).toBe("bot:chepe");
+    expect(hand.players).toHaveLength(2); // both the human and the bot
   });
 });

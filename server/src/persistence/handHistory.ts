@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { isGuestPlayerId } from "../auth/guestId";
+import { isBotPlayerId } from "../game/bot";
 import type { HandOutcome } from "../game/payouts";
 import type { Room } from "../rooms/room";
 import { updateStreakForPlay } from "./streak";
@@ -29,11 +30,14 @@ import { updateStreakForPlay } from "./streak";
  * winning is fine to record there even though they get no HandHistoryPlayer
  * row of their own.
  *
- * If EVERY seat is a guest (realSeats empty — no bots either, since a bot
- * would itself count as a non-guest real seat), nothing about this hand
- * gets written at all: no TableRecord, no HandHistoryRecord. "No deja
- * rastro" for an all-guest table means exactly that — not merely omitting
- * guest player rows from an otherwise-created record.
+ * If no seat is a REGISTERED HUMAN — every seat is either a guest or a bot
+ * — nothing about this hand gets written at all: no TableRecord, no
+ * HandHistoryRecord, and bots get no streak credit either. A bot is a real
+ * User row (see game/bot.ts), so without this separate check a guest-only
+ * table against bots would otherwise look "not all-guest" and get fully
+ * persisted — including handing the bots a streak for a hand no actual
+ * person played. "No deja rastro" for a table with no registered human in
+ * it means exactly that, bots at the table or not.
  */
 export async function persistHandOutcome(
   prisma: PrismaClient,
@@ -43,7 +47,8 @@ export async function persistHandOutcome(
   const table = room.requireTable();
   const seats = table.state.seats;
   const realSeats = seats.filter((seat) => !isGuestPlayerId(seat.playerId));
-  if (realSeats.length === 0) return;
+  const hasRegisteredHuman = realSeats.some((seat) => !isBotPlayerId(seat.playerId));
+  if (!hasRegisteredHuman) return;
 
   const reason = table.state.handOutcome?.reason ?? "meld-out";
   const winnerId = outcome.kind === "carry-over" ? null : outcome.winnerId;
@@ -57,6 +62,29 @@ export async function persistHandOutcome(
       bonusChipsCollected += extra;
     }
     deltas.set(outcome.winnerId, outcome.potWon - room.ante + bonusChipsCollected);
+  }
+
+  // A real chip balance can never go negative — cap what's ACTUALLY taken
+  // from any one loser at whatever they still have (guests/bots excluded:
+  // guests have no persistent balance yet, bots are always topped up). Any
+  // shortfall comes straight off the winner's credit too, so this can never
+  // fabricate chips from nothing — the winner simply collects less than the
+  // nominal pot on the rare hand where a loser's balance was too thin to
+  // cover everything they owed (same as real "table stakes" rules).
+  if (outcome.kind === "chips") {
+    let totalShortfall = 0;
+    for (const [userId, delta] of deltas) {
+      if (delta >= 0 || isGuestPlayerId(userId) || isBotPlayerId(userId)) continue;
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { chipBalance: true } });
+      const currentBalance = Math.max(0, user?.chipBalance ?? 0);
+      const owed = -delta;
+      const actualDebit = Math.min(owed, currentBalance);
+      totalShortfall += owed - actualDebit;
+      deltas.set(userId, -actualDebit);
+    }
+    if (totalShortfall > 0) {
+      deltas.set(outcome.winnerId, (deltas.get(outcome.winnerId) ?? 0) - totalShortfall);
+    }
   }
 
   const tableRecord = await prisma.tableRecord.create({

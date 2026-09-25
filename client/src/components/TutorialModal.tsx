@@ -14,7 +14,7 @@ const SLIDES: Slide[] = [
   },
   {
     title: "2. Robar y botar",
-    body: "En tu turno robás del mazo (o reclamás el descarte si te sirve de inmediato) y terminás botando una carta para pasarle el turno al siguiente.",
+    body: "En tu turno robás del mazo (o reclamás el bote si te sirve de inmediato) y terminás botando una carta para pasarle el turno al siguiente.",
   },
   {
     title: "3. Bajar grupo",

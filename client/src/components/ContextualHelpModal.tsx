@@ -52,17 +52,17 @@ function contextualHelp(props: ContextualHelpModalProps): HelpContent {
     if (!isClaimEligible) {
       return {
         title: "Ventana de reclamo",
-        body: "Se ofreció una carta del descarte y otro jugador ya la tiene prioridad, o no te toca decidir en esta ronda. Esperá — si nadie la reclama, el turno sigue su curso normal.",
+        body: "Se ofreció una carta del bote y otro jugador ya la tiene prioridad, o no te toca decidir en esta ronda. Esperá — si nadie la reclama, el turno sigue su curso normal.",
       };
     }
     return canClaim
       ? {
           title: "¿Te sirve esta carta?",
-          body: 'Esa carta del descarte te sirve de inmediato en un grupo. Tocá "Sí me sirve" para reclamarla y jugar con ella ahora mismo, o "No me sirve" si preferís esperar tu turno normal.',
+          body: 'Esa carta del bote te sirve de inmediato en un grupo. Tocá "Sí me sirve" para reclamarla y jugar con ella ahora mismo, o "No me sirve" si preferís esperar tu turno normal.',
         }
       : {
           title: "¿Te sirve esta carta?",
-          body: 'Solo podés reclamar una carta del descarte si te sirve de inmediato en un grupo (nuevo o propio ya bajado) — y esta no te sirve ahora, por eso "Sí me sirve" está deshabilitado. Tocá "No me sirve" para pasar.',
+          body: 'Solo podés reclamar una carta del bote si te sirve de inmediato en un grupo (nuevo o propio ya bajado) — y esta no te sirve ahora, por eso "Sí me sirve" está deshabilitado. Tocá "No me sirve" para pasar.',
         };
   }
 

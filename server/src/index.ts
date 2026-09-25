@@ -19,6 +19,7 @@ import { GameError } from "./game/errors";
 import type { Table } from "./game/table";
 import { createAuthRouter } from "./http/authRoutes";
 import { createStatsRouter } from "./http/statsRoutes";
+import { assertCanAffordAnte } from "./persistence/balance";
 import { persistHandOutcome } from "./persistence/handHistory";
 import { Room } from "./rooms/room";
 import { RoomManager } from "./rooms/roomManager";
@@ -376,8 +377,12 @@ function applyAction(table: Table, playerId: string, action: GameAction): void {
 io.on("connection", (socket: AppSocket) => {
   socket.on(
     "table:create",
-    ({ stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw }, ack: (r: JoinAck | ErrorPayload) => void) => {
+    async (
+      { stakeType, ante, autoWinsEnabled, allowMeldsBeforeResolvingDraw },
+      ack: (r: JoinAck | ErrorPayload) => void,
+    ) => {
       try {
+        await assertCanAffordAnte(prisma, socket.data.userId!, stakeType, ante);
         const room = roomManager.createRoom(
           stakeType,
           ante,
@@ -394,9 +399,10 @@ io.on("connection", (socket: AppSocket) => {
     },
   );
 
-  socket.on("table:join", ({ code }, ack: (r: JoinAck | ErrorPayload) => void) => {
+  socket.on("table:join", async ({ code }, ack: (r: JoinAck | ErrorPayload) => void) => {
     try {
       const room = roomManager.getRoom(code);
+      await assertCanAffordAnte(prisma, socket.data.userId!, room.stakeType, room.ante);
       room.join(socket.data.userId!, socket.data.displayName!);
       registerSocket(socket, room);
       ack({ code: room.code });

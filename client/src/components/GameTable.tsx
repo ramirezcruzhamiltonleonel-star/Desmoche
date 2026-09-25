@@ -771,7 +771,7 @@ export default function GameTable() {
               ) : (
                 <div className="h-20 w-14 rounded-md border-2 border-dashed border-stone-600" />
               )}
-              <span className="text-[10px] text-stone-400">Descarte</span>
+              <span className="text-[10px] text-stone-400">Bote</span>
             </div>
             {state.stakeType !== "dare" && state.phase !== "lobby" && (
               <div ref={potRef} className="flex flex-col items-center gap-1">
@@ -1057,6 +1057,7 @@ export default function GameTable() {
           nameByPlayerId={nameByPlayerId}
           winnerName={winnerName}
           onNextHand={nextHand}
+          onLeave={leaveTable}
           onReact={state.isSpectator ? undefined : sendReaction}
         />
       )}

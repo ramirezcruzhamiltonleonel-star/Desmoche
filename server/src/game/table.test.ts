@@ -1210,6 +1210,84 @@ describe("Table — meld-out win and settlement", () => {
   });
 });
 
+describe("Table — discard-out win: going out ON the last discard (regression, was never wired up)", () => {
+  it("ends the hand the instant a discard empties the hand, with no meld left to place", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+
+    // Two valid trios plus one leftover card that fits nowhere — placing
+    // both trios leaves exactly 1 card in hand, same as a real player who
+    // melded everything except a single dead card.
+    table.state.hands["p1"] = [
+      c("A", "clubs"),
+      c("2", "clubs"),
+      c("3", "clubs"),
+      c("5", "hearts"),
+      c("6", "hearts"),
+      c("7", "hearts"),
+      c("9", "diamonds"),
+    ];
+
+    table.placeMeld("p1", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]);
+    table.placeMeld("p1", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")]);
+    expect(table.state.phase).toBe("turn-active"); // 1 card still in hand — not a win yet
+
+    table.discard("p1", c("9", "diamonds"));
+
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome?.reason).toBe("discard-out");
+    expect(table.state.handOutcome?.winnerSeatIndex).toBe(1);
+    expect(table.state.handOutcome?.winningMelds).toHaveLength(2);
+  });
+
+  it("settles a discard-out win exactly like a meld-out win (same bonuses, same payout math)", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+    table.state.hands["p1"] = [
+      c("A", "clubs"),
+      c("2", "clubs"),
+      c("3", "clubs"),
+      c("5", "hearts"),
+      c("6", "hearts"),
+      c("7", "hearts"),
+      c("9", "diamonds"),
+    ];
+    table.placeMeld("p1", [c("A", "clubs"), c("2", "clubs"), c("3", "clubs")]);
+    table.placeMeld("p1", [c("5", "hearts"), c("6", "hearts"), c("7", "hearts")]);
+    table.discard("p1", c("9", "diamonds"));
+
+    const outcome = table.settleHand();
+    expect(outcome).toEqual({
+      kind: "chips",
+      winnerId: "p1",
+      potWon: 200,
+      // p0 never placed a single meld this hand: Patona (100). Plus Mico
+      // abajo (100), since A-2-3 of clubs is one of the winning melds —
+      // same stacking as the meld-out fixture above, discard-out is settled
+      // through the exact same bonus/payout path.
+      extraPerLoser: { p0: 200 },
+      patonaLoserIds: ["p0"],
+    });
+  });
+
+  it("does NOT end the hand on a discard that leaves cards still in hand", () => {
+    const table = new Table(config({ ante: 100 }), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 1, true);
+    table.state.hands["p1"] = [c("9", "diamonds"), c("2", "hearts")];
+
+    table.discard("p1", c("9", "diamonds"));
+
+    expect(table.state.phase).not.toBe("hand-over");
+    expect(table.state.handOutcome).toBeNull();
+  });
+});
+
 describe("Table — Cambio", () => {
   it("stays in the cambio phase, hand short by one, until every seat has submitted", () => {
     const table = new Table(config(), seats(2));
@@ -2359,6 +2437,35 @@ describe("Table — auto-extend: a card that completes an already-placed meld at
 
     // K♣ alone does NOT extend 9-10-J♣ (skips the Q) — normal claim flow.
     expect(table.state.phase).toBe("claim-window");
+  });
+
+  it("does NOT auto-extend the discarder's OWN meld — they already had the chance to extend it themselves before discarding", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    // p0's OWN set — discarding the 4th 2 must NOT silently strengthen it;
+    // that would let a player extend their own board for free by "just
+    // discarding" instead of spending a real extendMeld() action for it.
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p0",
+      cards: [c("2", "spades"), c("2", "hearts"), c("2", "clubs")],
+    });
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("2", "diamonds")];
+    table.discard("p0", c("2", "diamonds"));
+
+    const meld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(meld.cards).toHaveLength(3); // untouched
+    expect(table.state.discard.some((c2) => c2.rank === "2" && c2.suit === "diamonds")).toBe(true);
+    expect(table.state.eventLog.some((e) => e.type === "auto-extend")).toBe(false);
+    // No other placed melds exist for it to auto-extend into either — falls
+    // through to the normal ask-first claim window, exactly like any other
+    // discard that doesn't hit the auto-extend rule.
+    expect(table.state.phase).toBe("claim-window");
+    expect(table.state.claim?.pendingSeatIndices).toEqual([1]);
   });
 });
 

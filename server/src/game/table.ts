@@ -808,7 +808,7 @@ export class Table {
     this.assertCanAct(playerId);
     if (this.state.mustPlaceCard) {
       throw new GameError(
-        "Debes usar la carta que tomaste del descarte en un grupo antes de botar",
+        "Debes usar la carta que tomaste del bote en un grupo antes de botar",
       );
     }
     if (this.state.pendingDrawnCard && cardId(card) !== cardId(this.state.pendingDrawnCard)) {
@@ -822,20 +822,42 @@ export class Table {
     this.state.pendingDrawnCard = null;
     this.state.hasDrawnThisTurn = false;
 
+    // Going out ON the discard — every other card already sitting in valid
+    // melds, this is genuinely the last one — wins immediately and takes
+    // priority over everything below: no auto-extend, no claim window, no
+    // turn handoff. (Emptying the hand via a MELD action instead is caught
+    // separately by checkMeldOutWin — that path never reaches a discard.)
+    if (isHandEmptied(handOf(this.state, playerId))) {
+      const winningMelds = this.state.melds.filter((m) => m.ownerId === playerId);
+      this.finishHand("discard-out", seat.seatIndex, winningMelds);
+      return;
+    }
+
     // Priority, evaluated before any claim window even gets built: a card
     // that all on its own (no hand cards needed) completes/extends a meld
-    // some player ALREADY has placed on the table auto-attaches to it —
-    // no "¿alguien quiere esta carta?", no chance to accidentally decline
-    // it, and no turn-jump happens because of it. Reported bug: forcing
-    // this through the normal claim flow meant accepting one of these
-    // "obviously already mine" cards cost a real discard every time
-    // (claiming always starts an active turn, which has to end in one) —
-    // repeatedly, that could strip a player's hand down to nothing useful,
-    // while declining meant genuinely losing the card for good either way.
-    // A card that only forms a brand-new meld, or that only works via
-    // desmoche, still has a genuine choice behind it and keeps the normal
-    // ask-first flow untouched.
-    const extendableMelds = findExtendableMelds(card, this.state.melds);
+    // some OTHER player ALREADY has placed on the table auto-attaches to
+    // it — no "¿alguien quiere esta carta?", no chance to accidentally
+    // decline it, and no turn-jump happens because of it. Reported bug:
+    // forcing this through the normal claim flow meant accepting one of
+    // these "obviously already someone's" cards cost a real discard every
+    // time (claiming always starts an active turn, which has to end in
+    // one) — repeatedly, that could strip a player's hand down to nothing
+    // useful, while declining meant genuinely losing the card for good
+    // either way. A card that only forms a brand-new meld, or that only
+    // works via desmoche, still has a genuine choice behind it and keeps
+    // the normal ask-first flow untouched.
+    //
+    // Deliberately excludes the discarder's OWN melds: whoever drew this
+    // card had full opportunity to extend their own meld with it via
+    // extendMeld() BEFORE choosing to discard — discarding it is their own
+    // final call, never second-guessed or silently overridden by this
+    // rule. This also removes any ambiguity between "my own meld" and
+    // "someone else's meld" both being extendable by the same card —
+    // there's only ever one kind of candidate now.
+    const extendableMelds = findExtendableMelds(
+      card,
+      this.state.melds.filter((m) => m.ownerId !== playerId),
+    );
     if (extendableMelds.length > 0) {
       const ownerSeatIndices = [
         ...new Set(extendableMelds.map((m) => seatOf(this.state, m.ownerId).seatIndex)),

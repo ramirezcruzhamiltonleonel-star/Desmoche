@@ -15,9 +15,11 @@ export const REASON_LABELS: Record<string, string> = {
 };
 
 export const EVENT_TYPE_LABELS: Record<string, string> = {
-  "claimed-discard": "Robó del descarte",
+  "claimed-discard": "Robó del bote",
   desmocho: "Desmoche",
   peladia: "Peladía",
   "cuatro-cuerpos": "Cuatro Cuerpos",
   "auto-extend": "Se le agregó a su grupo",
+  "meld-placed": "Bajó un grupo",
+  retired: "Se retiró de la mano",
 };

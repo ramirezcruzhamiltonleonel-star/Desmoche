@@ -693,6 +693,108 @@ describe("Table — claiming a discard out of turn", () => {
     expect(table.state.hands["p1"]).toEqual([c("2", "spades")]);
   });
 
+  // Reported bug (still reproducing after the fix above, per a live audit):
+  // same idea, but with the SOURCE meld a run instead of a set, and the
+  // NEW meld a set instead of a run — the claimant's own reported exact
+  // scenario (5♦-6♦-7♦-8♦ run, desmochar the 8♦, combine with an 8♠
+  // already in hand and a claimed 8♣ into a new trio of 8s).
+  it("accepts a claim for a card that only serves via desmoche out of a RUN, forming a new SET (reported bug reproduction)", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+    });
+    table.state.hands["p1"] = [c("8", "spades"), c("2", "clubs")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    table.respondToClaim("p1", "claim");
+
+    expect(table.state.phase).toBe("turn-active");
+    expect(table.state.mustPlaceCard).toEqual(c("8", "clubs"));
+
+    table.placeMeld("p1", [c("8", "diamonds"), c("8", "spades"), c("8", "clubs")], {
+      fromMeldId: "m1",
+      card: c("8", "diamonds"),
+    });
+
+    const newMeld = table.state.melds.find((m) => m.id !== "m1");
+    expect(newMeld?.cards).toEqual([c("8", "diamonds"), c("8", "spades"), c("8", "clubs")]);
+    const sourceMeld2 = table.state.melds.find((m) => m.id === "m1")!;
+    expect(sourceMeld2.cards).toEqual([c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds")]);
+  });
+
+  // Same bug, but going through a REAL extendMeld() call first (not direct
+  // state injection) to rule out anything about how the merged array is
+  // actually stored — the reported sequence exactly: meld starts at 3
+  // cards, gets extended to 4 on the owner's own turn, and only THEN does
+  // the claim window (on a later turn) come up.
+  it("still works when the source meld was extended to 4 cards via a real extendMeld() call first", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+    });
+    table.state.hands["p1"] = [c("5", "diamonds"), c("8", "spades"), c("2", "clubs")];
+    skipToNormalTurn(table, 1, true);
+    table.extendMeld("p1", "m1", [c("5", "diamonds")]);
+
+    const extended = table.state.melds.find((m) => m.id === "m1")!;
+    expect(extended.cards).toHaveLength(4);
+
+    // Now it's p0's turn (a later turn), and p0 discards the 8♣ p1 wants.
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(() => table.respondToClaim("p1", "claim")).not.toThrow();
+    expect(table.state.turnSeatIndex).toBe(1);
+    expect(table.state.mustPlaceCard).toEqual(c("8", "clubs"));
+  });
+
+  // Confirmed NOT a bug (asked the reporting user directly): if the source
+  // meld is STILL only 3 cards at the exact moment the claim window opens
+  // — i.e. the player hadn't yet extended it on an earlier turn of their
+  // own — the claim is correctly rejected. Desmocharring a 3-card meld
+  // would leave only 2, which is exactly the "refuses to shrink below 3
+  // cards" rule already covered elsewhere; extending must happen as a
+  // real, separate action on the owner's own turn BEFORE the card that
+  // would only be usable via that desmoche ever gets offered.
+  it("correctly REJECTS the same claim when the source meld is still only 3 cards at that moment", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+    });
+    table.state.hands["p1"] = [c("5", "diamonds"), c("8", "spades"), c("2", "clubs")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(() => table.respondToClaim("p1", "claim")).toThrow(GameError);
+  });
+
   // R4, part 1: unclaimed discards must keep advancing to the next player in
   // rotation, never handing the draw back to whoever just discarded. Chains
   // 3 consecutive unclaimed discards across a full rotation to rule out any

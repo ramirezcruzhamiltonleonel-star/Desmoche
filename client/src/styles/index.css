@@ -15,24 +15,34 @@
   --color-gold-light: 240 216 120;
 }
 
-/* "Noche" — deep navy felt and charcoal wood, same gold accent family. */
+/*
+ * Style guide: every theme keeps the SAME two base colors — felt green and
+ * gold — as its main identity. A theme is only allowed to shift tone,
+ * brightness and saturation within that green-and-gold family, never swap
+ * the hue for something else entirely. (Reported bug: "Noche" used to
+ * switch the felt to navy blue and "Cantina" to burgundy wine — neither
+ * read as Desmoche's felt anymore. Both are dark/warm variants of the same
+ * green now.) `wood` stays a brown family across all three, same idea.
+ */
+
+/* "Noche" — a darker, cooler, more desaturated green felt (a moonlit table, not a different table) and a slightly muted gold. */
 [data-theme="noche"] {
-  --color-felt: 15 31 61;
-  --color-felt-dark: 10 21 41;
-  --color-wood: 52 56 74;
-  --color-wood-dark: 33 35 46;
-  --color-gold: 201 166 70;
-  --color-gold-light: 232 207 122;
+  --color-felt: 9 40 38;
+  --color-felt-dark: 5 26 25;
+  --color-wood: 45 51 50;
+  --color-wood-dark: 28 32 31;
+  --color-gold: 196 180 110;
+  --color-gold-light: 226 214 156;
 }
 
-/* "Cantina" — warm burgundy felt and rich oak, a coppery accent instead of pure gold. */
+/* "Cantina" — a warmer, richer olive-green felt (tavern lamplight) and a coppery gold accent. */
 [data-theme="cantina"] {
-  --color-felt: 74 20 32;
-  --color-felt-dark: 46 12 20;
+  --color-felt: 34 58 22;
+  --color-felt-dark: 21 38 14;
   --color-wood: 107 68 35;
   --color-wood-dark: 74 47 24;
-  --color-gold: 201 138 58;
-  --color-gold-light: 224 168 92;
+  --color-gold: 201 148 58;
+  --color-gold-light: 224 178 92;
 }
 
 body {

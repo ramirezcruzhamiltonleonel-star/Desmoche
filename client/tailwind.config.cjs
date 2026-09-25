@@ -31,6 +31,12 @@ module.exports = {
         // specifically to fix a reported card-legibility bug, not just for
         // looks.
         card: ['"Inter"', "system-ui", "sans-serif"],
+        // Overrides Tailwind's default `sans` (and therefore Preflight's
+        // base html/body font-family too) — every button, label, menu and
+        // paragraph gets the same dedicated clean sans-serif as the cards,
+        // instead of falling back to whatever system-ui the visitor's OS
+        // happens to ship (a reported "generic web app" cue).
+        sans: ['"Inter"', "system-ui", "sans-serif"],
       },
     },
   },

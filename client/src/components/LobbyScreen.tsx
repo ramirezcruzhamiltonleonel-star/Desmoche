@@ -78,7 +78,7 @@ export default function LobbyScreen() {
           )}
           <button
             onClick={handleInviteWhatsApp}
-            className="w-full rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-stone-900 transition hover:brightness-105"
+            className="w-full rounded-lg border border-gold bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold transition hover:bg-gold/20"
           >
             📱 Invitar por WhatsApp
           </button>

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import { STAKE_LABELS } from "../lib/labels";
 import { readJoinCodeFromUrl } from "../lib/joinLink";
+import CustomSelect from "./CustomSelect";
 import ProfilePanel from "./ProfilePanel";
 import Spinner from "./Spinner";
 
@@ -161,17 +162,20 @@ export default function HomeScreen() {
             <div className="space-y-4">
               <label className="block text-sm text-stone-200">
                 Modo de apuesta
-                <select
-                  value={stakeType}
-                  onChange={(e) => setStakeType(e.target.value as StakeType)}
-                  className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100"
-                >
-                  <option value="chips">{STAKE_LABELS.chips}</option>
-                  <option value="dare">{STAKE_LABELS.dare}</option>
-                  <option value="money" disabled>
-                    {STAKE_LABELS.money}
-                  </option>
-                </select>
+                <div className="mt-1">
+                  <CustomSelect
+                    value={stakeType}
+                    onChange={setStakeType}
+                    ariaLabel="Modo de apuesta"
+                    triggerClassName="w-full justify-between px-3 py-2 text-sm"
+                    disabledValues={["money"]}
+                    options={[
+                      { value: "chips", label: STAKE_LABELS.chips },
+                      { value: "dare", label: STAKE_LABELS.dare },
+                      { value: "money", label: STAKE_LABELS.money },
+                    ]}
+                  />
+                </div>
               </label>
               {stakeType === "dare" && (
                 <p className="rounded-lg bg-stone-900/60 px-3 py-2 text-xs text-stone-300">
@@ -189,7 +193,7 @@ export default function HomeScreen() {
                     min={1}
                     value={ante}
                     onChange={(e) => setAnte(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100"
+                    className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-stone-100"
                   />
                 </label>
               )}
@@ -238,7 +242,7 @@ export default function HomeScreen() {
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-center text-lg uppercase tracking-widest text-stone-100"
+                  className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-center text-lg uppercase tracking-widest text-stone-100"
                   maxLength={6}
                   placeholder="ABCDE"
                 />
@@ -263,7 +267,7 @@ export default function HomeScreen() {
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-center text-lg uppercase tracking-widest text-stone-100"
+                  className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-center text-lg uppercase tracking-widest text-stone-100"
                   maxLength={6}
                   placeholder="ABCDE"
                 />

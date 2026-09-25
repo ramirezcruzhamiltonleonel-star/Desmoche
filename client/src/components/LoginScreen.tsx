@@ -76,7 +76,7 @@ export default function LoginScreen() {
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
+                className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-stone-100 outline-none focus:border-gold"
                 placeholder="tu@correo.com"
               />
             </label>
@@ -108,7 +108,7 @@ export default function LoginScreen() {
                 autoFocus
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-center text-lg tracking-widest text-stone-100 outline-none focus:border-gold"
+                className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-center text-lg tracking-widest text-stone-100 outline-none focus:border-gold"
                 placeholder="000000"
                 maxLength={6}
               />
@@ -118,7 +118,7 @@ export default function LoginScreen() {
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
+                className="mt-1 w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-stone-100 outline-none focus:border-gold"
                 placeholder="Ej. Ana"
                 maxLength={DISPLAY_NAME_MAX_LENGTH}
               />
@@ -169,7 +169,7 @@ export default function LoginScreen() {
                 autoFocus
                 required
                 maxLength={DISPLAY_NAME_MAX_LENGTH}
-                className="w-full rounded-lg border border-wood-dark bg-stone-900 px-3 py-2 text-stone-100 outline-none focus:border-gold"
+                className="w-full rounded-lg border border-wood-dark bg-felt-dark px-3 py-2 text-stone-100 outline-none focus:border-gold"
                 placeholder="Tu nombre"
               />
               <button

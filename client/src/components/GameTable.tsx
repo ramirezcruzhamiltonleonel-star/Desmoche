@@ -36,6 +36,7 @@ import CambioModal from "./CambioModal";
 import Card from "./Card";
 import CardBack from "./CardBack";
 import ChipStack from "./ChipStack";
+import CustomSelect from "./CustomSelect";
 import ChipToken from "./ChipToken";
 import ClaimBanner from "./ClaimBanner";
 import ContextualHelpModal from "./ContextualHelpModal";
@@ -596,18 +597,13 @@ export default function GameTable() {
           {isGuest ? " · 👤 invitado (no se guarda)" : ""}
         </span>
         <div className="flex items-center gap-3">
-          <select
+          <CustomSelect
             value={theme}
-            onChange={(e) => setTheme(e.target.value as (typeof THEMES)[number])}
-            aria-label="Tema visual de la mesa"
-            className="rounded border border-wood-dark bg-stone-900 px-1 py-0.5 text-[10px] text-stone-300"
-          >
-            {THEMES.map((t) => (
-              <option key={t} value={t}>
-                🎨 {THEME_LABELS[t]}
-              </option>
-            ))}
-          </select>
+            onChange={setTheme}
+            ariaLabel="Tema visual de la mesa"
+            triggerClassName="text-[10px]"
+            options={THEMES.map((t) => ({ value: t, label: `🎨 ${THEME_LABELS[t]}` }))}
+          />
           <button onClick={() => setShowContextualHelp(true)} aria-label="Ayuda — qué está pasando ahora" className="p-1 text-base">
             ❓
           </button>
@@ -844,7 +840,7 @@ export default function GameTable() {
                       onChange={(e) => setRetoDraft(e.target.value)}
                       maxLength={RETO_MAX_LENGTH}
                       placeholder="Escribí tu reto..."
-                      className="min-w-[10rem] flex-1 rounded-lg border border-wood-dark bg-stone-900 px-2 py-1 text-sm text-stone-100"
+                      className="min-w-[10rem] flex-1 rounded-lg border border-wood-dark bg-felt-dark px-2 py-1 text-sm text-stone-100"
                     />
                     <button
                       onClick={handleSaveReto}

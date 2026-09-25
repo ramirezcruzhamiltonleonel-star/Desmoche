@@ -774,7 +774,16 @@ describe("Table — claiming a discard out of turn", () => {
   // cards" rule already covered elsewhere; extending must happen as a
   // real, separate action on the owner's own turn BEFORE the card that
   // would only be usable via that desmoche ever gets offered.
-  it("correctly REJECTS the same claim when the source meld is still only 3 cards at that moment", () => {
+  // CORRECTED per direct follow-up from the reporting user: "bajar de más"
+  // (extending a placed meld) must NEVER be required in advance — a player
+  // can hold back part of a longer run/set in hand indefinitely as a
+  // surprise, and play it right as part of THIS SAME move: extend the
+  // placed 6-7-8 with the 5 still in hand, then desmochar the 8 out of the
+  // resulting 5-6-7-8, to free it up for the new trio with the claimed
+  // card. The claim itself must be accepted even though the source meld is
+  // STILL only 3 cards at the exact moment the window opens, as long as
+  // the player is holding a card that would legally extend it.
+  it("accepts the claim even while the source meld is still only 3 cards, as long as a hand card could extend it first (corrected)", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
     resolveCambio(table, ["p0", "p1"]);
@@ -787,6 +796,45 @@ describe("Table — claiming a discard out of turn", () => {
       cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
     });
     table.state.hands["p1"] = [c("5", "diamonds"), c("8", "spades"), c("2", "clubs")];
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
+    table.discard("p0", c("8", "clubs"));
+
+    expect(table.state.phase).toBe("claim-window");
+    expect(() => table.respondToClaim("p1", "claim")).not.toThrow();
+    expect(table.state.mustPlaceCard).toEqual(c("8", "clubs"));
+
+    // Resolve it: extend m1 with the held-back 5♦, desmochar the 8♦ out of
+    // the resulting 5-6-7-8, and use it plus the 8♠ and the claimed 8♣ to
+    // form the new trio — all in one placeMeld call.
+    table.placeMeld("p1", [c("8", "diamonds"), c("8", "spades"), c("8", "clubs")], {
+      fromMeldId: "m1",
+      card: c("8", "diamonds"),
+      extendWith: [c("5", "diamonds")],
+    });
+
+    const sourceMeld = table.state.melds.find((m) => m.id === "m1")!;
+    expect(sourceMeld.cards).toEqual([c("6", "diamonds"), c("7", "diamonds"), c("5", "diamonds")]);
+    const newMeld = table.state.melds.find((m) => m.id !== "m1")!;
+    expect(newMeld.cards).toEqual([c("8", "diamonds"), c("8", "spades"), c("8", "clubs")]);
+    expect(table.state.hands["p1"]).toEqual([c("2", "clubs")]);
+    expect(table.state.mustPlaceCard).toBeNull();
+  });
+
+  it("still correctly rejects the claim when NO hand card could extend the source meld either", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+    });
+    // No 5♦ or 9♦ anywhere in hand — nothing can extend m1 at all.
+    table.state.hands["p1"] = [c("J", "spades"), c("2", "clubs")];
 
     table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "clubs")];
     table.discard("p0", c("8", "clubs"));

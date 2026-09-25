@@ -31,9 +31,21 @@ export type GameAction =
        * (desmoche) rather than the hand — e.g. a stock-drawn card + a hand
        * card + a card pulled from an already-placed group, combined into a
        * brand-new group in one move. `card` must be one of `cards`, and
-       * must actually be in the meld `fromMeldId` refers to.
+       * must actually be in the meld `fromMeldId` refers to (after
+       * `extendWith` is applied, if given).
        */
-      desmoche?: { fromMeldId: string; card: Card };
+      desmoche?: {
+        fromMeldId: string;
+        card: Card;
+        /**
+         * Optional: hand cards to append to `fromMeldId` BEFORE `card` is
+         * removed from it — extending a held-back run/set with cards the
+         * player was sitting on as a surprise, in the same move that
+         * desmochas it right back down for this new group. Never required:
+         * a meld doesn't have to be extended before it can be desmochado.
+         */
+        extendWith?: Card[];
+      };
     }
   | { type: "extend-meld"; meldId: string; cards: Card[] }
   | { type: "desmochar"; fromMeldId: string; toMeldId: string; card: Card }

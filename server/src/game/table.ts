@@ -660,12 +660,30 @@ export class Table {
    * genuinely legal play (build a NEW group using a desmoched card to
    * satisfy the pending card) impossible — you'd be told to resolve the
    * pending card first, but the only way to resolve it WAS the desmoche.
+   *
+   * `desmoche.extendWith` additionally lets that source meld be extended
+   * with hand cards FIRST, in the same move, before the desmoched card is
+   * removed — e.g. a placed 6-7-8 run, extended with a 5 still held back in
+   * hand (bajar de más is never mandatory: a player can sit on part of a
+   * longer run/set as a surprise indefinitely), immediately followed by
+   * desmocharring the 8 out of the resulting 5-6-7-8 to free it up for a
+   * brand-new group with the card this move is resolving. Without this, a
+   * card only usable via a desmoche that FIRST needs its source meld
+   * extended was impossible to claim at all — the extension has no separate
+   * action of its own to happen in (extendMeld() requires resolving
+   * mustPlaceCard/pendingDrawnCard FIRST, which is exactly what this move
+   * IS resolving).
    */
-  placeMeld(playerId: string, cards: Card[], desmoche?: { fromMeldId: string; card: Card }): void {
+  placeMeld(
+    playerId: string,
+    cards: Card[],
+    desmoche?: { fromMeldId: string; card: Card; extendWith?: Card[] },
+  ): void {
     this.assertCanAct(playerId);
     this.assertPendingDrawnCardIncluded(cards);
 
     let sourceMeld: Meld | undefined;
+    let extendedSourceCards: Card[] = [];
     if (desmoche) {
       if (!cards.some((c) => cardId(c) === cardId(desmoche.card))) {
         throw new GameError("La carta desmochada debe ser parte del grupo nuevo");
@@ -674,10 +692,21 @@ export class Table {
       if (sourceMeld.ownerId !== playerId) {
         throw new GameError("Solo puedes desmochar tus propios grupos");
       }
-      if (!sourceMeld.cards.some((c) => cardId(c) === cardId(desmoche.card))) {
+      const extendWith = desmoche.extendWith ?? [];
+      const hand = handOf(this.state, playerId);
+      for (const extendCard of extendWith) {
+        if (!hand.some((c) => cardId(c) === cardId(extendCard))) {
+          throw new GameError("Esa carta para extender el grupo no está en tu mano");
+        }
+      }
+      extendedSourceCards = [...sourceMeld.cards, ...extendWith];
+      if (extendWith.length > 0 && !isValidMeld(extendedSourceCards)) {
+        throw new GameError("Esas cartas no extienden ese grupo de forma válida");
+      }
+      if (!extendedSourceCards.some((c) => cardId(c) === cardId(desmoche.card))) {
         throw new GameError("Esa carta no está en el grupo de origen");
       }
-      if (!canDesmocharFrom(sourceMeld.cards, desmoche.card)) {
+      if (!canDesmocharFrom(extendedSourceCards, desmoche.card)) {
         throw new GameError("Ese grupo quedaría con menos de 3 cartas, o dejaría de ser una combinación válida");
       }
     }
@@ -691,10 +720,15 @@ export class Table {
       if (desmoche && cardId(card) === cardId(desmoche.card)) continue; // comes from sourceMeld, not the hand
       hand = removeCard(hand, card);
     }
+    if (desmoche?.extendWith) {
+      for (const extendCard of desmoche.extendWith) {
+        hand = removeCard(hand, extendCard);
+      }
+    }
     this.state.hands[playerId] = hand;
 
     if (desmoche && sourceMeld) {
-      sourceMeld.cards = removeCard(sourceMeld.cards, desmoche.card);
+      sourceMeld.cards = removeCard(extendedSourceCards, desmoche.card);
     }
 
     const meldType = isValidSet(cards) ? "set" : "run";

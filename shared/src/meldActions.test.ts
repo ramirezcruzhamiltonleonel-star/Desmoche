@@ -3,11 +3,13 @@ import type { Meld } from "./melds";
 import {
   canClaimDiscard,
   canDesmocharAnyCardFrom,
+  canDesmocharAnyCardFromWithExtension,
   canDesmocharFrom,
   canUseDiscardImmediately,
   canUseDiscardWithDesmoche,
   findPlayableCardIds,
   isHandEmptied,
+  resolveDesmocheExtension,
 } from "./meldActions";
 
 function c(rank: Card["rank"], suit: Card["suit"]): Card {
@@ -131,6 +133,108 @@ describe("canUseDiscardWithDesmoche / canClaimDiscard", () => {
       cards: [c("6", "hearts"), c("7", "hearts"), c("8", "hearts")],
     };
     expect(canClaimDiscard(hand, c("9", "hearts"), [ownMeld])).toBe(true);
+  });
+
+  // Corrected per direct user follow-up: "bajar de más" (extending a
+  // placed meld) is never mandatory in advance — a player can hold back
+  // part of a longer run/set as a surprise indefinitely, and play some of
+  // it right as part of THIS move: extend a placed meld with hand cards
+  // FIRST, then desmocha out of the result, all in one claim.
+  describe("extending the source meld with hand cards first, then desmocharring", () => {
+    it("accepts a claim that needs the source meld extended with a held-back card before it can be desmochado", () => {
+      // Placed 6♦-7♦-8♦ (only 3 cards — NOT desmocharrable on its own).
+      // Holding an 8♠ and, crucially, the 5♦ that would extend it to
+      // 5♦-6♦-7♦-8♦ (still not placed — a "surprise"). Claiming an 8♣
+      // only works by: extending with the 5♦, desmocharring the 8♦ out
+      // of the resulting 4-card run, then using 8♦+8♠+8♣ as a new trio.
+      const ownMeld: Meld = {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+      };
+      const hand = [c("5", "diamonds"), c("8", "spades")];
+
+      expect(canUseDiscardImmediately(hand, c("8", "clubs"), [ownMeld])).toBe(false);
+      // The OLD (pre-correction) desmoche check would reject this too,
+      // since the meld is only 3 cards as-is — canDesmocharFrom alone
+      // (no extension) correctly says no:
+      expect(canDesmocharFrom(ownMeld.cards, c("8", "diamonds"))).toBe(false);
+      // But WITH the extension considered, the claim is valid:
+      expect(canUseDiscardWithDesmoche(hand, c("8", "clubs"), [ownMeld])).toBe(true);
+      expect(canClaimDiscard(hand, c("8", "clubs"), [ownMeld])).toBe(true);
+    });
+
+    it("still rejects when no hand card could extend the source meld into something desmochable", () => {
+      const ownMeld: Meld = {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")],
+      };
+      // No 5♦ or 9♦ anywhere — nothing extends this run at all.
+      const hand = [c("J", "spades"), c("2", "clubs")];
+      expect(canUseDiscardWithDesmoche(hand, c("8", "clubs"), [ownMeld])).toBe(false);
+      expect(canClaimDiscard(hand, c("8", "clubs"), [ownMeld])).toBe(false);
+    });
+
+    it("also works extending with TWO held-back cards at once", () => {
+      // Placed 6♦-7♦ is only 2 cards (not even a meld on its own — this
+      // simulates a meld that was already down at 3 and had one end
+      // desmochado away previously, or just an edge case) — extend with
+      // BOTH 5♦ and 8♦ (still in hand) to make 5♦-6♦-7♦-8♦, THEN desmocha
+      // the 8♦ right back out for the new trio.
+      const ownMeld: Meld = {
+        id: "m1",
+        type: "run",
+        ownerId: "p1",
+        cards: [c("6", "diamonds"), c("7", "diamonds")],
+      };
+      const hand = [c("5", "diamonds"), c("8", "diamonds"), c("8", "spades")];
+      expect(canUseDiscardWithDesmoche(hand, c("8", "clubs"), [ownMeld])).toBe(true);
+    });
+  });
+});
+
+describe("canDesmocharAnyCardFromWithExtension", () => {
+  it("is true for a meld too short to desmocha as-is, if a hand card would extend it first", () => {
+    const meld = [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")];
+    expect(canDesmocharAnyCardFrom(meld)).toBe(false); // not as-is
+    expect(canDesmocharAnyCardFromWithExtension(meld, [c("5", "diamonds")])).toBe(true);
+  });
+
+  it("is false when nothing in hand would extend it", () => {
+    const meld = [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")];
+    expect(canDesmocharAnyCardFromWithExtension(meld, [c("J", "spades")])).toBe(false);
+  });
+});
+
+describe("resolveDesmocheExtension", () => {
+  it("resolves the extend-then-desmoche split for the reported scenario", () => {
+    // selected = everything the player tapped for this move: the 5♦ that
+    // extends the source meld, the 8♠ already in hand, and the claimed 8♣
+    // itself (claimed cards land in hand and get tapped like any other) —
+    // together with the desmochado 8♦, [8♦,8♠,8♣] must complete the trio.
+    const sourceMeldCards = [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")];
+    const selected = [c("5", "diamonds"), c("8", "spades"), c("8", "clubs")];
+    const result = resolveDesmocheExtension(sourceMeldCards, c("8", "diamonds"), selected);
+    expect(result).toEqual({
+      extendWith: [c("5", "diamonds")],
+      newMeldCards: [c("8", "spades"), c("8", "clubs")],
+    });
+  });
+
+  it("prefers the no-extension solution when the meld is already desmochable as-is", () => {
+    const sourceMeldCards = [c("5", "diamonds"), c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")];
+    const selected = [c("8", "spades"), c("8", "clubs")];
+    const result = resolveDesmocheExtension(sourceMeldCards, c("8", "diamonds"), selected);
+    expect(result).toEqual({ extendWith: [], newMeldCards: [c("8", "spades"), c("8", "clubs")] });
+  });
+
+  it("returns null when no split of the selected cards resolves anything", () => {
+    const sourceMeldCards = [c("6", "diamonds"), c("7", "diamonds"), c("8", "diamonds")];
+    const selected = [c("2", "clubs")];
+    expect(resolveDesmocheExtension(sourceMeldCards, c("8", "diamonds"), selected)).toBeNull();
   });
 });
 

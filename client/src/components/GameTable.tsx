@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  canDesmocharAnyCardFrom,
+  canDesmocharAnyCardFromWithExtension,
   canClaimDiscard,
   computeGuestSummary,
   computeMeldProgress,
@@ -10,6 +10,7 @@ import {
   isAutoWinReason,
   isValidMeld,
   REACTION_EMOJIS,
+  resolveDesmocheExtension,
   RETO_MAX_LENGTH,
   type Card as CardModel,
   type ClientSeatView,
@@ -427,7 +428,11 @@ export default function GameTable() {
     selectedCards.length === 1 &&
     !state.mustPlaceCard &&
     (!state.pendingDrawnCard || cardKey(selectedCards[0]!) === cardKey(state.pendingDrawnCard));
-  const canDesmoche = myMelds.some((meld) => canDesmocharAnyCardFrom(meld.cards));
+  // Considers extension by hand cards too — a meld sitting at exactly 3
+  // cards isn't desmochable as-is, but might become so if a card the
+  // player is holding back (never obligated to have played already) gets
+  // played into it as part of this same move.
+  const canDesmoche = myMelds.some((meld) => canDesmocharAnyCardFromWithExtension(meld.cards, state.yourHand));
   const validDesmocheDestinationIds = new Set(
     desmocheSource
       ? myMelds
@@ -440,11 +445,18 @@ export default function GameTable() {
   // this is what makes it possible to resolve a pending drawn/claimed card
   // via desmoche, since placeMeld's own selection-must-include-it rule
   // still applies. See table.ts placeMeld's `desmoche` parameter.
-  const canPlaceMeldWithDesmoche = Boolean(
-    desmocheSource &&
-      selectionIncludesRequired &&
-      isValidMeld([...selectedCards, desmocheSource.card]),
-  );
+  //
+  // The selection can ALSO include cards meant to extend the source meld
+  // FIRST (a run/set the player only partly placed, holding the rest back
+  // as a surprise) — resolveDesmocheExtension figures out which selected
+  // cards go into that extension versus the new meld; the player just
+  // taps everything relevant together, same as any other move.
+  const sourceMeldForDesmoche = desmocheSource ? myMelds.find((m) => m.id === desmocheSource.meldId) : undefined;
+  const desmocheResolution =
+    desmocheSource && sourceMeldForDesmoche && selectionIncludesRequired
+      ? resolveDesmocheExtension(sourceMeldForDesmoche.cards, desmocheSource.card, selectedCards)
+      : null;
+  const canPlaceMeldWithDesmoche = Boolean(desmocheResolution);
 
   // Available any time after Cambio (claim window or your turn) — Cambio
   // itself is mandatory, blind, and simultaneous, so retiring mid-Cambio
@@ -470,11 +482,15 @@ export default function GameTable() {
   }
 
   function handlePlaceMeldWithDesmoche() {
-    if (!desmocheSource) return;
+    if (!desmocheSource || !desmocheResolution) return;
     sendAction({
       type: "place-meld",
-      cards: [...selectedCards, desmocheSource.card],
-      desmoche: { fromMeldId: desmocheSource.meldId, card: desmocheSource.card },
+      cards: [...desmocheResolution.newMeldCards, desmocheSource.card],
+      desmoche: {
+        fromMeldId: desmocheSource.meldId,
+        card: desmocheSource.card,
+        extendWith: desmocheResolution.extendWith.length > 0 ? desmocheResolution.extendWith : undefined,
+      },
     });
     setSelectedCards([]);
     setDesmocheMode(false);
@@ -918,7 +934,9 @@ export default function GameTable() {
                   melds={myMelds}
                   size="sm"
                   direction="row"
-                  pickable={(meld) => desmocheMode && !desmocheSource && canDesmocharAnyCardFrom(meld.cards)}
+                  pickable={(meld) =>
+                    desmocheMode && !desmocheSource && canDesmocharAnyCardFromWithExtension(meld.cards, state.yourHand)
+                  }
                   pickInProgress={desmocheMode && !desmocheSource}
                   onPickSourceCard={handlePickDesmocheSource}
                   sourceCardKey={desmocheSource ? cardKey(desmocheSource.card) : null}

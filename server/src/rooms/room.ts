@@ -1,5 +1,5 @@
 import type { ClientGameState, ClientHandHistoryEntry, StakeType } from "@desmoche/shared";
-import { BOT_PERSONAS, isBotPlayerId } from "../game/bot";
+import { avatarForPlayerId, BOT_PERSONAS, isBotPlayerId } from "../game/bot";
 import { toClientView } from "../game/clientView";
 import { GameError } from "../game/errors";
 import { Table } from "../game/table";
@@ -384,6 +384,7 @@ export class Room {
         cardCount: 0,
         inactiveThisHand: false,
         isBot: isBotPlayerId(s.playerId),
+        avatar: avatarForPlayerId(s.playerId),
         chipsBalance: 0,
       })),
       yourSeatIndex: this.seats.find((s) => s.playerId === playerId)?.seatIndex ?? null,

@@ -38,6 +38,11 @@ export function isBotPlayerId(playerId: string): boolean {
   return playerId.startsWith("bot:");
 }
 
+/** This bot's persona emoji, or null for a real player's seat. */
+export function avatarForPlayerId(playerId: string): string | null {
+  return BOT_PERSONAS.find((p) => p.id === playerId)?.avatar ?? null;
+}
+
 /**
  * How useful a card is to the rest of the hand — same rank (toward a set) or
  * nearby same-suit cards (toward a run) both raise it. Not a full search,

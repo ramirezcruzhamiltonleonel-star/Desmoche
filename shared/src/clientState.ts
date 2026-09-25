@@ -26,6 +26,8 @@ export interface ClientSeatView {
   inactiveThisHand: boolean;
   /** A fixed bot persona filling this seat, added by the table creator — never a real account. */
   isBot: boolean;
+  /** A bot's persona emoji (e.g. "🤠"). Null for real players — the client falls back to an initials avatar for those. */
+  avatar: string | null;
   /** Chips/money only: running net change for the whole table session so far — always 0 in dare mode (nothing to track). */
   chipsBalance: number;
 }

@@ -1,5 +1,7 @@
 import type { ClientSeatView } from "@desmoche/shared";
 import CardBack from "./CardBack";
+import DealerButton from "./DealerButton";
+import SeatAvatar from "./SeatAvatar";
 
 interface PlayerSeatProps {
   seat: ClientSeatView;
@@ -55,12 +57,15 @@ export default function PlayerSeat({
           {reactionEmoji}
         </span>
       )}
+      <div className="relative">
+        <SeatAvatar avatar={seat.avatar} displayName={seat.displayName} />
+        {isDealer && <DealerButton />}
+      </div>
       <div className="flex items-center gap-1 whitespace-nowrap">
         {isSpeaking && <span aria-hidden className="text-xs text-green-400">🔊</span>}
         <span className={`text-xs font-semibold sm:text-sm ${seat.connected ? "text-stone-100" : "text-stone-500"}`}>
           {seat.displayName}
         </span>
-        {isDealer && <span className="text-[10px] text-gold">reparte</span>}
       </div>
       {chipsBalance !== undefined && chipsBalance !== null && (
         <span

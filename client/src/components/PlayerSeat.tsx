@@ -62,9 +62,15 @@ export default function PlayerSeat({
         <SeatAvatar avatar={seat.avatar} displayName={seat.displayName} />
         {isDealer && <DealerButton />}
       </div>
-      <div className="flex items-center gap-1 whitespace-nowrap">
-        {isSpeaking && <span aria-hidden className="text-xs text-green-400">🔊</span>}
-        <span className={`text-xs font-semibold sm:text-sm ${seat.connected ? "text-stone-100" : "text-stone-500"}`}>
+      <div className="flex w-full min-w-0 items-center justify-center gap-1">
+        {isSpeaking && <span aria-hidden className="shrink-0 text-xs text-green-400">🔊</span>}
+        {/* truncate (ellipsis), not the old bare whitespace-nowrap — a long
+            display name used to just get silently clipped mid-character
+            with no "…", and depended on an ancestor happening to clip it
+            at all instead of guaranteeing it here. */}
+        <span
+          className={`max-w-full truncate text-xs font-semibold sm:text-sm ${seat.connected ? "text-stone-100" : "text-stone-500"}`}
+        >
           {seat.displayName}
         </span>
       </div>

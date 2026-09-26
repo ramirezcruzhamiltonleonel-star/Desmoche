@@ -129,7 +129,7 @@ export default function HandHistoryPanel({ state, nameByPlayerId, onClose }: Han
           </div>
         )}
 
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+        <div className="flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
           {view === "hands" &&
             (state.handHistory.length === 0 ? (
               <p className="text-center text-xs text-stone-500">Todavía no terminó ninguna mano.</p>

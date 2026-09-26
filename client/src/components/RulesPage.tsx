@@ -28,7 +28,7 @@ export default function RulesPage({ onClose }: RulesPageProps) {
           </button>
         </div>
 
-        <div className="space-y-5 overflow-y-auto px-5 py-4">
+        <div className="space-y-5 overflow-y-auto overflow-x-hidden px-5 py-4">
           <section>
             <h3 className="mb-1 font-display text-lg text-gold">El objetivo</h3>
             <p className="text-sm text-stone-200">

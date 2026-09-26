@@ -764,7 +764,15 @@ export default function GameTable() {
       </div>
 
       <div
-        className="mx-3 mb-3 grid min-h-0 flex-1 items-center justify-items-center gap-x-1 gap-y-3 overflow-y-auto rounded-[2.5rem] border-8 border-wood bg-felt p-2 shadow-inner sm:gap-x-3 sm:p-4"
+        // overflow-y-auto WITHOUT an explicit overflow-x is a real CSS
+        // gotcha: per spec, when one axis is non-"visible" the other
+        // computes to "auto" too — so this felt could silently grow a
+        // HORIZONTAL scrollbar from any sub-pixel-wide content in a side
+        // seat column (reported bug: "aparece una barra de desplazamiento
+        // lateral... para poder ver a los oponentes"). overflow-x-hidden
+        // pins that axis explicitly — this grid never needs to scroll
+        // sideways, only vertically as a rare safety net.
+        className="mx-3 mb-3 grid min-h-0 flex-1 items-center justify-items-center gap-x-1 gap-y-3 overflow-y-auto overflow-x-hidden rounded-[2.5rem] border-8 border-wood bg-felt p-2 shadow-inner sm:gap-x-3 sm:p-4"
         style={{
           // A floor just tall enough to show the seats/mazo/pot row, NOT
           // the old fixed 58vh — that forced the felt to claim well over

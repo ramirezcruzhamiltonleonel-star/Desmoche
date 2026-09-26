@@ -659,15 +659,20 @@ export default function GameTable() {
           over the guest-exit summary: handleLeaveClick() just re-shows
           that same modal if it's already up, never bypasses it. Getting
           stuck unable to leave in time was a real, reported bug. */}
-      <header className="relative z-[60] flex items-center justify-between px-3 py-2 text-xs text-stone-300">
-        <span>
+      <header className="relative z-[60] flex items-center justify-between gap-2 bg-felt-dark px-3 py-2 text-xs text-stone-300">
+        {/* truncate (not wrap) — at narrow phone widths this line used to
+            wrap across several rows, which grew the header's actual height
+            well past the claim/auto-extend banners' fixed top-1 position
+            and visually interleaved with their text (reported bug). A
+            single truncated line keeps the header's height constant. */}
+        <span className="min-w-0 flex-1 truncate">
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
           {state.accumulatedPot > 0 ? ` · pozo acumulado ${state.accumulatedPot}` : ""}
           {!state.autoWinsEnabled ? " · sin automáticas" : ""}
           {isGuest ? " · 👤 invitado (no se guarda)" : ""}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <CustomSelect
             value={theme}
             onChange={setTheme}

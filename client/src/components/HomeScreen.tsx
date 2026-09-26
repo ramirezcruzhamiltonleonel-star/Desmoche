@@ -124,6 +124,20 @@ export default function HomeScreen() {
           <ProfilePanel token={token} displayName={user?.displayName ?? ""} onClose={() => setShowProfile(false)} />
         )}
 
+        {isGuest && (
+          // A guest has no persistent User row at all, so there's no real
+          // streak/mission progress to show them (the server literally has
+          // nowhere to track it) — this is a visible, honest teaser for
+          // what registering unlocks, not a preview of fake numbers.
+          <div className="mb-4 rounded-xl border border-dashed border-gold/50 bg-gold/5 px-4 py-3 text-center">
+            <p className="text-sm font-semibold text-gold">🔥 Racha de días jugados + misión diaria</p>
+            <p className="mt-1 text-xs text-stone-300">
+              Registrate para empezar tu racha y ganar fichas extra cada día que juegues — como invitado no se
+              guarda nada entre sesiones.
+            </p>
+          </div>
+        )}
+
         <button
           onClick={handleInstantDemo}
           disabled={busy}

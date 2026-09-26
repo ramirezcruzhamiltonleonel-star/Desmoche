@@ -26,11 +26,16 @@ export interface ClientSeatView {
   inactiveThisHand: boolean;
   /** A fixed bot persona filling this seat, added by the table creator — never a real account. */
   isBot: boolean;
+  /** A temporary, unregistered session — never persists chips/stats/streaks. See GUEST_STARTING_CHIPS: the client shows a guest's chipsBalance ON TOP OF that baseline, not as a raw signed delta from 0, since a guest has no real persistent balance for the delta to be relative TO. */
+  isGuest: boolean;
   /** A bot's persona emoji (e.g. "🤠"). Null for real players — the client falls back to an initials avatar for those. */
   avatar: string | null;
   /** Chips/money only: running net change for the whole table session so far — always 0 in dare mode (nothing to track). */
   chipsBalance: number;
 }
+
+/** Guests have no persistent chip balance to show a delta against — this is the "something at stake" starting point their session-only balance counts up/down from (never saved anywhere). */
+export const GUEST_STARTING_CHIPS = 1000;
 
 /** Who has already handed over their Cambio card — never which card, since it's blind/simultaneous. */
 export interface ClientCambioView {

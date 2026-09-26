@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { DAILY_MISSION_REWARD_CHIPS, isSameUtcDay, missionForDate, toUtcMidnight } from "./dailyMission";
+import { DAILY_MISSION_REWARD_CHIPS, missionForDate, toManaguaMidnight } from "./dailyMission";
 
 export interface DailyProgress {
   currentStreak: number;
@@ -19,7 +19,7 @@ async function todaysHandCounts(
   userId: string,
   now: Date,
 ): Promise<{ played: number; won: number }> {
-  const since = toUtcMidnight(now);
+  const since = toManaguaMidnight(now);
   const [played, won] = await Promise.all([
     prisma.handHistoryPlayer.count({ where: { userId, hand: { playedAt: { gte: since } } } }),
     prisma.handHistoryPlayer.count({ where: { userId, isWinner: true, hand: { playedAt: { gte: since } } } }),
@@ -36,7 +36,13 @@ export async function getDailyProgress(prisma: PrismaClient, userId: string, now
   const { played, won } = await todaysHandCounts(prisma, userId, now);
   const progress = mission.key === "win-one" ? won : played;
   const completed = progress >= mission.target;
-  const alreadyClaimed = Boolean(user.dailyMissionClaimedDate && isSameUtcDay(user.dailyMissionClaimedDate, now));
+  // dailyMissionClaimedDate is stored as a Managua-midnight BUCKET marker
+  // (written by claimDailyMission below), not a raw timestamp — compare it
+  // directly against today's bucket rather than through isSameManaguaDay,
+  // which would incorrectly re-shift an already-bucketed value back a day.
+  const alreadyClaimed = Boolean(
+    user.dailyMissionClaimedDate && user.dailyMissionClaimedDate.getTime() === toManaguaMidnight(now).getTime(),
+  );
 
   return {
     currentStreak: user.currentStreak,
@@ -63,7 +69,7 @@ export async function claimDailyMission(
     where: { id: userId },
     data: {
       chipBalance: { increment: DAILY_MISSION_REWARD_CHIPS },
-      dailyMissionClaimedDate: toUtcMidnight(now),
+      dailyMissionClaimedDate: toManaguaMidnight(now),
     },
     select: { chipBalance: true },
   });

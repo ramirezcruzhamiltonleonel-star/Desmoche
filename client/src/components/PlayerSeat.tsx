@@ -1,4 +1,4 @@
-import type { ClientSeatView } from "@desmoche/shared";
+import { GUEST_STARTING_CHIPS, type ClientSeatView } from "@desmoche/shared";
 import CardBack from "./CardBack";
 import ChipToken from "./ChipToken";
 import DealerButton from "./DealerButton";
@@ -74,14 +74,31 @@ export default function PlayerSeat({
             size="sm"
             denomination={chipsBalance > 0 ? "gold" : chipsBalance < 0 ? "bronze" : "silver"}
           />
-          <span
-            className={`text-[10px] font-semibold tabular-nums ${
-              chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
-            }`}
-          >
-            {chipsBalance > 0 ? "+" : ""}
-            {chipsBalance} fichas
-          </span>
+          {seat.isGuest ? (
+            // Guests have no persistent balance for a signed delta to make
+            // sense against — showing a flat "0 fichas" at the table (with
+            // negative numbers appearing the moment they lose a hand, no
+            // context at all) was a reported "feels like nothing's at
+            // stake" complaint. A guest's session starts at
+            // GUEST_STARTING_CHIPS instead, purely for THIS table's own
+            // feel — never persisted anywhere, gone the moment they leave.
+            <span
+              className={`text-[10px] font-semibold tabular-nums ${
+                chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
+              }`}
+            >
+              {GUEST_STARTING_CHIPS + chipsBalance} fichas
+            </span>
+          ) : (
+            <span
+              className={`text-[10px] font-semibold tabular-nums ${
+                chipsBalance > 0 ? "text-green-400" : chipsBalance < 0 ? "text-red-400" : "text-stone-400"
+              }`}
+            >
+              {chipsBalance > 0 ? "+" : ""}
+              {chipsBalance} fichas
+            </span>
+          )}
         </span>
       )}
       {!hideCardBacks && (

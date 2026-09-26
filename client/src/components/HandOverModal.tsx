@@ -109,9 +109,20 @@ export default function HandOverModal({
   const isCloseWin = outcome.reason === "meld-out" || outcome.reason === "discard-out";
   const potWon = settlement && (settlement.kind === "chips" || settlement.kind === "money") ? settlement.potWon : 0;
   const animatedPot = useCountUp(potWon, isCloseWin);
+  // A real chips pot that just grew with nobody winning it was a flat
+  // "Nadie completó su mano — se reparte otra vez" — an anticlimax instead
+  // of the hook a growing pot should be. Dare mode has no pot to hype (its
+  // carry-over branch below stays as plain text), so this only fires for
+  // an actual chips/money accumulation.
+  const isPotHook =
+    outcome.winnerSeatIndex === null && settlement?.kind === "carry-over" && settlement.addedToPot > 0;
+  const animatedAccumulatedPot = useCountUp(
+    settlement?.kind === "carry-over" ? settlement.totalAccumulatedPot : 0,
+    isPotHook,
+  );
   const sound = useSound();
   useEffect(() => {
-    if (potWon > 0) sound.playChipsPay();
+    if (potWon > 0 || isPotHook) sound.playChipsPay();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const appliedBonuses = bonusesAppliedThisHand(outcome, settlement);
@@ -162,7 +173,7 @@ export default function HandOverModal({
       {isCloseWin && <Confetti />}
       <div
         className={`w-full max-w-sm rounded-2xl border-4 bg-felt p-6 text-center shadow-2xl ${
-          isAutoWin || isCloseWin ? "pending-draw-glow border-gold" : "border-gold"
+          isAutoWin || isCloseWin || isPotHook ? "pending-draw-glow border-gold" : "border-gold"
         }`}
       >
         <h3 className={`mb-2 font-display text-gold ${isAutoWin || isCloseWin ? "text-3xl" : "text-2xl"}`}>
@@ -180,6 +191,15 @@ export default function HandOverModal({
           <p className="mb-4 text-sm text-stone-200">
             Gana <span className="font-semibold text-gold">{winnerName}</span>
           </p>
+        ) : isPotHook ? (
+          <div className="mb-4">
+            <p className="font-display text-4xl text-gold [text-shadow:0_0_18px_rgba(212,175,55,0.6)]">
+              ¡POZO DE {animatedAccumulatedPot}!
+            </p>
+            <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-gold/80">
+              La próxima mano vale doble
+            </p>
+          </div>
         ) : (
           <p className="mb-4 text-sm text-stone-300">Nadie completó su mano — se reparte otra vez.</p>
         )}
@@ -198,14 +218,14 @@ export default function HandOverModal({
         {settlement && settlement.kind === "carry-over" && (
           <div className="mb-4 space-y-1 text-sm text-stone-300">
             {settlement.addedToPot > 0 ? (
-              <p>
-                Este pozo se acumula ("se va doble"): cada quien vuelve a poner su ante en la próxima
-                mano, sumado a lo ya acumulado.
-              </p>
+              <p>Cada quien vuelve a poner su ante en la próxima mano, sumado a lo ya acumulado arriba.</p>
             ) : (
               <p>No hay pozo que acumular en modo Retos — la próxima mano empieza de cero.</p>
             )}
-            {settlement.totalAccumulatedPot > 0 && (
+            {/* The exact running total already shows big, above, when
+                isPotHook fires — repeating it here in tiny text under it
+                would be redundant, not reinforcing. */}
+            {!isPotHook && settlement.totalAccumulatedPot > 0 && (
               <p className="text-xs">
                 Pozo acumulado hasta ahora:{" "}
                 <span className="font-semibold text-gold">{settlement.totalAccumulatedPot}</span>

@@ -1,4 +1,5 @@
 import type { ClientGameState } from "@desmoche/shared";
+import { isGuestPlayerId } from "../auth/guestId";
 import { avatarForPlayerId, isBotPlayerId } from "./bot";
 import type { GameState } from "./state";
 
@@ -39,6 +40,7 @@ export function toClientView(
       cardCount: state.hands[seat.playerId]?.length ?? 0,
       inactiveThisHand: state.inactiveSeatIndices.includes(seat.seatIndex),
       isBot: isBotPlayerId(seat.playerId),
+      isGuest: isGuestPlayerId(seat.playerId),
       avatar: avatarForPlayerId(seat.playerId),
       chipsBalance: state.chipBalances[seat.playerId] ?? 0,
     })),

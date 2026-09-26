@@ -1,4 +1,5 @@
 import type { ClientGameState, ClientHandHistoryEntry, StakeType } from "@desmoche/shared";
+import { isGuestPlayerId } from "../auth/guestId";
 import { avatarForPlayerId, BOT_PERSONAS, isBotPlayerId } from "../game/bot";
 import { toClientView } from "../game/clientView";
 import { GameError } from "../game/errors";
@@ -384,6 +385,7 @@ export class Room {
         cardCount: 0,
         inactiveThisHand: false,
         isBot: isBotPlayerId(s.playerId),
+        isGuest: isGuestPlayerId(s.playerId),
         avatar: avatarForPlayerId(s.playerId),
         chipsBalance: 0,
       })),

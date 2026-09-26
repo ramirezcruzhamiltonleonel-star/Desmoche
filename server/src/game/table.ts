@@ -874,8 +874,18 @@ export class Table {
       targetMeld.cards = [...targetMeld.cards, card];
       this.state.eventLog.push({ type: "auto-extend", seatIndex: winningSeatIndex, card });
 
-      // Exactly as if this discard had gone unclaimed: turn passes on
-      // normally, with no new discard obligation created by this event.
+      // FUNDAMENTAL RULE: a seat's hand+melds total can be 10 only ever
+      // MOMENTARILY — the instant this meld grew, its owner's total just
+      // did exactly that, even though it isn't their turn and their own
+      // hand never changed. Force them back to 9 right now, the same way
+      // any normal turn resolves a draw: either they go out (their forced
+      // card happened to be their last), or exactly one arbitrary card of
+      // theirs is discarded on their behalf — which can itself cascade
+      // into someone else's placed meld, recursively.
+      this.forceResolveRecipient(targetMeld.ownerId);
+      if (this.state.phase === "hand-over") return; // someone won mid-cascade — nothing left to advance
+
+      // Exactly as if this discard had gone unclaimed: turn passes on normally.
       this.state.turnSeatIndex = this.nextActiveSeat(seat.seatIndex);
       this.state.mustPlaceCard = null;
       this.state.phase = "turn-active";
@@ -899,6 +909,63 @@ export class Table {
       // Solo player (or everyone else inactive) — nobody around to consider
       // claiming this discard, so the window resolves immediately.
       this.resolveClaimWindow();
+    }
+  }
+
+  /**
+   * FUNDAMENTAL RULE (no exceptions, any seat, bot or human): a hand+melds
+   * total can be 10 only for an instant. Called the moment an auto-extend
+   * just pushed `recipientId`'s total to 10 without them ever touching
+   * their own hand (it isn't their turn — they never drew, never got a
+   * claim window) — resolves it exactly like closing a normal turn would:
+   * either they go out (this forced card happened to be their last), or
+   * one arbitrary card of theirs is discarded on their behalf. Which card
+   * doesn't matter (nothing here is a meaningful choice — there's no one
+   * to make it), so it's always hand[0], deterministically.
+   *
+   * That forced-out card can itself complete/extend some OTHER seat's
+   * placed meld — recurses in that case, exactly the same way, until the
+   * cascade stops adding new 10s. Deliberately reuses the same "excludes
+   * the discarder's own melds" rule as the top-level auto-extend check,
+   * for the same reason: simplicity and one consistent rule, not two.
+   */
+  private forceResolveRecipient(recipientId: string): void {
+    const hand = handOf(this.state, recipientId);
+    if (hand.length === 0) return; // defensive — shouldn't happen (they'd already have won)
+
+    const cardToDiscard = hand[0]!;
+    this.state.hands[recipientId] = removeCard(hand, cardToDiscard);
+
+    if (isHandEmptied(handOf(this.state, recipientId))) {
+      const recipientSeat = seatOf(this.state, recipientId);
+      const winningMelds = this.state.melds.filter((m) => m.ownerId === recipientId);
+      this.finishHand("discard-out", recipientSeat.seatIndex, winningMelds);
+      return;
+    }
+
+    this.state.discard.push(cardToDiscard);
+    const cascaded = findExtendableMelds(
+      cardToDiscard,
+      this.state.melds.filter((m) => m.ownerId !== recipientId),
+    );
+    if (cascaded.length > 0) {
+      const recipientSeatIndex = seatOf(this.state, recipientId).seatIndex;
+      const ownerSeatIndices = [...new Set(cascaded.map((m) => seatOf(this.state, m.ownerId).seatIndex))];
+      const nextWinningSeatIndex =
+        ownerSeatIndices.length === 1
+          ? ownerSeatIndices[0]!
+          : resolveDiscardClaimPriority(recipientSeatIndex, ownerSeatIndices, this.playerCount);
+      const nextTargetMeld = cascaded.find(
+        (m) => seatOf(this.state, m.ownerId).seatIndex === nextWinningSeatIndex,
+      )!;
+
+      this.state.discard.pop(); // never really sat there — absorbed straight into the meld
+      nextTargetMeld.cards = [...nextTargetMeld.cards, cardToDiscard];
+      this.state.eventLog.push({ type: "auto-extend", seatIndex: nextWinningSeatIndex, card: cardToDiscard });
+      this.forceResolveRecipient(nextTargetMeld.ownerId); // recurse
+    } else {
+      const recipientSeatIndex = seatOf(this.state, recipientId).seatIndex;
+      this.state.eventLog.push({ type: "forced-discard", seatIndex: recipientSeatIndex, card: cardToDiscard });
     }
   }
 

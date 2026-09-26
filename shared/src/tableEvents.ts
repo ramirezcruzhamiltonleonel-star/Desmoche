@@ -12,6 +12,8 @@ export type TableEvent =
   | { type: "desmocho"; seatIndex: number; card: Card }
   /** A card that, by itself, completed/extended a seat's already-placed meld — auto-attached, never offered as a claim at all. */
   | { type: "auto-extend"; seatIndex: number; card: Card }
+  /** A seat's hand+melds total hit 10 from receiving an auto-extend (never their own turn) — the system immediately discards one arbitrary card on their behalf to bring them back to 9, exactly as if they'd closed a normal turn. */
+  | { type: "forced-discard"; seatIndex: number; card: Card }
   | { type: "peladia"; seatIndex: number }
   | { type: "cuatro-cuerpos"; seatIndex: number }
   | { type: "meld-placed"; seatIndex: number; meldType: MeldType; cards: Card[] }

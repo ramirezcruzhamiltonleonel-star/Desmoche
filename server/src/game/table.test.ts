@@ -2560,7 +2560,7 @@ describe("Table — event log", () => {
   });
 });
 
-describe("Table — hand size never drifts around an auto-extend (regression: reported '11 cards, unwinnable')", () => {
+describe("Table — the 9-card invariant: a hand+melds total is NEVER left at 10+ once a turn (or an auto-extend cascade) resolves", () => {
   it("a stock draw NEVER auto-attaches to the drawer's own placed meld — it always becomes a normal pendingDrawnCard, exactly like any other draw", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
@@ -2584,7 +2584,7 @@ describe("Table — hand size never drifts around an auto-extend (regression: re
     expect(table.state.phase).toBe("turn-active"); // still their turn, still owe a discard
   });
 
-  it("after drawing then discarding the drawn card straight into another player's meld via auto-extend, the discarder's hand is back to exactly what it was before the draw, and the meld owner's HAND (not their meld) is completely untouched", () => {
+  it("an auto-extend forces the RECIPIENT to discard one arbitrary card immediately, bringing them back to 9 — even though it isn't their turn", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
     resolveCambio(table, ["p0", "p1"]);
@@ -2604,55 +2604,152 @@ describe("Table — hand size never drifts around an auto-extend (regression: re
     expect(table.state.hands["p0"]).toHaveLength(p0HandBefore + 1); // 9 -> 10, mid-turn
     table.discard("p0", c("9", "diamonds"));
 
-    // Back to exactly where it started — never 10, never 11.
+    // p0 (the discarder): back to exactly where it started — their own
+    // normal turn cycle, unaffected by any of this.
     expect(table.state.hands["p0"]).toHaveLength(p0HandBefore);
-    // The meld owner's HAND never changes — only their MELD does.
-    expect(table.state.hands["p1"]).toHaveLength(p1HandBefore);
+    // p1 (the meld owner): meld grew from 3 to 4 (auto-extend), so their
+    // total just hit 10 — the rule forces them one card lighter in hand
+    // RIGHT NOW, bringing them straight back to 9. Never left at 10.
+    expect(table.state.hands["p1"]).toHaveLength(p1HandBefore - 1); // forced back down by exactly 1
     expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(4);
     expect(table.state.eventLog).toContainEqual({
       type: "auto-extend",
       seatIndex: 1,
       card: c("9", "diamonds"),
     });
+    expect(table.state.eventLog.some((e) => e.type === "forced-discard" && e.seatIndex === 1)).toBe(true);
     expect(table.state.phase).toBe("turn-active");
-    expect(table.state.turnSeatIndex).toBe(1); // turn moved on, nobody stuck mid-turn
+    expect(table.state.turnSeatIndex).toBe(1); // turn moved on normally, nobody stuck mid-turn
   });
 
-  it("reproduces the exact reported shape (two 4-card sets + a 3-card run = 11 melded cards for the winner) and proves it's NOT card duplication — every card in play is still accounted for exactly once", () => {
+  it("cascades: the recipient's forced-out card can itself auto-extend a THIRD seat's meld, which gets forced back to 9 too", () => {
+    const table = new Table(config(), seats(3));
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    resolveCambio(table, ["p0", "p1", "p2"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push(
+      { id: "p1-meld", type: "set", ownerId: "p1", cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")] },
+      { id: "p2-meld", type: "set", ownerId: "p2", cards: [c("6", "spades"), c("6", "hearts"), c("6", "clubs")] },
+    );
+    // p1's forced-out card (their own hand[0], deterministic) is rigged to
+    // be the exact card that completes p2's set.
+    table.state.hands["p1"] = [c("6", "diamonds"), c("2", "hearts"), c("3", "clubs")];
+    const p2HandBefore = table.state.hands["p2"]!.length;
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("9", "diamonds")];
+    table.discard("p0", c("9", "diamonds")); // auto-extends p1's set -> forces p1 to discard 6♦ -> auto-extends p2's set -> forces p2 back to 9
+
+    expect(table.state.melds.find((m) => m.id === "p1-meld")!.cards).toHaveLength(4);
+    expect(table.state.melds.find((m) => m.id === "p2-meld")!.cards).toHaveLength(4);
+    expect(table.state.hands["p1"]).toEqual([c("2", "hearts"), c("3", "clubs")]); // lost exactly the 6♦
+    expect(table.state.hands["p2"]).toHaveLength(p2HandBefore - 1); // p2 ALSO forced back to 9
+    expect(
+      table.state.eventLog.filter((e) => e.type === "auto-extend"),
+    ).toHaveLength(2); // p1's meld, then the cascade into p2's meld
+    expect(table.state.eventLog.some((e) => e.type === "forced-discard" && e.seatIndex === 2)).toBe(true);
+    expect(table.state.phase).toBe("turn-active"); // hand still very much in progress
+  });
+
+  it("if the forced-out card happens to be the recipient's LAST card, they go out immediately (discard-out) instead of being left at 10", () => {
+    const table = new Table(config(), seats(2));
+    table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(table, ["p0", "p1"]);
+    skipToNormalTurn(table, 0, true);
+
+    table.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")],
+    });
+    table.state.hands["p1"] = [c("2", "hearts")]; // p1's ENTIRE remaining hand is 1 card
+
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("9", "diamonds")];
+    table.discard("p0", c("9", "diamonds")); // auto-extends p1's set to 4 -> forces p1's last card out -> p1 goes out
+
+    expect(table.state.hands["p1"]).toHaveLength(0);
+    expect(table.state.phase).toBe("hand-over");
+    expect(table.state.handOutcome?.reason).toBe("discard-out");
+    expect(table.state.handOutcome?.winnerSeatIndex).toBe(1);
+    // Turn-advancing code in discard() must NOT run once someone won mid-cascade.
+    expect(table.state.turnSeatIndex).toBe(0);
+  });
+
+  it("BOTS specifically get forced back to 9 exactly like any human seat — reproduces the exact reported bots (Doña Rosa, La Colocha) at 'siete grupos + tres en mano'", () => {
+    // discard()/forceResolveRecipient never reference isBotPlayerId anywhere
+    // — this test exists to prove that in practice, not just by code
+    // review, using the EXACT bot personas named in the report.
+    const botSeats: Seat[] = [
+      { seatIndex: 0, playerId: "p0", displayName: "Human", connected: true, ready: true },
+      { seatIndex: 1, playerId: "bot:rosa", displayName: "Doña Rosa", connected: true, ready: true },
+      { seatIndex: 2, playerId: "bot:colocha", displayName: "La Colocha", connected: true, ready: true },
+    ];
+    const table = new Table(config(), botSeats);
+    table.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    resolveCambio(table, ["p0", "bot:rosa", "bot:colocha"]);
+
+    table.state.melds.push(
+      { id: "rosa-meld", type: "set", ownerId: "bot:rosa", cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")] },
+      { id: "colocha-meld", type: "run", ownerId: "bot:colocha", cards: [c("2", "diamonds"), c("3", "diamonds"), c("4", "diamonds")] },
+    );
+    const rosaHandBefore = table.state.hands["bot:rosa"]!.length;
+    const colochaHandBefore = table.state.hands["bot:colocha"]!.length;
+
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "diamonds")];
+    table.discard("p0", c("8", "diamonds")); // auto-extends Doña Rosa's set
+
+    expect(table.state.hands["bot:rosa"]).toHaveLength(rosaHandBefore - 1); // forced back down by exactly 1
+    expect(table.state.melds.find((m) => m.id === "rosa-meld")!.cards).toHaveLength(4);
+
+    skipToNormalTurn(table, 0, true);
+    table.state.hands["p0"] = [...table.state.hands["p0"]!, c("5", "diamonds")];
+    table.discard("p0", c("5", "diamonds")); // auto-extends La Colocha's run
+
+    expect(table.state.hands["bot:colocha"]).toHaveLength(colochaHandBefore - 1); // forced back down by exactly 1
+    expect(table.state.melds.find((m) => m.id === "colocha-meld")!.cards).toHaveLength(4);
+  });
+
+  it("reproduces the previously-reported '11 melded cards' shape, now correctly landing each recipient back at 9 instead of drifting above it", () => {
     const table = new Table(config(), seats(2));
     table.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
     resolveCambio(table, ["p0", "p1"]);
 
-    // p1 (the eventual winner) placed two 3-card sets on EARLIER turns —
-    // ordinary, legitimate melds from their own original hand. Ranks 8/10
-    // and the Q-K-A of spades are all untouched by NORMAL_HAND or the
-    // A-clubs/4-diamonds up-card, so nothing here can collide with what
-    // buildDeck() already dealt.
     table.state.melds.push(
       { id: "m1", type: "set", ownerId: "p1", cards: [c("8", "spades"), c("8", "hearts"), c("8", "clubs")] },
       { id: "m2", type: "set", ownerId: "p1", cards: [c("10", "spades"), c("10", "hearts"), c("10", "clubs")] },
     );
+    // Throwaway cards FIRST (hand[0] is what forceResolveRecipient always
+    // sheds — deterministic, no meaningful choice to make), the eventual
+    // winning run LAST so it survives both forced-discards untouched.
+    table.state.hands["p1"] = [c("2", "hearts"), c("3", "clubs"), c("Q", "spades"), c("K", "spades"), c("A", "spades")];
 
-    // Two SEPARATE turns, two SEPARATE unrelated discards from p0, each one
-    // happening to complete one of p1's already-placed sets — exactly the
-    // "obviously already someone's" case auto-extend exists for. Neither
-    // touches p1's hand at all; only their table melds grow.
     skipToNormalTurn(table, 0, true);
     table.state.hands["p0"] = [...table.state.hands["p0"]!, c("8", "diamonds")];
-    table.discard("p0", c("8", "diamonds"));
+    table.discard("p0", c("8", "diamonds")); // auto-extends m1 -> forces p1 to shed hand[0] (2♥)
+
+    expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(4);
+    expect(table.state.hands["p1"]).toEqual([c("3", "clubs"), c("Q", "spades"), c("K", "spades"), c("A", "spades")]);
 
     skipToNormalTurn(table, 0, true);
     table.state.hands["p0"] = [...table.state.hands["p0"]!, c("10", "diamonds")];
-    table.discard("p0", c("10", "diamonds"));
+    table.discard("p0", c("10", "diamonds")); // auto-extends m2 -> forces p1 to shed the new hand[0] (3♣)
 
-    expect(table.state.melds.find((m) => m.id === "m1")!.cards).toHaveLength(4);
     expect(table.state.melds.find((m) => m.id === "m2")!.cards).toHaveLength(4);
+    expect(table.state.hands["p1"]).toEqual([c("Q", "spades"), c("K", "spades"), c("A", "spades")]);
 
-    // p1's OWN hand and OWN turn are completely untouched by either event
-    // above — they now place their own third meld (a normal Mico-arriba
-    // run, from their own hand) and go out normally.
+    // p1's own turn: their remaining 3 cards ARE a valid run (Mico arriba)
+    // — placing it as their third meld empties their hand completely, so
+    // they go out with no discard owed at all (case A of the rule: bajó
+    // hasta llegar a 0, gana la mano).
     skipToNormalTurn(table, 1, true);
-    table.state.hands["p1"] = [c("Q", "spades"), c("K", "spades"), c("A", "spades")];
     table.placeMeld("p1", [c("Q", "spades"), c("K", "spades"), c("A", "spades")]);
 
     expect(table.state.phase).toBe("hand-over");
@@ -2660,15 +2757,131 @@ describe("Table — hand size never drifts around an auto-extend (regression: re
     expect(table.state.handOutcome?.winnerSeatIndex).toBe(1);
     const winningMelds = table.state.handOutcome!.winningMelds;
     const meldedCards = winningMelds.flatMap((m) => m.cards);
-    // Exactly the reported shape: 4 + 4 + 3 = 11 — reached legitimately,
-    // via two ordinary auto-extends that happened DURING the hand, well
-    // before p1's own hand ever emptied, plus one normal meld from their
-    // own final 3 cards. Every one of those 11 cards is a DIFFERENT
-    // physical card — proving this is real board state, not the same
-    // card being counted (or attached) twice.
+    // Exactly the previously-reported shape: 4 + 4 + 3 = 11 melded cards —
+    // reached legitimately, with every recipient forced back to 9 along
+    // the way instead of drifting above it.
     expect(winningMelds.map((m) => m.cards.length).sort()).toEqual([3, 4, 4]);
     expect(meldedCards).toHaveLength(11);
-    expect(new Set(meldedCards.map(cardId)).size).toBe(11); // 11 DISTINCT cards, zero duplicates
-    expect(table.state.hands["p1"]).toHaveLength(0); // the WIN check only ever looks at the hand, never the meld total
+    expect(new Set(meldedCards.map(cardId)).size).toBe(11); // 11 distinct cards, zero duplicates
+    expect(table.state.hands["p1"]).toHaveLength(0);
+  });
+
+  it("balance invariant, generalized: (hand.length + total melded cards) never exceeds 9 for any seat once a discard finishes resolving — checked after every step, against bots and against humans alike", () => {
+    const totalFor = (table: Table, playerId: string): number =>
+      table.state.hands[playerId]!.length +
+      table.state.melds.filter((m) => m.ownerId === playerId).reduce((n, m) => n + m.cards.length, 0);
+    const assertInvariant = (table: Table, playerIds: string[]) => {
+      if (table.state.phase === "hand-over") return; // the winner emptying their hand IS the win — nothing left to force
+      for (const playerId of playerIds) {
+        expect(totalFor(table, playerId)).toBeLessThanOrEqual(9);
+      }
+    };
+
+    // --- Scenario A: bots (Doña Rosa, La Colocha) on the receiving end of a cascading auto-extend ---
+    const botSeats: Seat[] = [
+      { seatIndex: 0, playerId: "p0", displayName: "Human", connected: true, ready: true },
+      { seatIndex: 1, playerId: "bot:rosa", displayName: "Doña Rosa", connected: true, ready: true },
+      { seatIndex: 2, playerId: "bot:colocha", displayName: "La Colocha", connected: true, ready: true },
+    ];
+    const botTable = new Table(config(), botSeats);
+    botTable.startHand(
+      0,
+      buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse(), NORMAL_HAND], c("4", "diamonds")),
+    );
+    resolveCambio(botTable, ["p0", "bot:rosa", "bot:colocha"]);
+    const botIds = ["p0", "bot:rosa", "bot:colocha"];
+    assertInvariant(botTable, botIds);
+
+    botTable.state.melds.push(
+      { id: "rosa-meld", type: "set", ownerId: "bot:rosa", cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")] },
+      { id: "colocha-meld", type: "set", ownerId: "bot:colocha", cards: [c("6", "spades"), c("6", "hearts"), c("6", "clubs")] },
+    );
+    // A placed 3-card meld would, in real play, have come straight out of
+    // that seat's own 9-card hand — so their hand shrinks to 6 here too,
+    // keeping this fixture's starting point (hand + meld = 9) realistic
+    // instead of artificially already over the limit. Rigged so Doña
+    // Rosa's hand[0] (the deterministic forced-discard pick) is exactly
+    // the card that cascades straight into La Colocha's set.
+    botTable.state.hands["bot:rosa"] = [
+      c("6", "diamonds"),
+      c("K", "hearts"),
+      c("K", "clubs"),
+      c("K", "diamonds"),
+      c("J", "spades"),
+      c("J", "hearts"),
+    ];
+    botTable.state.hands["bot:colocha"] = [
+      c("A", "hearts"),
+      c("A", "clubs"),
+      c("2", "spades"),
+      c("3", "spades"),
+      c("4", "spades"),
+      c("J", "clubs"),
+    ];
+    assertInvariant(botTable, botIds); // fixture itself must already respect the invariant, not just the action after it
+
+    skipToNormalTurn(botTable, 0, true);
+    botTable.state.hands["p0"] = [...botTable.state.hands["p0"]!, c("9", "diamonds")];
+    botTable.discard("p0", c("9", "diamonds")); // auto-extends Rosa -> forces her hand[0] out -> cascades into Colocha -> forces her too
+    assertInvariant(botTable, botIds);
+    expect(botTable.state.eventLog.filter((e) => e.type === "auto-extend")).toHaveLength(2); // Rosa's meld, then the cascade into Colocha's
+    // Only the TERMINAL recipient in the chain (Colocha) logs a
+    // "forced-discard" — Rosa's own forced-out card became Colocha's
+    // "auto-extend" instead, since it cascaded rather than dead-ending.
+    expect(botTable.state.eventLog.filter((e) => e.type === "forced-discard")).toHaveLength(1);
+
+    // --- Scenario B: plain humans, same mechanics, checked the same way ---
+    const humanTable = new Table(config(), seats(2));
+    humanTable.startHand(0, buildDeck([NORMAL_HAND, NORMAL_HAND.slice().reverse()], c("4", "diamonds")));
+    resolveCambio(humanTable, ["p0", "p1"]);
+    const humanIds = ["p0", "p1"];
+    assertInvariant(humanTable, humanIds);
+
+    humanTable.state.melds.push({
+      id: "m1",
+      type: "set",
+      ownerId: "p1",
+      cards: [c("9", "spades"), c("9", "hearts"), c("9", "clubs")],
+    });
+    // Same realism fix as Scenario A: the 3 melded cards came out of p1's
+    // own 9-card hand, so it shrinks to 6 here, keeping the fixture's
+    // starting point at exactly 9 instead of an impossible 12.
+    humanTable.state.hands["p1"] = [
+      c("K", "spades"),
+      c("K", "diamonds"),
+      c("Q", "clubs"),
+      c("2", "clubs"),
+      c("3", "diamonds"),
+      c("4", "hearts"),
+    ];
+    assertInvariant(humanTable, humanIds);
+
+    skipToNormalTurn(humanTable, 0, true);
+    humanTable.state.hands["p0"] = [...humanTable.state.hands["p0"]!, c("9", "diamonds")];
+    humanTable.discard("p0", c("9", "diamonds")); // auto-extends p1's set
+    assertInvariant(humanTable, humanIds);
+
+    // An ordinary discard with no auto-extend at all must also hold.
+    skipToNormalTurn(humanTable, 1, true);
+    humanTable.state.hands["p1"] = [...humanTable.state.hands["p1"]!, c("5", "hearts")];
+    humanTable.discard("p1", c("5", "hearts"));
+    assertInvariant(humanTable, humanIds);
+
+    // --- Scenario C: the forced-discard happens to be the recipient's LAST card — they must go out, never sit at 10 ---
+    humanTable.state.melds.push({
+      id: "m2",
+      type: "run",
+      ownerId: "p1",
+      cards: [c("2", "clubs"), c("3", "clubs"), c("4", "clubs")],
+    });
+    humanTable.state.hands["p1"] = [c("10", "diamonds")]; // p1's entire remaining hand — one arbitrary card
+    skipToNormalTurn(humanTable, 0, true);
+    humanTable.state.hands["p0"] = [...humanTable.state.hands["p0"]!, c("5", "clubs")];
+    humanTable.discard("p0", c("5", "clubs")); // auto-extends p1's run m2 -> forces p1's last card out -> p1 goes out
+    assertInvariant(humanTable, humanIds);
+    expect(humanTable.state.hands["p1"]).toHaveLength(0);
+    expect(humanTable.state.phase).toBe("hand-over");
+    expect(humanTable.state.handOutcome?.reason).toBe("discard-out");
+    expect(humanTable.state.handOutcome?.winnerSeatIndex).toBe(1);
   });
 });

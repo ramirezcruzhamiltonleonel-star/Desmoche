@@ -611,4 +611,52 @@ describe("Room — hand history", () => {
 
     expect(room.viewFor("user-a").handHistory).toHaveLength(1);
   });
+
+  it("awards a small session-milestone chip bonus to every real seat exactly at hand 5 and hand 10 ('meta de sesión')", () => {
+    const room = makeRoom(); // chips, ante 100
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    function playOneHand() {
+      // Give the loser a meld so Patona doesn't also apply — isolates the
+      // milestone bonus as the only thing on top of the plain ante math
+      // (winner +ante, loser -ante) each hand.
+      room.requireTable().state.melds.push({ id: `m-${Math.random()}`, type: "set", ownerId: "user-b", cards: [] });
+      forceHandOver(room, 0);
+      room.viewFor("user-a"); // triggers ensureSettlementComputed
+      room.nextHand();
+    }
+
+    for (let i = 1; i <= 4; i++) playOneHand();
+    const beforeHand5 = { ...room.requireTable().state.chipBalances };
+    playOneHand(); // hand 5
+    const afterHand5 = room.requireTable().state.chipBalances;
+    expect(afterHand5["user-a"]! - beforeHand5["user-a"]!).toBe(100 + 25); // won the ante, plus the milestone
+    expect(afterHand5["user-b"]! - beforeHand5["user-b"]!).toBe(-100 + 25); // lost the ante, plus the milestone
+
+    for (let i = 6; i <= 9; i++) playOneHand();
+    const beforeHand10 = { ...room.requireTable().state.chipBalances };
+    playOneHand(); // hand 10
+    const afterHand10 = room.requireTable().state.chipBalances;
+    expect(afterHand10["user-a"]! - beforeHand10["user-a"]!).toBe(100 + 25);
+    expect(afterHand10["user-b"]! - beforeHand10["user-b"]!).toBe(-100 + 25);
+  });
+
+  it("never awards a session-milestone bonus in dare mode — there's no chips concept there at all", () => {
+    const room = new Room("FGHIJ", "dare", 0);
+    room.join("user-a", "Ana");
+    room.join("user-b", "Beto");
+    room.setReady("user-a", true);
+    room.setReady("user-b", true);
+
+    for (let i = 1; i <= 5; i++) {
+      forceHandOver(room, 0);
+      room.viewFor("user-a");
+      room.nextHand();
+    }
+
+    expect(room.requireTable().state.chipBalances).toEqual({ "user-a": 0, "user-b": 0 });
+  });
 });

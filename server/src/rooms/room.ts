@@ -10,6 +10,10 @@ import { nextSeat } from "../game/turnOrder";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // skips 0/O/1/I to avoid confusion
 
+/** "Meta de sesión": a small nudge to keep a table playing past its first few hands — session-only display chips (see table.state.chipBalances), never touching anyone's real persistent balance. Dare mode has no chips concept at all, so it's skipped entirely (matches how ante/settlement already treat it). */
+const SESSION_MILESTONE_HANDS = new Set([5, 10]);
+const SESSION_MILESTONE_BONUS_CHIPS = 25;
+
 export function generateTableCode(length = 5): string {
   let code = "";
   for (let i = 0; i < length; i++) {
@@ -328,6 +332,13 @@ export class Room {
         settlement: this.settlementCache,
         playedAt: Date.now(),
       });
+      if (this.stakeType !== "dare" && SESSION_MILESTONE_HANDS.has(this.history.length)) {
+        for (const seat of this.seats) {
+          if (isBotPlayerId(seat.playerId)) continue;
+          this.table!.state.chipBalances[seat.playerId] =
+            (this.table!.state.chipBalances[seat.playerId] ?? 0) + SESSION_MILESTONE_BONUS_CHIPS;
+        }
+      }
     }
   }
 

@@ -69,6 +69,10 @@ interface HandOverModalProps {
   settlement: ClientHandSettlement | null;
   nameByPlayerId: Record<string, string>;
   winnerName: string;
+  /** Null for a spectator — no "how close were you" framing makes sense for someone who wasn't playing. */
+  yourSeatIndex: number | null;
+  /** The viewer's own hand size at the moment the hand ended — used for the "te faltó poco" framing on a real loss, never for an auto-win (Peladía/Cuatro Cuerpos end before anyone's hand has moved at all, so it wouldn't mean anything there). */
+  yourHandSize: number;
   onNextHand: () => void;
   onLeave: () => void;
   /** Omitted for spectators — reacting to a hand you didn't play doesn't make sense here. */
@@ -80,6 +84,8 @@ export default function HandOverModal({
   settlement,
   nameByPlayerId,
   winnerName,
+  yourSeatIndex,
+  yourHandSize,
   onNextHand,
   onLeave,
   onReact,
@@ -107,6 +113,12 @@ export default function HandOverModal({
   // moment a player can have — confetti + a bigger sound + a counting-up
   // pot, distinct from the calmer auto-win and plain treatments.
   const isCloseWin = outcome.reason === "meld-out" || outcome.reason === "discard-out";
+  // "Te faltó poco": only for a REAL played-out hand you didn't win — an
+  // auto-win (Peladía/Cuatro Cuerpos) ends before anyone's hand has moved
+  // at all, so "te quedaron 9 cartas" there would be meaningless, not
+  // encouraging.
+  const isYouLostARealHand =
+    !isAutoWin && yourSeatIndex !== null && outcome.winnerSeatIndex !== null && outcome.winnerSeatIndex !== yourSeatIndex;
   const potWon = settlement && (settlement.kind === "chips" || settlement.kind === "money") ? settlement.potWon : 0;
   const animatedPot = useCountUp(potWon, isCloseWin);
   // A real chips pot that just grew with nobody winning it was a flat
@@ -170,7 +182,7 @@ export default function HandOverModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-      {isCloseWin && <Confetti />}
+      {(isCloseWin || firstTimeBonuses.length > 0) && <Confetti />}
       <div
         className={`w-full max-w-sm rounded-2xl border-4 bg-felt p-6 text-center shadow-2xl ${
           isAutoWin || isCloseWin || isPotHook ? "pending-draw-glow border-gold" : "border-gold"
@@ -188,9 +200,16 @@ export default function HandOverModal({
           <p className="mb-2 text-xs uppercase tracking-widest text-gold/80">¡Se la comió completa!</p>
         )}
         {outcome.winnerSeatIndex !== null ? (
-          <p className="mb-4 text-sm text-stone-200">
-            Gana <span className="font-semibold text-gold">{winnerName}</span>
-          </p>
+          <>
+            <p className={isYouLostARealHand ? "text-sm text-stone-200" : "mb-4 text-sm text-stone-200"}>
+              Gana <span className="font-semibold text-gold">{winnerName}</span>
+            </p>
+            {isYouLostARealHand && (
+              <p className="mb-4 text-xs text-stone-400">
+                Te quedaron {yourHandSize} carta{yourHandSize === 1 ? "" : "s"} sin bajar — ¡la próxima la ganás vos!
+              </p>
+            )}
+          </>
         ) : isPotHook ? (
           <div className="mb-4">
             <p className="font-display text-4xl text-gold [text-shadow:0_0_18px_rgba(212,175,55,0.6)]">
@@ -205,7 +224,10 @@ export default function HandOverModal({
         )}
 
         {firstTimeBonuses.length > 0 && (
-          <div className="mb-4 space-y-2 rounded-lg border border-gold/40 bg-gold/5 p-3 text-left">
+          <div className="pending-draw-glow mb-4 space-y-2 rounded-lg border-2 border-gold bg-gold/10 p-3 text-left">
+            <p className="mb-1 text-center text-xs font-bold uppercase tracking-widest text-gold">
+              🏆 ¡Logro desbloqueado!
+            </p>
             {firstTimeBonuses.map((kind) => (
               <div key={kind}>
                 <p className="text-xs font-semibold text-gold">{BONUS_TITLES[kind]}</p>

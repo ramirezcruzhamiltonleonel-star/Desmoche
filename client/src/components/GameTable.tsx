@@ -163,6 +163,27 @@ export default function GameTable() {
   const botSpeechKeyRef = useRef(0);
   const autoExtendKeyRef = useRef(0);
   const [autoExtendBanner, setAutoExtendBanner] = useState<{ text: string; key: number } | null>(null);
+  const prevHandHistoryLengthRef = useRef(0);
+  const [milestoneBanner, setMilestoneBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    const prevLength = prevHandHistoryLengthRef.current;
+    prevHandHistoryLengthRef.current = state.handHistory.length;
+    // Same "skip whatever already happened before this player joined/
+    // reconnected" guard as the eventLog watcher below.
+    if (prevLength === 0) return undefined;
+    if (
+      state.stakeType !== "dare" &&
+      (state.handHistory.length === 5 || state.handHistory.length === 10) &&
+      state.handHistory.length !== prevLength
+    ) {
+      setMilestoneBanner(`🎉 ¡Mano ${state.handHistory.length}! +25 fichas de regalo para todos`);
+      const timer = setTimeout(() => setMilestoneBanner(null), 4500);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [state?.handHistory.length]);
 
   useEffect(() => {
     if (state?.phase === "hand-over" && !wonAlreadyRef.current) {
@@ -413,6 +434,20 @@ export default function GameTable() {
   const myMelds = state.melds.filter((m) => m.ownerId === yourPlayerId);
   const meldProgress = computeMeldProgress(state.yourHand, myMelds);
   const nameByPlayerId = Object.fromEntries(state.seats.map((s) => [s.playerId, s.displayName]));
+
+  // "Meta de sesión": a light nudge to keep a table going past its first
+  // few hands — hand count and win streak, both derived straight from
+  // handHistory (accumulates for the whole table session, never resets
+  // per hand) rather than any new state of their own.
+  const handsPlayedThisSession = state.handHistory.length;
+  const nextSessionMilestone = handsPlayedThisSession < 5 ? 5 : handsPlayedThisSession < 10 ? 10 : null;
+  let winStreak = 0;
+  if (state.yourSeatIndex !== null) {
+    for (let i = state.handHistory.length - 1; i >= 0; i--) {
+      if (state.handHistory[i]!.winnerSeatIndex !== state.yourSeatIndex) break;
+      winStreak++;
+    }
+  }
 
   const yourIndexSafe = state.yourSeatIndex ?? 0;
   const others: ClientSeatView[] = [];
@@ -707,7 +742,16 @@ export default function GameTable() {
         </div>
       </header>
 
-      <div className="flex justify-end px-3 pb-2">
+      <div className="flex items-center justify-between px-3 pb-2">
+        <span className="text-[10px] text-stone-400">
+          {!state.isSpectator && nextSessionMilestone !== null && (
+            <>
+              Mano {handsPlayedThisSession + 1} de {nextSessionMilestone}
+              {winStreak >= 2 ? ` · 🔥 Racha: ${winStreak}` : ""}
+            </>
+          )}
+          {!state.isSpectator && nextSessionMilestone === null && winStreak >= 2 && `🔥 Racha: ${winStreak}`}
+        </span>
         {isGuest ? (
           <span className="text-[10px] text-stone-500">🎙️ Chat de voz — creá una cuenta para usarlo</span>
         ) : (
@@ -838,6 +882,12 @@ export default function GameTable() {
           className="pointer-events-none fixed left-1/2 top-1 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
         >
           🃏 {autoExtendBanner.text}
+        </div>
+      )}
+
+      {milestoneBanner && (
+        <div className="pending-draw-glow pointer-events-none fixed left-1/2 top-20 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm font-semibold text-gold shadow-2xl">
+          {milestoneBanner}
         </div>
       )}
 
@@ -1101,6 +1151,8 @@ export default function GameTable() {
           settlement={state.handSettlement}
           nameByPlayerId={nameByPlayerId}
           winnerName={winnerName}
+          yourSeatIndex={state.yourSeatIndex}
+          yourHandSize={state.yourHand.length}
           onNextHand={nextHand}
           onLeave={leaveTable}
           onReact={state.isSpectator ? undefined : sendReaction}

@@ -698,9 +698,10 @@ export default function GameTable() {
       <header className="relative z-[60] flex items-center justify-between gap-2 bg-felt-dark px-3 py-2 text-xs text-stone-300">
         {/* truncate (not wrap) — at narrow phone widths this line used to
             wrap across several rows, which grew the header's actual height
-            well past the claim/auto-extend banners' fixed top-1 position
-            and visually interleaved with their text (reported bug). A
-            single truncated line keeps the header's height constant. */}
+            unpredictably. The claim/auto-extend banners now clear the
+            header by measured height (see ClaimBanner's top-[70px]) rather
+            than assuming it stays single-line, but keeping this constant
+            still avoids the header itself growing tall on narrow phones. */}
         <span className="min-w-0 flex-1 truncate">
           Mesa {state.code} · {STAKE_LABELS[state.stakeType]}
           {state.stakeType === "chips" ? ` · ante ${state.ante}` : ""}
@@ -887,7 +888,7 @@ export default function GameTable() {
         // replaces what used to be a claim window everyone could see too.
         <div
           key={autoExtendBanner.key}
-          className="pointer-events-none fixed left-1/2 top-1 z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
+          className="pointer-events-none fixed left-1/2 top-[70px] z-40 w-[min(92vw,26rem)] -translate-x-1/2 rounded-xl border-2 border-gold bg-stone-900/95 px-3 py-2 text-center text-sm text-gold shadow-2xl"
         >
           🃏 {autoExtendBanner.text}
         </div>

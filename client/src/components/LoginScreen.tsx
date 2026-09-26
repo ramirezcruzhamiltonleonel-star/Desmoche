@@ -3,6 +3,7 @@ import { DISPLAY_NAME_MAX_LENGTH } from "@desmoche/shared";
 import { useAuth } from "../context/AuthContext";
 import { loadGuestNameHint } from "../lib/guestNameHint";
 import { markAutoInstantDemoRequested } from "../lib/autoInstantDemo";
+import CardBack from "./CardBack";
 import Spinner from "./Spinner";
 
 export default function LoginScreen() {
@@ -87,6 +88,9 @@ export default function LoginScreen() {
   return (
     <div className="screen-fade flex min-h-screen items-center justify-center bg-felt-dark px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
+        <div className="mb-3 flex justify-center">
+          <CardBack size="lg" />
+        </div>
         <h1 className="mb-1 text-center font-display text-3xl text-gold">Desmoche</h1>
         <p className="mb-6 text-center text-sm text-stone-300">Mesa de cartas nicaragüense</p>
 

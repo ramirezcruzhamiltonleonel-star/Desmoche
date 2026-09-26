@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { useGame } from "../context/GameContext";
 import { STAKE_LABELS } from "../lib/labels";
 import { buildJoinLink } from "../lib/joinLink";
+import CardBack from "./CardBack";
 
 export default function LobbyScreen() {
   const { state, setReady, leaveTable, addBot, removeBot } = useGame();
@@ -52,6 +53,9 @@ export default function LobbyScreen() {
   return (
     <div className="screen-fade flex min-h-screen flex-col items-center justify-center bg-felt-dark px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border-4 border-wood bg-felt p-6 shadow-2xl">
+        <div className="mb-2 flex justify-center">
+          <CardBack size="sm" />
+        </div>
         <h2 className="mb-1 text-center font-display text-2xl text-gold">Sala de espera</h2>
         <p className="mb-1 text-center text-xs text-stone-400">
           {STAKE_LABELS[state.stakeType]}

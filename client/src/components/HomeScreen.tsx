@@ -5,6 +5,7 @@ import { useGame } from "../context/GameContext";
 import { consumeAutoInstantDemoRequested } from "../lib/autoInstantDemo";
 import { STAKE_LABELS } from "../lib/labels";
 import { readJoinCodeFromUrl } from "../lib/joinLink";
+import CardBack from "./CardBack";
 import CustomSelect from "./CustomSelect";
 import ProfilePanel from "./ProfilePanel";
 import Spinner from "./Spinner";
@@ -97,12 +98,15 @@ export default function HomeScreen() {
     <div className="screen-fade min-h-screen bg-felt-dark px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl text-gold">Desmoche</h1>
-            <p className="text-sm text-stone-300">
-              Hola, {user?.displayName}
-              {isGuest ? " · invitado (sin fichas persistentes)" : ` · ${user?.chipBalance} fichas`}
-            </p>
+          <div className="flex items-center gap-3">
+            <CardBack size="sm" />
+            <div>
+              <h1 className="font-display text-2xl text-gold">Desmoche</h1>
+              <p className="text-sm text-stone-300">
+                Hola, {user?.displayName}
+                {isGuest ? " · invitado (sin fichas persistentes)" : ` · ${user?.chipBalance} fichas`}
+              </p>
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             {!isGuest && (

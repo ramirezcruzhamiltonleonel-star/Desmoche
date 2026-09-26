@@ -46,6 +46,7 @@ import GuestSummaryModal from "./GuestSummaryModal";
 import HandHistoryPanel from "./HandHistoryPanel";
 import HandOverModal from "./HandOverModal";
 import PlayerMeldsCluster from "./PlayerMeldsCluster";
+import { HelpIcon, HistoryIcon, RulesIcon, SoundOffIcon, SoundOnIcon, TutorialIcon } from "./icons/HeaderIcons";
 import PlayerSeat from "./PlayerSeat";
 import RulesPage from "./RulesPage";
 import StockFlipCard from "./StockFlipCard";
@@ -680,25 +681,25 @@ export default function GameTable() {
             triggerClassName="text-[10px]"
             options={THEMES.map((t) => ({ value: t, label: `🎨 ${THEME_LABELS[t]}` }))}
           />
-          <button onClick={() => setShowContextualHelp(true)} aria-label="Ayuda — qué está pasando ahora" className="p-1 text-base">
-            ❓
+          <button onClick={() => setShowContextualHelp(true)} aria-label="Ayuda — qué está pasando ahora" className="p-1 text-gold/80 hover:text-gold">
+            <HelpIcon />
           </button>
-          <button onClick={() => setShowRules(true)} aria-label="Reglas completas del juego" className="p-1 text-base">
-            📖
+          <button onClick={() => setShowRules(true)} aria-label="Reglas completas del juego" className="p-1 text-gold/80 hover:text-gold">
+            <RulesIcon />
           </button>
-          <button onClick={() => setShowTutorial(true)} aria-label="Repasar el tutorial" className="p-1 text-base">
-            🎓
+          <button onClick={() => setShowTutorial(true)} aria-label="Repasar el tutorial" className="p-1 text-gold/80 hover:text-gold">
+            <TutorialIcon />
           </button>
-          <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-base">
-            📜
+          <button onClick={() => setShowHistory(true)} aria-label="Historial de la mesa" className="p-1 text-gold/80 hover:text-gold">
+            <HistoryIcon />
           </button>
           <button
             onClick={sound.toggle}
             aria-label="Sonido"
             aria-pressed={sound.enabled}
-            className="p-1 text-base"
+            className="p-1 text-gold/80 hover:text-gold"
           >
-            {sound.enabled ? "🔊" : "🔇"}
+            {sound.enabled ? <SoundOnIcon /> : <SoundOffIcon />}
           </button>
           <button onClick={handleLeaveClick} className="p-1 underline">
             Salir
